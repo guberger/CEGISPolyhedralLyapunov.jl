@@ -11,3 +11,7 @@ A toolbox for the learning control Lyapunov functions from counterexamples and d
 [build-url]: https://github.com/guberger/CEGARLearningCLF.jl/actions?query=workflow%3ACI
 [codecov-img]: http://codecov.io/github/guberger/CEGARLearningCLF.jl/coverage.svg?branch=main
 [codecov-url]: http://codecov.io/github/guberger/CEGARLearningCLF.jl?branch=main
+
+## References
+
+* Ravanbakhsh, H., & Sankaranarayanan, S. (2019). *Learning control lyapunov functions from counterexamples and demonstrations.* Autonomous Robots, 43(2), 275-307.
