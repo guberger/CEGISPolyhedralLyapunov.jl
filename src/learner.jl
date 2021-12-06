@@ -10,7 +10,7 @@ function learn_candidate_lyapunov_function(method::LearnPolyhedralPoints,
     for i = 1:N
         c_list[i] = zeros(D)
     end
-    status = ("Not solved", "Unknown", "Unknown")
+    s_status = ("Not started", "Unknown", "Unknown")
     norm_faces = 0.0
     iter = 0
     flag = false
@@ -21,11 +21,12 @@ function learn_candidate_lyapunov_function(method::LearnPolyhedralPoints,
             @printf("iter: %d. G: %f\n", iter, G)
         end
         r, c_list, status = _learn_polyhedralpoints(D, N, x_dx_list, G, solver)
+        s_status = string.(status)
         norm_faces = minimum(c -> norm(c), c_list)
         if mod(iter - 1, print_period) == 0
-            @printf("\tstatus: %d. Norm faces: %f\n", flag, norm_faces)
+            @printf("\tstatus: %s. Norm faces: %f\n", s_status, norm_faces)
         end
-        flag = status[2] == "FEASIBLE_POINT" && norm_faces ≥ tol_faces
+        flag = isone(Int(status[2])) && norm_faces ≥ tol_faces
         (flag || 2*G > Gmax) && break
         G = 2*G
     end
@@ -33,7 +34,7 @@ function learn_candidate_lyapunov_function(method::LearnPolyhedralPoints,
     if !flag
         println("Problem in learning Lyapunov function")
         @printf("iter: %d. G: %f\n", iter, G)
-        println(status)
+        println(s_status)
         println(norm_faces)
     end
 
@@ -44,7 +45,7 @@ function _learn_polyhedralpoints(D, N, x_dx_list, G, solver)
     model = Model(solver)
     c_list = [@variable(model, [1:D], base_name=string("c", i),
         lower_bound=-1.0, upper_bound=1.0) for i = 1:N]
-    r = @variable(model)
+    r = @variable(model, lower_bound=0.0)
 
     for i = 1:N
         xt = x_dx_list[i][1]
@@ -82,7 +83,7 @@ function _learn_polyhedralpoints(D, N, x_dx_list, G, solver)
     end
 
     return ropt, copt_list,
-        (string(termination_status(model)),
-         string(primal_status(model)),
-         string(dual_status(model)))
+        (termination_status(model),
+         primal_status(model),
+         dual_status(model))
 end

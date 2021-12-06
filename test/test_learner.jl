@@ -27,6 +27,7 @@ println("Started test")
 ## Parameters
 method = CLC.LearnPolyhedralPoints{2}()
 A = [-0.3 0.0; -0.5 -0.3]
+A_list = [A]
 G0 = 0.1
 tol_faces = 1e-5
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
@@ -35,10 +36,10 @@ print_period = 1
 N = 20
 α_list = range(0.0, stop=2π, length=N)
 x_list = map(α -> [cos(α), sin(α)], α_list)
-x_dx_list = map(x -> (x, map(A -> A*x, [A, A])), x_list)
+x_dx_list = map(x -> (x, map(A -> A*x, A_list)), x_list)
 
 ## Solving
-@testset "Learner" begin
+@testset "Learner LTI infeasible" begin
     Gmax = 0.1
     r, c_list, G, flag = CLC.learn_candidate_lyapunov_function(
         method, x_dx_list,
@@ -49,7 +50,7 @@ x_dx_list = map(x -> (x, map(A -> A*x, [A, A])), x_list)
 end
 
 ## Solving
-@testset "Learner" begin
+@testset "Learner LTI feasible" begin
     Gmax = 10.0
     r, c_list, G, flag = CLC.learn_candidate_lyapunov_function(
         method, x_dx_list,
@@ -76,7 +77,7 @@ x_list = map(α -> [cos(α), sin(α)], α_list)
 x_dx_list = map(x -> (x, map(A -> A*x, A_list)), x_list)
 
 ## Solving
-@testset "Learner" begin
+@testset "Learner SLS infeasible" begin
     Gmax = 1.0
     r, c_list, G, flag = CLC.learn_candidate_lyapunov_function(
         method, x_dx_list,
@@ -87,7 +88,7 @@ x_dx_list = map(x -> (x, map(A -> A*x, A_list)), x_list)
 end
 
 ## Solving
-@testset "Learner" begin
+@testset "Learner SLS feasible" begin
     Gmax = 10.0
     r, c_list, G, flag = CLC.learn_candidate_lyapunov_function(
         method, x_dx_list,

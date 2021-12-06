@@ -10,17 +10,20 @@ CLC = CEGARLearningCLF
 Random.seed!(0)
 
 ## Parameters
-method = CLC.VerifyPolyhedralHRep{2}()
+method_s = CLC.VerifyPolyhedralSingle{2}()
+method_m = CLC.VerifyPolyhedralMultiple{2}()
 A = [0.0 0.0; 1.0 0.0]
 A_list = [A]
 solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
 
-N = 20
+N = 5
 α_list = range(0.0, stop=2π, length=N)
 c_list = map(α -> [cos(α), sin(α)], α_list)
 
 ## Solving
-obj_max, x = CLC.verify_candidate_lyapunov_function(method, A_list,
+obj_max, x = @time CLC.verify_candidate_lyapunov_function(method_s, A_list,
+                                                    c_list, solver)
+obj_max, x = @time CLC.verify_candidate_lyapunov_function(method_m, A_list,
                                                     c_list, solver)
 
 ## Plotting
@@ -50,7 +53,7 @@ for coll in h.collections
 end
 
 α = 0.2
-x_dx_list = [(x, map(A -> A*x, [A]))]
+x_dx_list = [(x, map(A -> A*x, A_list))]
 
 for x_dx in x_dx_list
     x, dx_list = x_dx

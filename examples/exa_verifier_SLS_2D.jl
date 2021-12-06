@@ -10,25 +10,22 @@ CLC = CEGARLearningCLF
 Random.seed!(0)
 
 ## Parameters
-method = CLC.LearnPolyhedralPoints{2}()
-A = [-0.1 1.0; -1.0 -0.1]
-A = [-0.2 2.0; -0.5 -0.2]
-A = [-0.3 0.0; -0.5 -0.3]
-A_list = [A]
-G0 = 0.1
-Gmax = 2
-tol_faces = 1e-5
+method_s = CLC.VerifyPolyhedralSingle{2}()
+method_m = CLC.VerifyPolyhedralMultiple{2}()
+A1 = [0.1 1.0; -1.0 0.1]
+A2 = [0.1 0.0; -0.5 0.1]
+A_list = [A1, A2]
 solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
 
-N = 100
-x_list = [randn(2) for i = 1:N]
-x_dx_list = map(x -> (x, map(A -> A*x, A_list)), x_list)
+N = 50
+α_list = range(0.0, stop=2π, length=N)
+c_list = map(α -> [cos(α), sin(α)], α_list)
 
 ## Solving
-print_period = 1
-r, c_list = CLC.learn_candidate_lyapunov_function(method, x_dx_list,
-                                                  G0, Gmax, tol_faces,
-                                                  print_period, solver)
+obj_max, x = @time CLC.verify_candidate_lyapunov_function(method_s, A_list,
+                                                    c_list, solver)
+obj_max, x = @time CLC.verify_candidate_lyapunov_function(method_m, A_list,
+                                                    c_list, solver)
 
 ## Plotting
 fig = figure(0, figsize=(12, 10))
@@ -57,6 +54,7 @@ for coll in h.collections
 end
 
 α = 0.2
+x_dx_list = [(x, map(A -> A*x, A_list))]
 
 for x_dx in x_dx_list
     x, dx_list = x_dx
