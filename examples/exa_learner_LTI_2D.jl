@@ -10,15 +10,24 @@ CLC = CEGARLearningCLF
 Random.seed!(0)
 
 ## Parameters
-method = CLC.PolyhedralPointwise(2)
+method = CLC.LearnPolyhedralPoints{2}()
 A = [-0.1 1.0; -1.0 -0.1]
 A = [-0.2 2.0; -0.5 -0.2]
 A = [-0.3 0.0; -0.5 -0.3]
-params = (Gain=5, tol_faces=1e-5, tol_derivative=1e-3, print_period=1)
+G0 = 0.1
+Gmax = 2
+tol_faces = 1e-5
 solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
 
+N = 100
+x_list = [randn(2) for i = 1:N]
+x_dx_list = map(x -> (x, [A*x]), x_list)
+
 ## Solving
-c_list, x_dx_list = CLC.learning_clf_process(method, [A], params, solver)
+print_period = 1
+r, c_list = CLC.learn_candidate_lyapunov_function(method, x_dx_list,
+                                                  G0, Gmax, tol_faces,
+                                                  print_period, solver)
 
 ## Plotting
 fig = figure(0, figsize=(12, 10))
@@ -54,8 +63,7 @@ for x_dx in x_dx_list
     xs = x*zm/nx
     ax.plot(xs..., marker=".", ms=10, c="red")
     for dx in dx_list
-        dxs = dx*zm/nx
-        ys = xs + dxs*(α*zm/nx)
+        ys = xs + dx*(α*zm/nx)
         ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="green")
     end
 end
