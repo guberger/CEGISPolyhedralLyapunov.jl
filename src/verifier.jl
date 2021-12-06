@@ -30,8 +30,10 @@ function verify_candidate_lyapunov_function(method::VerifyPolyhedralSingle,
     x_opt = zeros(D)
     i_opt = 0
     q_opt = 0
+    flag = false
 
     if isone(Int(primal_status(model)))
+        flag = true
         for i = 1:M, q = 1:Q
             x = value.(x_tab[i, q])
             obj_val = c_list[i]'*(A_list[q]*x)
@@ -48,7 +50,7 @@ function verify_candidate_lyapunov_function(method::VerifyPolyhedralSingle,
                         dual_status(model)))
     end
 
-    return obj_max, x_opt, i_opt, q_opt
+    return obj_max, x_opt, flag, i_opt, q_opt
 end
 
 function verify_candidate_lyapunov_function(method::VerifyPolyhedralMultiple,
@@ -59,8 +61,11 @@ function verify_candidate_lyapunov_function(method::VerifyPolyhedralMultiple,
     x_opt = zeros(D)
     i_opt = 0
     q_opt = 0
+    flag = false
+    flag_prob = false
 
     for i = 1:M
+        flag_prob && break
         c = c_list[i]
         model = Model(solver)
         x = @variable(model, [1:D], base_name="x",
@@ -79,6 +84,7 @@ function verify_candidate_lyapunov_function(method::VerifyPolyhedralMultiple,
             optimize!(model)
 
             if isone(Int(primal_status(model)))
+                flag = true
                 obj_val = objective_value(model)
                 if obj_val > obj_max
                     obj_max = obj_val
@@ -91,9 +97,13 @@ function verify_candidate_lyapunov_function(method::VerifyPolyhedralMultiple,
                 println(string.(termination_status(model),
                                 primal_status(model),
                                 dual_status(model)))
+                flag_prob = true
+                break
             end
         end
     end
 
-    return obj_max, x_opt, i_opt, q_opt
+    flag = !flag_prob && flag
+
+    return obj_max, x_opt, flag, i_opt, q_opt
 end
