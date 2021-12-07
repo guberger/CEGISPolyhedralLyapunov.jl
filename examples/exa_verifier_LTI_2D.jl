@@ -46,10 +46,10 @@ norm_poly(x) = maximum(c -> abs(c'*x), c_list)
 Z = map(x -> norm_poly(x), Xf)
 zm = min(minimum(Z[1, :]), minimum(Z[:, 1]))/1.2
 
-ax.contour(X1, X2, Z, levels=(-1, zm), colors="yellow")
+ax.contour(X1, X2, Z, levels=(-1, zm), colors="gold")
 h = ax.contourf(X1, X2, Z, levels=(-1, zm), colors = "none", hatches="//")
 for coll in h.collections
-    coll.set_edgecolor("yellow")
+    coll.set_edgecolor("gold")
 end
 
 α = 0.2
