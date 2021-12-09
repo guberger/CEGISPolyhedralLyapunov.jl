@@ -14,14 +14,16 @@ method = CLC.LearnPolyhedralPoints{2}()
 A = [-0.1 1.0; -1.0 -0.1]
 A = [-0.2 2.0; -0.5 -0.2]
 A = [-0.3 0.0; -0.5 -0.3]
+A = [-1.0 0.0; 0.0 -1.0]
 A_list = [A]
-G0 = 0.1
-Gmax = 2
+G0 = 100.1
+Gmax = 200
 tol_faces = 1e-5
 solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
 
-N = 100
+N = 4
 x_list = [randn(2) for i = 1:N]
+# x_list = [[1.0, 0.0], [0.0, 1.0], -[1.0, 0.0], -[0.0, 1.0]]
 x_dx_list = map(x -> (x, map(A -> A*x, A_list)), x_list)
 
 ## Solving

@@ -15,15 +15,17 @@ VT = CLC.VerifyPolyhedralMultiple{2}
 A = [-0.1 1.0; -1.0 -0.1]
 A = [-0.2 2.0; -0.5 -0.2]
 # A = [-0.3 0.0; -0.5 -0.3]
+A = [-1.0 0.0; 0.0 -1.0]
+A = [0.0 1.0; -1.0 -0.1]
 A_list = [A]
 prob = CLC.CEGARProblem{2,LT,VT}(A_list)
-G0 = 0.1
-Gmax = 10.0
+G0 = 10.1
+Gmax = 100.0
 params = (tol_faces=1e-5, tol_deriv=1e-5, tol_points=1e-5,
           print_period_1=1, print_period_2=1)
 solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
 
-N = 10
+N = 3
 x_list = [randn(2) for i = 1:N]
 
 ## Solving
