@@ -16,6 +16,8 @@ A2 = [-0.3 0.0; -0.5 -0.3]
 A_list = [A1, A2]
 G0 = 0.1
 Gmax = 2
+r0 = 0.01
+rmin = 1e-6
 tol_faces = 1e-5
 solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
 
@@ -25,9 +27,10 @@ x_dx_list = map(x -> (x, map(A -> A*x, A_list)), x_list)
 
 ## Solving
 print_period = 1
-r, c_list = CLC.learn_candidate_lyapunov_function(method, x_dx_list,
-                                                  G0, Gmax, tol_faces,
-                                                  print_period, solver)
+δ, c_list = CLC.learn_candidate_lyapunov_function(
+    method, x_dx_list,
+    G0, Gmax, r0, rmin, tol_faces,
+    print_period, solver)
 
 ## Plotting
 matplotlib.rc("legend", fontsize=25)

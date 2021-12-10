@@ -10,13 +10,16 @@ CLC = CEGARLearningCLF
 Random.seed!(0)
 
 ## Parameters
-method_s = CLC.VerifyPolyhedralSingle{2}()
+# method_s = CLC.VerifyPolyhedralSingle{2}()
 method_m = CLC.VerifyPolyhedralMultiple{2}()
 A1 = [0.1 1.0; -1.0 0.1]
 A2 = [0.1 0.0; -0.5 0.1]
-A1 = [-0.5 1.0; -1.0 -0.5]
-A2 = [-0.3 0.0; -0.5 -0.3]
+A1 = [-2.0 1.0; -1.0 -2.0]
+A2 = [-2.0 0.0; -0.5 -2.0]
+# A1 = [-0.5 1.0; -1.0 -0.5]
+# A2 = [-0.3 0.0; -0.5 -0.3]
 A_list = [A1, A2]
+tol_faces = 1e-5
 solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
 
 N = 5
@@ -24,10 +27,8 @@ N = 5
 c_list = map(α -> [cos(α), sin(α)], α_list)
 
 ## Solving
-obj_max, x = @time CLC.verify_candidate_lyapunov_function(method_s, A_list,
-                                                    c_list, solver)
-obj_max, x = @time CLC.verify_candidate_lyapunov_function(method_m, A_list,
-                                                    c_list, solver)
+obj_max, x = @time CLC.verify_candidate_lyapunov_function(
+    method_m, A_list, c_list, tol_faces, solver)
 
 ## Plotting
 matplotlib.rc("legend", fontsize=25)
