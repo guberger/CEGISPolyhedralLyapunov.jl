@@ -8,7 +8,6 @@ using Printf
 abstract type Template{D} end
 abstract type Polyhedral{D} <: Template{D} end
 struct LearnPolyhedralPoints{D} <: Polyhedral{D} end
-# struct VerifyPolyhedralSingle{D} <: Polyhedral{D} end
 struct VerifyPolyhedralMultiple{D} <: Polyhedral{D} end
 struct CEGARProblem{D,LT<:Template{D},VT<:Template{D}}
     A_list::Vector{Matrix{Float64}}
