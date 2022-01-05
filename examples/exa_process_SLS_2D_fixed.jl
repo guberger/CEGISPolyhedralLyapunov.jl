@@ -10,25 +10,29 @@ CLC = CEGARLearningCLF
 Random.seed!(0)
 
 ## Parameters
-# method_s = CLC.VerifyPolyhedralSingle{2}()
-method_m = CLC.VerifyPolyhedralMultiple{2}()
-A1 = [0.1 1.0; -1.0 0.1]
-A2 = [0.1 0.0; -0.5 0.1]
-A1 = [-2.0 1.0; -1.0 -2.0]
-A2 = [-2.0 0.0; -0.5 -2.0]
-# A1 = [-0.5 1.0; -1.0 -0.5]
-# A2 = [-0.3 0.0; -0.5 -0.3]
+n_piece = 5
+meth_learn = CLC.LearnPolyhedralFixed{2}(n_piece)
+meth_verify = CLC.VerifyPolyhedralMultiple{2}()
+A1 = [-0.2 1.0; -1.0 -0.2]
+A2 = [-0.2 0.0; -0.5 -0.2]
+A1 = [-0.9 1.0; -1.0 -0.9]
+A2 = [-0.9 0.0; -0.5 -0.9]
 A_list = [A1, A2]
-tol_faces = 1e-5
+prob = CLC.CEGARProblem{2}(A_list, meth_learn, meth_verify)
+G0 = 0.1
+Gmax = 10.0
+r0 = 0.01
+rmin = 1e-6
+params = (tol_faces=1e-5, tol_deriv=1e-5,
+          print_period_1=1, print_period_2=1)
 solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
 
 N = 5
-α_list = range(0.0, stop=2π, length=N)
-c_list = map(α -> [cos(α), sin(α)], α_list)
+x_list = [randn(2) for i = 1:N]
 
 ## Solving
-obj_max, x = CLC.verify_candidate_lyapunov_function(
-    method_m, A_list, c_list, tol_faces, solver)
+c_list, x_dx_list, deriv, flag = CLC.process_lyapunov_function(
+    prob, x_list, G0, Gmax, r0, rmin, params, solver)
 
 ## Plotting
 matplotlib.rc("legend", fontsize=25)
@@ -63,7 +67,6 @@ for coll in h.collections
 end
 
 α = 0.2
-x_dx_list = [(x, map(A -> A*x, A_list))]
 
 for x_dx in x_dx_list
     x, dx_list = x_dx
@@ -78,15 +81,15 @@ end
 
 LH = (
     matplotlib.lines.Line2D([0], [0], c="red", ls="none", marker=".", ms=20,
-        label=L"\bar{x}"),
+        label=L"\hat{x}_i"),
     matplotlib.lines.Line2D([0], [0], c="green", lw=2,
-        label=L"A_q\bar{x}"),
+        label=L"A_q\hat{x}_i"),
     matplotlib.patches.Patch(fc="none", ec="gold", hatch="//",
-        label=L"\{V(x)\leq 1\}")
+        label=L"\{V(x)\leq c\}")
     )
 ax.legend(handles=LH, ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.01))
 
-fig.savefig("./figures/fig_verifier_example.png", dpi=200,
+fig.savefig("./figures/fig_process_example.png", dpi=200,
     transparent=false, bbox_inches="tight")
 
 end # TestMain

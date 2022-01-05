@@ -43,7 +43,7 @@ N = 10
 x_list = map(α -> [cos(α), sin(α)], α_list)
 
 ## Solving
-@testset "Learner LTI feasible" begin
+@testset "Process LTI feasible" begin
     Gmax = 10.0
     c_list, x_dx_list, deriv, flag = CLC.process_lyapunov_function(
         prob, x_list, G0, Gmax, r0, rmin, params, solver)
@@ -52,7 +52,7 @@ x_list = map(α -> [cos(α), sin(α)], α_list)
 end
 
 ## Solving
-@testset "Learner LTI infeasible G" begin
+@testset "Process LTI infeasible G" begin
     Gmax = 1.0
     c_list, x_dx_list, deriv, flag = CLC.process_lyapunov_function(
         prob, x_list, G0, Gmax, r0, rmin, params, solver)
@@ -61,7 +61,7 @@ end
 end
 
 # Solving
-@testset "Learner LTI infeasible iter_max" begin
+@testset "Process LTI infeasible iter_max" begin
     Gmax = 10.0
     params2 = merge(params, (iter_max=5,))
     c_list, x_dx_list, deriv, flag = CLC.process_lyapunov_function(

@@ -10,16 +10,17 @@ CLC = CEGARLearningCLF
 Random.seed!(0)
 
 ## Parameters
-meth_learn = CLC.LearnPolyhedralPoints{2}()
+n_piece = 5
+meth_learn = CLC.LearnPolyhedralFixed{2}(n_piece)
 meth_verify = CLC.VerifyPolyhedralMultiple{2}()
 A = [-0.1 1.0; -1.0 -0.1]
-A = [-0.2 2.0; -0.5 -0.2]
+A = [-0.9 2.0; -0.5 -0.9]
 # A = [-0.3 0.0; -0.5 -0.3]
 # A = [-1.0 0.0; 0.0 -1.0]
 # A = [0.05 2.0; -0.5 -0.2]
 A_list = [A]
 prob = CLC.CEGARProblem{2}(A_list, meth_learn, meth_verify)
-G0 = 10.1
+G0 = 0.1
 Gmax = 100.0
 r0 = 0.01
 rmin = 1e-6
@@ -27,7 +28,7 @@ params = (tol_faces=1e-5, tol_deriv=1e-5,
           print_period_1=1, print_period_2=1)
 solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
 
-N = 3
+N = 5
 x_list = [randn(2) for i = 1:N]
 
 ## Solving
