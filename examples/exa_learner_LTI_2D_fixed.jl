@@ -10,29 +10,31 @@ CLC = CEGARLearningCLF
 Random.seed!(0)
 
 ## Parameters
-meth_learn = CLC.LearnPolyhedralPoints{2}()
-meth_verify = CLC.VerifyPolyhedralMultiple{2}()
+n_piece = 5
+method = CLC.LearnPolyhedralFixed{2}(n_piece)
 A = [-0.1 1.0; -1.0 -0.1]
 A = [-0.2 2.0; -0.5 -0.2]
-# A = [-0.3 0.0; -0.5 -0.3]
+A = [-0.3 0.0; -0.5 -0.3]
 # A = [-1.0 0.0; 0.0 -1.0]
-# A = [0.05 2.0; -0.5 -0.2]
 A_list = [A]
-prob = CLC.CEGARProblem{2}(A_list, meth_learn, meth_verify)
-G0 = 10.1
-Gmax = 100.0
+G0 = 0.1
+Gmax = 200
 r0 = 0.01
 rmin = 1e-6
-params = (tol_faces=1e-5, tol_deriv=1e-5,
-          print_period_1=1, print_period_2=1)
-solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
+tol_faces = 1e-5
+solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>true)
 
-N = 3
+N = 40
 x_list = [randn(2) for i = 1:N]
+# x_list = [[1.0, 0.0], [0.0, 1.0], -[1.0, 0.0], -[0.0, 1.0]]
+x_dx_list = map(x -> (x, map(A -> A*x, A_list)), x_list)
 
 ## Solving
-c_list, x_dx_list, deriv, flag = CLC.process_lyapunov_function(
-    prob, x_list, G0, Gmax, r0, rmin, params, solver)
+print_period = 1
+δ, c_list = CLC.learn_candidate_lyapunov_function(
+    method, x_dx_list,
+    G0, Gmax, r0, rmin, tol_faces,
+    print_period, solver)
 
 ## Plotting
 fig = figure(0, figsize=(12, 10))
@@ -50,7 +52,7 @@ Xf = map(x -> [x...], Xftemp)
 X1 = map(x -> x[1], Xf)
 X2 = map(x -> x[2], Xf)
 
-norm_poly(x) = maximum(c -> abs(c'*x), c_list)
+norm_poly(x) = maximum(c -> c'*x, c_list)
 Z = map(x -> norm_poly(x), Xf)
 zm = min(minimum(Z[1, :]), minimum(Z[:, 1]))/1.2
 

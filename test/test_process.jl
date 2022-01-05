@@ -25,12 +25,12 @@ sleep(0.1) # used for good printing
 println("Started test")
 
 ## Parameters
-LT = CLC.LearnPolyhedralPoints{2}
-VT = CLC.VerifyPolyhedralMultiple{2}
+meth_learn = CLC.LearnPolyhedralPoints{2}()
+meth_verify = CLC.VerifyPolyhedralMultiple{2}()
 A1 = [-0.5 1.0; -1.0 -0.5]
 A2 = [-0.2 0.0; -0.5 -0.2]
 A_list = [A1, A2]
-prob = CLC.CEGARProblem{2,LT,VT}(A_list)
+prob = CLC.CEGARProblem{2}(A_list, meth_learn, meth_verify)
 G0 = 0.1
 r0 = 0.01
 rmin = 1e-6

@@ -1,11 +1,10 @@
-function process_lyapunov_function(prob::CEGARProblem{D,LT,VT},
-                                   x_list, G0, Gmax, r0, rmin, params, solver
-                                   ) where {D,LT<:Polyhedral,VT<:Polyhedral}
+function process_lyapunov_function(prob::CEGARProblem{D}, x_list,
+                                   G0, Gmax, r0, rmin, params, solver) where D
     A_list = prob.A_list
     x_dx_list = map(x -> (x, map(A -> A*x, A_list)), x_list)
     c_list = Vector{Float64}[]
-    lt_ = LT()
-    vt_ = VT()
+    meth_learn = prob.meth_learn
+    meth_verify = prob.meth_verify
 
     iter = 0
     G = G0
@@ -22,13 +21,13 @@ function process_lyapunov_function(prob::CEGARProblem{D,LT,VT},
         iter += 1
 
         _, c_list, G, r, flag = learn_candidate_lyapunov_function(
-            lt_, x_dx_list, G, Gmax, r, rmin,
+            meth_learn, x_dx_list, G, Gmax, r, rmin,
             params.tol_faces, params.print_period_1, solver)
 
         !flag && break
 
         obj_max, x, flag = verify_candidate_lyapunov_function(
-            vt_, A_list, c_list, params.tol_faces, solver)
+            meth_verify, A_list, c_list, params.tol_faces, solver)
 
         !flag && break
         
