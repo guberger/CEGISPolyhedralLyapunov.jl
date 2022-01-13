@@ -79,9 +79,9 @@ end
 
 LH = (
     matplotlib.lines.Line2D([0], [0], c="red", ls="none", marker=".", ms=20,
-        label=L"\hat{x}_i"),
+        label=L"\hat{x}"),
     matplotlib.lines.Line2D([0], [0], c="green", lw=2,
-        label=L"A_q\hat{x}_i"),
+        label=L"A\hat{x}"),
     matplotlib.patches.Patch(fc="none", ec="gold", hatch="//",
         label=L"\{V(x)\leq c\}")
     )

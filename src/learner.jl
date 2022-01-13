@@ -1,15 +1,17 @@
-function learn_candidate_lyapunov_function(method::LearnPolyhedralPoints,
+function learn_candidate_lyapunov_function(method::LearnMethod,
                                            x_dx_list, G0, Gmax, r0, rmin,
                                            tol_faces, print_period, solver)
     D = state_dim(method)
     N = length(x_dx_list)
+    M = method isa LearnPolyhedralPoints ? N :
+        method isa LearnPolyhedralFixed ? method.n_piece : -1
     G = G0
     r = r0
 
     δ = -1.0
-    c_list = Vector{Vector{Float64}}(undef, N)
-    for i = 1:N
-        c_list[i] = zeros(D)
+    c_list = Vector{Vector{Float64}}(undef, M)
+    for j = 1:M
+        c_list[j] = zeros(D)
     end
     s_status = ("Not started", "Unknown", "Unknown")
     iter = 0
@@ -18,10 +20,10 @@ function learn_candidate_lyapunov_function(method::LearnPolyhedralPoints,
     while G ≤ Gmax && r ≥ rmin
         iter += 1
         if mod(iter - 1, print_period) == 0
-            @printf("iter: %d. G: %f\n", iter, G)
+            @printf("iter: %d. G: %f, r: %f\n", iter, G, r)
         end
-        δ, c_list, status = _learn_polyhedralpoints(D, N, x_dx_list,
-                                                    G, tol_faces, solver)
+        δ, c_list, status = _learn_polyhedral(method, N, x_dx_list,
+                                              G, tol_faces, solver)
         s_status = string.(status)
         if mod(iter - 1, print_period) == 0
             @printf("\tstatus: %s. δ: %f\n", s_status, δ)
@@ -34,7 +36,7 @@ function learn_candidate_lyapunov_function(method::LearnPolyhedralPoints,
 
     if !flag
         println("Problem in learning Lyapunov function")
-        @printf("iter: %d. G: %f\n", iter, G)
+        @printf("iter: %d. G: %f, r: %f\n", iter, G, r)
         println(s_status)
         println(δ)
     end
@@ -42,7 +44,8 @@ function learn_candidate_lyapunov_function(method::LearnPolyhedralPoints,
     return δ, c_list, G, r, flag
 end
 
-function _learn_polyhedralpoints(D, N, x_dx_list, G, tol_faces, solver)
+function _learn_polyhedral(method::LearnPolyhedralPoints{D}, N, x_dx_list,
+                           G, tol_faces, solver) where D
     model = Model(solver)
     c_list = [@variable(model, [1:D], base_name=string("c", i),
         lower_bound=-1.0, upper_bound=1.0) for i = 1:N]
@@ -92,52 +95,10 @@ function _learn_polyhedralpoints(D, N, x_dx_list, G, tol_faces, solver)
          dual_status(model))
 end
 
-function learn_candidate_lyapunov_function(method::LearnPolyhedralFixed,
-                                           x_dx_list, G0, Gmax, r0, rmin,
-                                           tol_faces, print_period, solver)
-    D = state_dim(method)
-    N = length(x_dx_list)
+
+function _learn_polyhedral(method::LearnPolyhedralFixed{D}, N, x_dx_list,
+                           G, tol_faces, solver) where D
     M = method.n_piece
-    G = G0
-    r = r0
-
-    δ = -1.0
-    c_list = Vector{Vector{Float64}}(undef, M)
-    for j = 1:M
-        c_list[j] = zeros(D)
-    end
-    s_status = ("Not started", "Unknown", "Unknown")
-    iter = 0
-    flag = false
-
-    while G ≤ Gmax && r ≥ rmin
-        iter += 1
-        if mod(iter - 1, print_period) == 0
-            @printf("iter: %d. G: %f\n", iter, G)
-        end
-        δ, c_list, status = _learn_polyhedralfixed(D, N, M, x_dx_list,
-                                                   G, tol_faces, solver)
-        s_status = string.(status)
-        if mod(iter - 1, print_period) == 0
-            @printf("\tstatus: %s. δ: %f\n", s_status, δ)
-        end
-        flag = isone(Int(status[2])) && δ ≥ r
-        (flag || 2*G > Gmax || r/2 < rmin) && break
-        G = 2*G
-        r = r/2
-    end
-
-    if !flag
-        println("Problem in learning Lyapunov function")
-        @printf("iter: %d. G: %f\n", iter, G)
-        println(s_status)
-        println(δ)
-    end
-
-    return δ, c_list, G, r, flag
-end
-
-function _learn_polyhedralfixed(D, N, M, x_dx_list, G, tol_faces, solver)
     model = Model(solver)
     c_list = [@variable(model, [1:D], base_name=string("c", j),
         lower_bound=-1.0, upper_bound=1.0) for j = 1:M]
@@ -187,7 +148,7 @@ function _learn_polyhedralfixed(D, N, M, x_dx_list, G, tol_faces, solver)
         copt_list = map(c -> value.(c), c_list)
     else
         δopt = -1.0
-        copt_list = Vector{Vector{Float64}}(undef, N)
+        copt_list = Vector{Vector{Float64}}(undef, M)
         for j = 1:M
             copt_list[j] = zeros(D)
         end

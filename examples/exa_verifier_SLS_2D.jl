@@ -16,8 +16,8 @@ A1 = [0.1 1.0; -1.0 0.1]
 A2 = [0.1 0.0; -0.5 0.1]
 A1 = [-2.0 1.0; -1.0 -2.0]
 A2 = [-2.0 0.0; -0.5 -2.0]
-# A1 = [-0.5 1.0; -1.0 -0.5]
-# A2 = [-0.3 0.0; -0.5 -0.3]
+A1 = [-0.5 1.0; -1.0 -0.5]
+A2 = [-0.3 0.0; -0.5 -0.3]
 A_list = [A1, A2]
 tol_faces = 1e-5
 solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
@@ -78,9 +78,9 @@ end
 
 LH = (
     matplotlib.lines.Line2D([0], [0], c="red", ls="none", marker=".", ms=20,
-        label=L"\bar{x}"),
+        label=L"\hat{x}"),
     matplotlib.lines.Line2D([0], [0], c="green", lw=2,
-        label=L"A_q\bar{x}"),
+        label=L"A\hat{x}"),
     matplotlib.patches.Patch(fc="none", ec="gold", hatch="//",
         label=L"\{V(x)\leq 1\}")
     )

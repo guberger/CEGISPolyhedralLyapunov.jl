@@ -10,13 +10,13 @@ CLC = CEGARLearningCLF
 Random.seed!(0)
 
 ## Parameters
-n_piece = 5
+n_piece = 6
 meth_learn = CLC.LearnPolyhedralFixed{2}(n_piece)
 meth_verify = CLC.VerifyPolyhedralMultiple{2}()
 A1 = [-0.2 1.0; -1.0 -0.2]
 A2 = [-0.2 0.0; -0.5 -0.2]
-A1 = [-0.9 1.0; -1.0 -0.9]
-A2 = [-0.9 0.0; -0.5 -0.9]
+A1 = [-0.49 1.0; -1.0 -0.49]
+A2 = [-0.49 0.0; -0.5 -0.49]
 A_list = [A1, A2]
 prob = CLC.CEGARProblem{2}(A_list, meth_learn, meth_verify)
 G0 = 0.1
