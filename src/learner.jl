@@ -1,3 +1,11 @@
+"""
+    learn_candidate_lyapunov_function(method,
+                                      x_dx_list, G0, Gmax, r0, rmin,
+                                      tol_faces, print_period, solver)
+
+`x_dx_list` is a vector of pairs `(x, dx_list)` where `x` is a point in the
+state space and `dx_list` is a set of flow directions at `x`.
+"""
 function learn_candidate_lyapunov_function(method::LearnMethod,
                                            x_dx_list, G0, Gmax, r0, rmin,
                                            tol_faces, print_period, solver)

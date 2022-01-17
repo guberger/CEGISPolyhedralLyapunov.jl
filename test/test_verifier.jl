@@ -28,60 +28,56 @@ println("Started test")
 ## Parameters
 # method_s = CLC.VerifyPolyhedralSingle{2}()
 method_m = CLC.VerifyPolyhedralMultiple{2}()
-A = [0.0 0.0; 1.0 0.0]
-A_list = [A]
+Hs1 = [[+1.0, 0.0]]
+As1 = [[-1.0 0.0; 0.0 0.0], [-1.0 0.1; 0.0 -1.0]]
+Hs2 = [[-1.0, 0.0]]
+As2 = [[1.0 0.1; 0.0 0.0], [0.5 0.0; 0.0 0.5]]
+As_list = [As1, As2]
+Hs_list = [Hs1, Hs2]
+sys = CLC.PiecewiseLinearSystem(Hs_list, As_list)
 tol_faces = 1e-5
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
-N = 5
-α_list = range(0.0, stop=2π, length=N)
-c_list = map(α -> [cos(α), sin(α)], α_list)
+c_list = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 
 ## Solving
 @testset "Verifier LTI feasible" begin
-    obj_max, x = CLC.verify_candidate_lyapunov_function(
-        method_m, A_list, c_list, tol_faces, solver)
+    obj_max, x, flag, j, q, qA = CLC.verify_candidate_lyapunov_function(
+        method_m, sys, c_list, tol_faces, solver)
+    @test abs(obj_max - 1.1) < 1e-9
+    @test norm(x - [1.0, 1.0]) < 1e-9
+    @test flag
+    @test j == 2
+    @test q == 2
+    @test qA == 1
+end
+
+## Parameters
+As_list[2] = [zeros(2, 2), zeros(2, 2), [0.0 0.0; 1.0 0.0]]
+
+## Solving
+@testset "Verifier LTI feasible" begin
+    obj_max, x, flag, j, q, qA = CLC.verify_candidate_lyapunov_function(
+        method_m, sys, c_list, tol_faces, solver)
     @test abs(obj_max - 1.0) < 1e-9
     @test norm(x - [1.0, 1.0]) < 1e-9
+    @test flag
+    @test j == 4
+    @test q == 2
+    @test qA == 3
 end
 
 ## Parameters
-A = [-3.0 0.0; 1.0 -3.0]
-A_list = [A]
+As_list[1] = [[-1.0 0.1; 0.0 -1.0]]
+As_list[2] = [[-3.0 0.0; 0.0 -3.0]]
 
 ## Solving
 @testset "Verifier LTI infeasible" begin
-    obj_max, x = CLC.verify_candidate_lyapunov_function(
-        method_m, A_list, c_list, tol_faces, solver)
-    @test abs(obj_max + 2.0) < 1e-9
-    @test norm(x - [1.0, 1.0]) < 1e-9
+    obj_max, x, flag, j, q, qA = CLC.verify_candidate_lyapunov_function(
+        method_m, sys, c_list, tol_faces, solver)
+    @test abs(obj_max + 0.9) < 1e-9
+    @test norm(x - [-1.0, -1.0]) < 1e-9
 end
 
-## Parameters
-A1 = [0.1 1.0; -1.0 0.1]
-A2 = [0.1 0.0; -0.5 0.1]
-A_list = [A1, A2]
-tol_faces = 1e-5
-
-## Solving
-@testset "Verifier LTI feasible" begin
-    obj_max, x = CLC.verify_candidate_lyapunov_function(
-        method_m, A_list, c_list, tol_faces, solver)
-    @test abs(obj_max - 1.1) < 1e-9
-    @test norm(abs.(x) - [1.0, 1.0]) < 1e-9 # Gurobi sol, validated with plot
-end
-
-## Parameters
-A1 = [-2.0 1.0; -1.0 -2.0]
-A2 = [-2.0 0.0; -0.5 -2.0]
-A_list = [A1, A2]
-
-## Solving
-@testset "Verifier LTI infeasible" begin
-    obj_max, x = CLC.verify_candidate_lyapunov_function(
-        method_m, A_list, c_list, tol_faces, solver)
-    @test abs(obj_max + 1) < 1e-9
-    @test norm(abs.(x) - [1.0, 1.0]) < 1e-9 # Gurobi sol, validated with plot
-end
 
 end # TestMain
