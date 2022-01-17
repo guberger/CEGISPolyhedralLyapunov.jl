@@ -6,6 +6,16 @@ function process_lyapunov_function(prob::CEGARProblem{D}, x_list,
     meth_learn = prob.meth_learn
     meth_verify = prob.meth_verify
 
+    # Trace
+    do_trace = haskey(params, :do_trace) && params.do_trace
+    c_T = Vector{Float16}
+    x_dx_T = Tuple{Vector{Float64},Vector{Vector{Float64}}}
+    trace = (c_list=Vector{c_T}[],
+             x_dx_list=Vector{x_dx_T}[],
+             flag_learner=Bool[],
+             x_dx=x_dx_T[],
+             flag_verifier=Bool[])
+
     iter = 0
     G = G0
     r = r0
@@ -24,10 +34,20 @@ function process_lyapunov_function(prob::CEGARProblem{D}, x_list,
             meth_learn, x_dx_list, G, Gmax, r, rmin,
             params.tol_faces, params.print_period_1, solver)
 
+        if do_trace
+            push!(trace.x_dx_list, copy(x_dx_list))
+            push!(trace.c_list, copy(c_list))
+            push!(trace.flag_learner, flag)
+        end
+
         !flag && break
 
         obj_max, x, flag = verify_candidate_lyapunov_function(
             meth_verify, A_list, c_list, params.tol_faces, solver)
+
+        if do_trace
+            push!(trace.flag_verifier, flag)
+        end
 
         !flag && break
         
@@ -38,11 +58,14 @@ function process_lyapunov_function(prob::CEGARProblem{D}, x_list,
         obj_max < params.tol_deriv && break
 
         x_dx = (x, map(A -> A*x, A_list))
+        if do_trace
+            push!(trace.x_dx, x_dx)
+        end
         push!(x_dx_list, x_dx)
     end
 
     @printf("\nTerminated (flag: %s): Iter: %d, deriv_max: %f\n",
         flag, iter, obj_max)
 
-    return c_list, x_dx_list, obj_max, flag
+    return c_list, x_dx_list, obj_max, flag, trace
 end
