@@ -34,7 +34,7 @@ Hs2 = [[-1.0, 0.0]]
 As2 = [[1.0 0.1; 0.0 0.0], [0.5 0.0; 0.0 0.5]]
 As_list = [As1, As2]
 Hs_list = [Hs1, Hs2]
-sys = CLC.PiecewiseLinearSystem(Hs_list, As_list)
+sys = CLC.PiecewiseLinearSystem{2}(2, Hs_list, As_list)
 tol_faces = 1e-5
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
@@ -78,6 +78,5 @@ As_list[2] = [[-3.0 0.0; 0.0 -3.0]]
     @test abs(obj_max + 0.9) < 1e-9
     @test norm(x - [-1.0, -1.0]) < 1e-9
 end
-
 
 end # TestMain

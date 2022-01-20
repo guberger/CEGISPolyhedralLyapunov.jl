@@ -34,8 +34,7 @@ function verify_candidate_lyapunov_function(method::VerifyPolyhedralMultiple,
                 k == j && continue
                 d = c_list[k]
                 @constraint(model, c'*x == 1)
-                @constraint(model, +d'*x ≤ 1)
-                @constraint(model, -d'*x ≤ 1)
+                @constraint(model, d'*x ≤ 1)
             end
 
             for h in H_set

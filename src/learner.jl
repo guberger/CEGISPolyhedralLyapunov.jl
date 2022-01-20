@@ -11,16 +11,22 @@ function learn_candidate_lyapunov_function(method::LearnMethod,
                                            tol_faces, print_period, solver)
     D = state_dim(method)
     N = length(x_dx_list)
-    M = method isa LearnPolyhedralPoints ? N :
-        method isa LearnPolyhedralFixed ? method.n_piece : -1
+    M = -1
+    if method isa LearnPolyhedralPoints
+        M = N
+    elseif method isa LearnPolyhedralFixed
+        M = min(method.n_piece, N)
+    end
     G = G0
     r = r0
 
-    δ = -1.0
-    c_list = Vector{Vector{Float64}}(undef, M)
-    for j = 1:M
-        c_list[j] = zeros(D)
+    if iszero(M)
+        println("Empty learning problem")
+        return Inf, vec_type[], G, r, true # δ, c_list, G, r, flag
     end
+
+    δ = -1.0
+    c_list = vec_type[]
     s_status = ("Not started", "Unknown", "Unknown")
     iter = 0
     flag = false
@@ -30,7 +36,7 @@ function learn_candidate_lyapunov_function(method::LearnMethod,
         if mod(iter - 1, print_period) == 0
             @printf("iter: %d. G: %f, r: %f\n", iter, G, r)
         end
-        δ, c_list, status = _learn_polyhedral(method, N, x_dx_list,
+        δ, c_list, status = _learn_polyhedral(method, M, x_dx_list,
                                               G, tol_faces, solver)
         s_status = string.(status)
         if mod(iter - 1, print_period) == 0
@@ -52,8 +58,9 @@ function learn_candidate_lyapunov_function(method::LearnMethod,
     return δ, c_list, G, r, flag
 end
 
-function _learn_polyhedral(method::LearnPolyhedralPoints{D}, N, x_dx_list,
+function _learn_polyhedral(method::LearnPolyhedralPoints{D}, M, x_dx_list,
                            G, tol_faces, solver) where D
+    N = length(x_dx_list)
     model = Model(solver)
     c_list = [@variable(model, [1:D], base_name=string("c", i),
         lower_bound=-1.0, upper_bound=1.0) for i = 1:N]
@@ -74,10 +81,8 @@ function _learn_polyhedral(method::LearnPolyhedralPoints{D}, N, x_dx_list,
             for j = 1:N
                 j == i && continue
                 d = c_list[j]
-                @constraint(model, x'*(c + d) ≥ 0)
                 @constraint(model, x'*(c - d) ≥ 0)
-                @constraint(model, (+dx)'*d - G*x'*(c - d) + ndx*δ ≤ 0)
-                @constraint(model, (-dx)'*d - G*x'*(c + d) + ndx*δ ≤ 0)
+                @constraint(model, dx'*d - G*x'*(c - d) + ndx*δ ≤ 0)
             end
         end
     end
@@ -86,12 +91,14 @@ function _learn_polyhedral(method::LearnPolyhedralPoints{D}, N, x_dx_list,
 
     optimize!(model)
 
+    copt_list = Vector{vec_type}(undef, N)
     if has_values(model)
         δopt = value(δ)
-        copt_list = map(c -> value.(c), c_list)
+        for i = 1:N
+            copt_list[i] = value.(c_list[i])
+        end
     else
         δopt = -1.0
-        copt_list = Vector{Vector{Float64}}(undef, N)
         for i = 1:N
             copt_list[i] = zeros(D)
         end
@@ -103,10 +110,9 @@ function _learn_polyhedral(method::LearnPolyhedralPoints{D}, N, x_dx_list,
          dual_status(model))
 end
 
-
-function _learn_polyhedral(method::LearnPolyhedralFixed{D}, N, x_dx_list,
+function _learn_polyhedral(method::LearnPolyhedralFixed{D}, M, x_dx_list,
                            G, tol_faces, solver) where D
-    M = method.n_piece
+    N = length(x_dx_list)
     model = Model(solver)
     c_list = [@variable(model, [1:D], base_name=string("c", j),
         lower_bound=-1.0, upper_bound=1.0) for j = 1:M]
@@ -151,14 +157,16 @@ function _learn_polyhedral(method::LearnPolyhedralFixed{D}, N, x_dx_list,
     
     optimize!(model)
 
+    copt_list = Vector{vec_type}(undef, M)
     if has_values(model)
         δopt = value(δ)
-        copt_list = map(c -> value.(c), c_list)
+        for i = 1:M
+            copt_list[i] = value.(c_list[i])
+        end
     else
         δopt = -1.0
-        copt_list = Vector{Vector{Float64}}(undef, M)
-        for j = 1:M
-            copt_list[j] = zeros(D)
+        for i = 1:M
+            copt_list[i] = zeros(D)
         end
     end
 
