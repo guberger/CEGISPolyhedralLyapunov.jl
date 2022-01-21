@@ -26,17 +26,33 @@ println("Started test")
 
 ## Parameters
 method = CLC.LearnPolyhedralPoints{2}()
-A = [-1.0 0.0; 0.0 -1.0]
-A_list = [A]
 tol_faces = 1e-5
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 print_period = 1
+
+## Solving
+@testset "Learner Points: empty x_dx_list" begin
+    G0 = Gmax = 1.0
+    r0 = rmin = 1.0 + 1e-5
+    δ, c_list, G, r, flag = CLC.learn_candidate_lyapunov_function(
+        method, CLC.x_dx_type[],
+        G0, Gmax, r0, rmin, tol_faces,
+        print_period, solver)
+    @test isinf(δ)
+    @test isempty(c_list)
+    @test G == G0
+    @test r == r0
+    @test flag
+end
+
+A = [-1.0 0.0; 0.0 -1.0]
+A_list = [A]
 
 x_list = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 x_dx_list = map(x -> (x, map(A -> A*x, A_list)), x_list)
 
 ## Solving
-@testset "Learner LTI infeasible" begin
+@testset "Learner Points: LTI infeasible" begin
     G0 = Gmax = 1.0
     r0 = rmin = 1.0 + 1e-5
     δ, c_list, G, r, flag = CLC.learn_candidate_lyapunov_function(
@@ -49,7 +65,7 @@ x_dx_list = map(x -> (x, map(A -> A*x, A_list)), x_list)
 end
 
 ## Solving
-@testset "Learner LTI feasible" begin
+@testset "Learner Points: LTI feasible" begin
     G0 = 0.25
     Gmax = 1.0 + 1e-5
     r0 = 4.0 - 1e-5
@@ -65,19 +81,15 @@ end
 end
 
 ## Parameters
-method = CLC.LearnPolyhedralPoints{2}()
 A1 = [-1.0 0.0; 0.0 -2.0]
 A2 = [-2.0 0.0; 0.0 -1.0]
 A_list = [A1, A2]
-tol_faces = 1e-5
-solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
-print_period = 1
 
 x_list = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 x_dx_list = map(x -> (x, map(A -> A*x, A_list)), x_list)
 
 ## Solving
-@testset "Learner SLS infeasible" begin
+@testset "Learner Points: SLS infeasible" begin
     G0 = Gmax = 1.0
     r0 = rmin = 0.0 + 1e-5
     δ, c_list, G, r, flag = CLC.learn_candidate_lyapunov_function(
@@ -90,7 +102,7 @@ x_dx_list = map(x -> (x, map(A -> A*x, A_list)), x_list)
 end
 
 ## Solving
-@testset "Learner SLS feasible" begin
+@testset "Learner Points: SLS feasible" begin
     G0 = 0.25
     Gmax = 2.0 + 1e-5
     r0 = 8.0 - 1e-5

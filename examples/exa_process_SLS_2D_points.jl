@@ -13,24 +13,24 @@ Random.seed!(0)
 ## Parameters
 meth_learn = CLC.LearnPolyhedralPoints{2}()
 meth_verify = CLC.VerifyPolyhedralMultiple{2}()
-A1 = [-0.2 1.0; -1.0 -0.2]
-A2 = [-0.2 0.0; -0.5 -0.2]
-# A1 = [-0.5 1.0; -1.0 -0.5]
-# A2 = [-0.2 0.0; -0.5 -0.2]
-A_list = [A1, A2]
-prob = CLC.CEGARProblem{2}(A_list, meth_learn, meth_verify)
+Hs1 = [[0.0, -1.0]]
+As1 = [[-0.5 +1.0; -1.0 -0.5]]
+Hs2 = [[0.0, +1.0]]
+As2 = [[-0.0 +1.0; -1.0 -0.0]]
+Hs_list = [Hs1, Hs2]
+As_list = [As1, As2]
+sys = CLC.PiecewiseLinearSystem{2}(2, Hs_list, As_list)
+prob = CLC.CEGARProblem(sys, meth_learn, meth_verify)
 G0 = 0.1
 Gmax = 10.0
 r0 = 0.01
 rmin = 1e-6
-params = (tol_faces=1e-5, tol_deriv=1e-5,
+params = (tol_faces=1e-5, tol_deriv=-1e-5,
           print_period_1=1, print_period_2=1,
           do_trace=true)
 solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
 
-N = 4
-angles = range(0.0, 2π, length=N + 1)[1:N]
-x_list = [[cos(θ), sin(θ)] for θ in angles]
+x_list = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 
 ## Solving
 c_list, x_dx_list, deriv, flag, trace = CLC.process_lyapunov_function(
@@ -79,7 +79,7 @@ indexes = vcat(indexes1, indexes2)
 n_plot = length(indexes)
 Z_ = Vector{Matrix{Float64}}(undef, n_plot)
 zm = Inf
-norm_poly(c_list) = x -> maximum(c -> abs(c'*x), c_list)
+norm_poly(c_list) = x -> maximum(c -> c'*x, c_list)
 
 for k = 1:n_plot
     global zm
@@ -131,17 +131,40 @@ for k = 1:n_plot
         horizontalalignment="center", fontsize=14)
 end
 
-# LH = (
-#     matplotlib.lines.Line2D([0], [0], c="red", ls="none", marker=".", ms=20,
-#         label=L"\hat{x}_i"),
-#     matplotlib.lines.Line2D([0], [0], c="green", lw=2,
-#         label=L"A_q\hat{x}_i"),
-#     matplotlib.patches.Patch(fc="none", ec="gold", hatch="//",
-#         label=L"\{V(x)\leq c\}")
-#     )
-# ax.legend(handles=LH, ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.01))
+x0 = [1.0, -1e-6]
+idx = indexes[12]
+c_list = trace.c_list[idx]
+fn = norm_poly(c_list)
+x0 = x0*zm/fn(x0)
+ax = ax_[12]
 
-fig.savefig("./figures/fig_process_example.png", dpi=200,
-    transparent=false, bbox_inches="tight")
+ax.plot(x0..., marker=".", ms=7.5, c="purple")
+
+nstep = 100
+dt = 4π/nstep
+xplot_seq = [Vector{Float64}(undef, nstep) for i = 1:2]
+xplot_seq[1][1] = x0[1]
+xplot_seq[2][1] = x0[2]
+x = x0
+
+for t = 2:nstep
+    global x
+    q = 0
+    for qbis = 1:length(Hs_list)
+        if all(h -> h'*x ≤ 0, Hs_list[qbis])
+            q = qbis
+            break
+        end
+    end
+    A = As_list[q][1]
+    x = exp(A*dt)*x
+    xplot_seq[1][t] = x[1]
+    xplot_seq[2][t] = x[2]
+end
+
+ax.plot(xplot_seq[1], xplot_seq[2], lw=1.5, c="purple")
+
+# fig.savefig("./figures/fig_process_example.png", dpi=200,
+#     transparent=false, bbox_inches="tight")
 
 end # TestMain
