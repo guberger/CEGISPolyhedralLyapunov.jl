@@ -4,9 +4,9 @@ using LinearAlgebra
 using JuMP
 using Gurobi
 using PyPlot
-include("../src/CEGARLearningCLF.jl")
+include("../../src/CEGARLearningCLF.jl")
 CLC = CEGARLearningCLF
-include("./plotting.jl")
+include("../utils/polyhedra.jl")
 
 ## Parameters
 meth_learn = CLC.LearnPolyhedralPoints{2}()
@@ -72,7 +72,7 @@ for k = 1:n_plot
     global nv_max
     idx = indexes[k]
     c_list = trace.c_list[idx]
-    verts = retrieve_vertices(c_list)
+    verts = retrieve_vertices_2d(c_list)
     verts_list[k] = verts
     nv_max = max(nv_max, maximum(x -> norm(x, Inf), verts))
 end
@@ -95,11 +95,13 @@ for k = 1:n_plot
     end
 end
 
-α_dx = 0.3
+α_dx = 0.6
 
 for k = 1:n_plot
     ax = ax_[mapplot[k]]
     idx = indexes[k]
+    ax.plot(xlims, (0, 0), ls="--", c="black", lw=0.5)
+    ax.plot(0, 0, marker="x", ms=5, c="black", mew=1.5)
     c_list = trace.c_list[idx]
     verts = map(x -> x*scaling, verts_list[k])
     polylist = matplotlib.collections.PolyCollection([verts])
@@ -138,7 +140,7 @@ end
 x0 = [1.0, -1e-6]
 idx = indexes[12]
 c_list = trace.c_list[idx]
-x0 = x0*scaling/norm_poly(x0, c_list)
+x = x0*scaling/norm_poly(x0, c_list)
 ax = ax_[12]
 
 ax.plot(x0..., marker=".", ms=7.5, c="purple")
@@ -146,12 +148,12 @@ ax.plot(x0..., marker=".", ms=7.5, c="purple")
 nstep = 100
 dt = 4π/nstep
 xplot_seq = [Vector{Float64}(undef, nstep) for i = 1:2]
-xplot_seq[1][1] = x0[1]
-xplot_seq[2][1] = x0[2]
-x = x0
 
-for t = 2:nstep
+for t = 1:nstep
     global x
+    for i = 1:2
+        xplot_seq[i][t] = x[i]
+    end
     q = 0
     for qbis = 1:length(Hs_list)
         if all(h -> h'*x ≤ 0, Hs_list[qbis])
@@ -161,13 +163,11 @@ for t = 2:nstep
     end
     A = As_list[q][1]
     x = exp(A*dt)*x
-    xplot_seq[1][t] = x[1]
-    xplot_seq[2][t] = x[2]
 end
 
 ax.plot(xplot_seq[1], xplot_seq[2], lw=1.5, c="purple")
 
-# fig.savefig("./figures/fig_process_example.png", dpi=200,
-#     transparent=false, bbox_inches="tight")
+fig.savefig("./examples/figures/fig_exa_illustrative.png", dpi=200,
+    transparent=false, bbox_inches="tight")
 
 end # TestMain
