@@ -6,20 +6,14 @@ using PyPlot
 include("../../src/CEGARLearningCLF.jl")
 CLC = CEGARLearningCLF
 
-a1 = 10
-a0 = 20
-Ki = 470
-Kp = 150
-Kd = 12
-# Ki = 300
-# Kp = 350
-# Kd = 50
+datafile = "data_set_2"
+include(string("./", datafile, ".jl"))
 
 ## Parameters
 meth_learn = CLC.LearnPolyhedralPoints{3}()
 meth_verify = CLC.VerifyPolyhedralMultiple{3}()
 Hs1 = [[+Ki, +Kp, +Kd]]
-As1 = [[-10 1.0 0.0; 0.0 0.0 1.0; 0.0 -a0 -a1]]
+As1 = [[-c_aw 1.0 0.0; 0.0 0.0 1.0; 0.0 -a0 -a1]]
 Hs2 = [[-Ki, -Kp, -Kd]]
 As2 = [[0.0 1.0 0.0; 0.0 0.0 1.0; -Ki -(a0 + Kp) -(a1 + Kd)]]
 Hs_list = [Hs1, Hs2]
@@ -41,7 +35,7 @@ x_list = CLC._hypercube(3, 1.0)
 c_list, x_dx_list, deriv, flag, trace = CLC.process_lyapunov_function(
     prob, x_list, G0, Gmax, r0, rmin, params, solver)
 
-f = open("lyapunov-$(Ki)-$(Kp)-$(Kd).txt", "w")
+f = open(string(@__DIR__, "/lyapunov-", datafile, ".txt"), "w")
 for c in c_list
     println(f, c)
 end

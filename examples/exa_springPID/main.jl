@@ -6,7 +6,10 @@ using PyCall
 art3d = PyObject(PyPlot.art3D)
 include("../utils/polyhedra.jl")
 
-str = readlines("./examples/exa_springPID/lyapunov-470-150-12.txt")
+datafile = "data_set_2"
+include(string("./", datafile, ".jl"))
+
+str = readlines(string(@__DIR__, "/lyapunov-", datafile, ".txt"))
 M = length(str)
 c_list = Vector{Vector{Float64}}(undef, M)
 
@@ -33,22 +36,23 @@ polylist.set_linewidth(1.0)
 ax.add_collection3d(polylist)
 
 ax.set_xlim((-2, 2))
-ax.set_ylim((-12, 10))
-ax.set_zlim((-50, 50))
+ax.set_ylim((-8, 8))
+ax.set_zlim((-35, 35))
 ax.set_xticks(-2:1:2)
-ax.set_yticks(-10:5:10)
-ax.set_zticks(-40:20:40)
+ax.set_yticks(-8:4:8)
+ax.set_zticks(-30:15:30)
 ax.tick_params(axis="both", which="major", labelsize=15)
 
 ax.yaxis.set_rotate_label(false)
 ax.zaxis.set_rotate_label(false)
-ax.set_xlabel("x", fontsize=28)
-ax.set_ylabel(L"\dot{x}", fontsize=28, rotation="horizontal", labelpad=9)
-ax.set_zlabel(L"\ddot{x}", fontsize=28, rotation="horizontal")
+ax.set_xlabel(L"x", fontsize=28, usetex=true)
+ax.set_ylabel(L"\dot{x}", fontsize=28, rotation="horizontal", labelpad=9, usetex=true)
+ax.set_zlabel(L"\ddot{x}", fontsize=28, rotation="horizontal", usetex=true)
 
 ax.view_init(elev=10.0, azim=-135)
 
-fig.savefig("./examples/figures/fig_exa_mass_spring_lyapunov.png", dpi=200,
+filename = string(@__DIR__, "/../figures/fig_exa_mass_spring_lyapunov.png")
+fig.savefig(filename, dpi=200,
     transparent=false,
     bbox_inches=matplotlib.transforms.Bbox(((1.05, 1.80), (7.15, 7.6))))
 
@@ -58,11 +62,6 @@ tmax = 1.0
 tspan = 0.0:dt:tmax
 nstep = length(tspan)
 Vplot_seq = Vector{Float64}(undef, nstep)
-a1 = 10
-a0 = 20
-Ki = 470
-Kp = 150
-Kd = 12
 
 for t = 1:nstep
     global x
@@ -73,7 +72,7 @@ for t = 1:nstep
         xnext[2] = x[2] + dt*(x[3])
         xnext[3] = x[3] + dt*(-Ki*x[1] - (a0 + Kp)*x[2] - (a1 + Kd)*x[3])
     else
-        xnext[1] = x[1] + dt*(-10*x[1] + x[2])
+        xnext[1] = x[1] + dt*(-c_aw*x[1] + x[2])
         xnext[2] = x[2] + dt*(x[3])
         xnext[3] = x[3] + dt*(-a0*x[2] - a1*x[3])
     end
@@ -84,11 +83,12 @@ fig = figure(1, figsize=(10, 3))
 ax = fig.add_subplot()
 
 ax.plot(tspan, Vplot_seq, lw=2.5)
-ax.set_xlabel("t", fontsize=15)
-ax.set_ylabel("V(x(t))", fontsize=15)
+ax.set_xlabel(L"t", fontsize=23, usetex=true)
+ax.set_ylabel(L"V(x(t))", fontsize=23, usetex=true)
 ax.tick_params(axis="both", which="major", labelsize=12)
 
-fig.savefig("./examples/figures/fig_exa_mass_spring_decrease.png", dpi=200,
+filename = string(@__DIR__, "/../figures/fig_exa_mass_spring_decrease.png")
+fig.savefig(filename, dpi=200,
     transparent=false, bbox_inches="tight")
 
 end # TestMain
