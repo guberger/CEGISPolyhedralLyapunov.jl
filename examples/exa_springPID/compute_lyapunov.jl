@@ -6,7 +6,7 @@ using PyPlot
 include("../../src/CEGARLearningCLF.jl")
 CLC = CEGARLearningCLF
 
-datafile = "data_set_2"
+datafile = "data_set_3"
 include(string("./", datafile, ".jl"))
 
 ## Parameters

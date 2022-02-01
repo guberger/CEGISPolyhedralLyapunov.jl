@@ -28,14 +28,157 @@ params = (tol_faces=1e-5, tol_deriv=-1e-5,
           do_trace=true)
 solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
 
-x_list = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
+## -----------------------------------------------------------------------------
+## Learner illustration
+np = 10
+α_list = range(0, 2π, length=np + 1)[1:np]
+x_list = map(α -> [cos(α), sin(α)], α_list)
+x_dx_list = CLC._initial_witnesses(sys, x_list)
 
-## Solving
+δ, c_list, G, r, flag = CLC.learn_candidate_lyapunov_function(
+    meth_learn, x_dx_list,
+    G0, Gmax, r0, rmin, params.tol_faces,
+    params.print_period_1, solver)
+
+fig = figure(0, figsize=(8, 10))
+ax = fig.add_subplot(aspect="equal")
+
+xlims = (-2, 2)
+ylims = (-2, 2)
+ax.set_xlim(xlims...)
+ax.set_ylim(ylims...)
+ax.set_xticks(-2:1:2)
+ax.set_yticks(-2:1:2)
+ax.tick_params(axis="both", labelsize=15)
+
+verts = retrieve_vertices_2d(c_list)
+nv = maximum(x -> norm(x, Inf), verts)
+scaling = 1.8/nv
+
+norm_dx_max = -1.0
+
+for x_dx in x_dx_list
+    global norm_dx_max
+    x, dx_list = x_dx
+    nx = norm_poly(x, c_list)
+    for dx in dx_list
+        norm_dx_max = max(norm_dx_max, norm(dx)/nx)
+    end
+end
+
+ax.plot(xlims, (0, 0), ls="--", c="black", lw=1.0)
+ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
+verts_scaled = map(x -> x*scaling, verts)
+polylist = matplotlib.collections.PolyCollection([verts_scaled])
+fca = matplotlib.colors.colorConverter.to_rgba("gold", alpha=0.5)
+polylist.set_facecolor(fca)
+polylist.set_edgecolor("gold")
+polylist.set_linewidth(2.0)
+ax.add_collection(polylist)
+
+α_dx = 0.6
+
+for x_dx in x_dx_list
+    x, dx_list = x_dx
+    nx = norm_poly(x, c_list)
+    xs = x*scaling/nx
+    ax.plot(xs..., marker=".", ms=15, c="blue")
+    for dx in dx_list
+        dxs = dx/norm_dx_max
+        ys = xs + α_dx*dxs
+        ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="green", lw=2.5)
+    end
+end
+
+ax.text(1.5, +1.6, L"\mathcal{Q}(x)=1",
+        horizontalalignment="center", verticalalignment="center", fontsize=20)
+ax.text(1.5, -1.6, L"\mathcal{Q}(x)=2",
+        horizontalalignment="center", verticalalignment="center", fontsize=20)
+
+LH = (matplotlib.patches.Patch(fc="gold", ec="gold", lw=2.5, alpha=0.5,
+        label=L"V(x)\leq1"),)
+ax.legend(handles=LH, fontsize=20, loc="upper left")
+
+fig.savefig("./examples/figures/fig_exa_illustrative_learner.png", dpi=200,
+    transparent=false, bbox_inches="tight")
+
+## -----------------------------------------------------------------------------
+## Verifier illustration
+np = 10
+α_list = range(0, 2π, length=np + 1)[1:np]
+c_list = map(α -> [cos(α), sin(α)], α_list)
+obj_max, x, flag, j, q, qA = CLC.verify_candidate_lyapunov_function(
+    meth_verify, sys, c_list, params.tol_faces, solver)
+
+fig = figure(1, figsize=(8, 10))
+ax = fig.add_subplot(aspect="equal")
+
+xlims = (-2, 2)
+ylims = (-2, 2)
+ax.set_xlim(xlims...)
+ax.set_ylim(ylims...)
+ax.set_xticks(-2:1:2)
+ax.set_yticks(-2:1:2)
+ax.tick_params(axis="both", labelsize=15)
+
+ngrid = 20
+x1_grid = range(xlims..., length=ngrid)
+x2_grid_list = (range(0, ylims[2], length=(ngrid ÷ 2) + 1),
+                range(ylims[1], 0, length=(ngrid ÷ 2) + 1))
+for q = 1:2
+    x2_grid = x2_grid_list[q]
+    X = map(x -> [x...], Iterators.product(x1_grid, x2_grid))
+    X1 = map(x -> x[1], X)
+    X2 = map(x -> x[2], X)
+    F = [map(x -> (As_list[q][1]*x)[i], X) for i = 1:2]
+    ax.quiver(X1, X2, F..., color="gray")
+end
+
+verts = retrieve_vertices_2d(c_list)
+nv = maximum(x -> norm(x, Inf), verts)
+scaling = 1.2/nv
+
+ax.plot(xlims, (0, 0), ls="--", c="black", lw=1.0)
+ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
+verts_scaled = map(x -> x*scaling, verts)
+polylist = matplotlib.collections.PolyCollection([verts_scaled])
+fca = matplotlib.colors.colorConverter.to_rgba("gold", alpha=0.5)
+polylist.set_facecolor(fca)
+polylist.set_edgecolor("gold")
+polylist.set_linewidth(2.0)
+ax.add_collection(polylist)
+
+α_dx = 0.6
+nx = norm_poly(x, c_list)
+xs = x*scaling/nx
+ax.plot(xs..., marker=".", ms=15, c="black")
+dx = As_list[q][qA]*x
+dxs = dx/norm(dx)
+ys = xs + α_dx*dxs
+ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="red", lw=2.5)
+
+ax.text(1.5, +1.6, L"\mathcal{Q}(x)=1",
+        horizontalalignment="center", verticalalignment="center",
+        fontsize=20, alpha=1.0, bbox=Dict(["facecolor"=>"white", "alpha"=>1.0]))
+ax.text(1.5, -1.6, L"\mathcal{Q}(x)=2",
+        horizontalalignment="center", verticalalignment="center",
+        fontsize=20, alpha=1.0, bbox=Dict(["facecolor"=>"white", "alpha"=>1.0]))
+
+LH = (matplotlib.patches.Patch(fc="gold", ec="gold", lw=2.5, alpha=0.5,
+        label=L"V(x)\leq1"),)
+ax.legend(handles=LH, fontsize=20, loc="upper left", facecolor="white", framealpha=1.0)
+
+fig.savefig("./examples/figures/fig_exa_illustrative_verifier.png", dpi=200,
+    transparent=false, bbox_inches="tight")
+
+## -----------------------------------------------------------------------------
+## Process illustration
+x_list = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 c_list, x_dx_list, deriv, flag, trace = CLC.process_lyapunov_function(
     prob, x_list, G0, Gmax, r0, rmin, params, solver)
 
 ## Plotting
-fig = figure(0, figsize=(8, 10))
+fig = figure(2, figsize=(8, 10))
 ax_ = fig.subplots(nrows=4, ncols=3,
     gridspec_kw=Dict("wspace"=>0.1, "hspace"=>0.1),
     subplot_kw=Dict("aspect"=>"equal"))
@@ -167,7 +310,7 @@ end
 
 ax.plot(xplot_seq[1], xplot_seq[2], lw=1.5, c="purple")
 
-fig.savefig("./examples/figures/fig_exa_illustrative.png", dpi=200,
+fig.savefig("./examples/figures/fig_exa_illustrative_process.png", dpi=200,
     transparent=false, bbox_inches="tight")
 
 end # TestMain

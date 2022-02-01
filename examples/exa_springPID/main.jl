@@ -6,7 +6,7 @@ using PyCall
 art3d = PyObject(PyPlot.art3D)
 include("../utils/polyhedra.jl")
 
-datafile = "data_set_2"
+datafile = "data_set_3"
 include(string("./", datafile, ".jl"))
 
 str = readlines(string(@__DIR__, "/lyapunov-", datafile, ".txt"))
