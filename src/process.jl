@@ -5,6 +5,7 @@ function process_lyapunov_function(prob::CEGARProblem{D}, x_list,
     meth_learn = prob.meth_learn
     meth_verify = prob.meth_verify
     tol_faces = params.tol_faces
+    print_period = params.print_period_2
 
     # Trace
     do_trace = haskey(params, :do_trace) && params.do_trace
@@ -53,7 +54,7 @@ function process_lyapunov_function(prob::CEGARProblem{D}, x_list,
 
         !flag && break
         
-        if mod(iter - 1, params.print_period_2) == 0
+        if print_period ≥ 0 && mod(iter - 1, print_period) == 0
             @printf("Iter: %d, obj_max: %f\n", iter, obj_max)
         end
         

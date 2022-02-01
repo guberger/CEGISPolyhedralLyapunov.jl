@@ -33,13 +33,13 @@ function learn_candidate_lyapunov_function(method::LearnMethod,
 
     while G ≤ Gmax && r ≥ rmin
         iter += 1
-        if mod(iter - 1, print_period) == 0
+        if print_period ≥ 0 && mod(iter - 1, print_period) == 0
             @printf("iter: %d. G: %f, r: %f\n", iter, G, r)
         end
         δ, c_list, status = _learn_polyhedral(method, M, x_dx_list,
                                               G, tol_faces, solver)
         s_status = string.(status)
-        if mod(iter - 1, print_period) == 0
+        if print_period ≥ 0 && mod(iter - 1, print_period) == 0
             @printf("\tstatus: %s. δ: %f\n", s_status, δ)
         end
         flag = isone(Int(status[2])) && δ ≥ r
