@@ -45,7 +45,7 @@ Hs_list = [Hs1, Hs2, Hs3]
 sys = CLC.PiecewiseLinearSystem{2}(3, Hs_list, As_list)
 prob = CLC.CEGARProblem(sys, meth_learn, meth_verify)
 
-x_list = [[-1.0, 0.0], [0.0, +1.0], [0.0, -1.0]]
+x_list = [[-1.0, 0.0]]
 
 @testset "Process Fixed: infeasible iter_max" begin
     G0 = Gmax = 1.0
@@ -53,12 +53,9 @@ x_list = [[-1.0, 0.0], [0.0, +1.0], [0.0, -1.0]]
     params2 = merge(params, (iter_max=1, do_trace=false))
     c_list, x_dx_list, deriv, flag, trace = CLC.process_lyapunov_function(
         prob, x_list, G0, Gmax, r0, rmin, params2, solver)
-    ϵ = params.tol_faces
-    @test length(c_list) == 7
-    @test minimum(c -> norm(c - [-1, 0]), c_list) < eps(100.0)
-    @test minimum(c -> norm(c - [0, +ϵ]), c_list) < eps(100.0)
-    @test minimum(c -> norm(c - [0, -ϵ]), c_list) < eps(100.0)
-    @test abs(deriv - ϵ) < eps(ϵ*100)
+    @test length(c_list) == 6
+    @test minimum(c -> abs(c[2]), c_list) < eps(100.0)
+    @test deriv > params.tol_deriv
     @test !flag
     @test isempty(trace.c_list)
     @test isempty(trace.x_dx_list)

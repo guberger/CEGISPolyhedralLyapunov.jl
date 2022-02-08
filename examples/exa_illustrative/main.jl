@@ -8,6 +8,11 @@ include("../../src/CEGARLearningCLF.jl")
 CLC = CEGARLearningCLF
 include("../utils/polyhedra.jl")
 
+const GUROBI_ENV = Gurobi.Env()
+solver = optimizer_with_attributes(
+    () -> Gurobi.Optimizer(GUROBI_ENV),
+    "OutputFlag"=>false)
+
 ## Parameters
 meth_learn = CLC.LearnPolyhedralPoints{2}()
 meth_verify = CLC.VerifyPolyhedralMultiple{2}()
@@ -26,7 +31,6 @@ rmin = 1e-6
 params = (tol_faces=1e-5, tol_deriv=-1e-5,
           print_period_1=1, print_period_2=1,
           do_trace=true)
-solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
 
 ## -----------------------------------------------------------------------------
 ## Learner illustration

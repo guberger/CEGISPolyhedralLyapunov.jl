@@ -9,6 +9,11 @@ CLC = CEGARLearningCLF
 datafile = "data_set_3"
 include(string("./", datafile, ".jl"))
 
+const GUROBI_ENV = Gurobi.Env()
+solver = optimizer_with_attributes(
+    () -> Gurobi.Optimizer(GUROBI_ENV),
+    "OutputFlag"=>false)
+
 ## Parameters
 meth_learn = CLC.LearnPolyhedralPoints{3}()
 meth_verify = CLC.VerifyPolyhedralMultiple{3}()
@@ -27,12 +32,11 @@ rmin = eps(1.0)
 params = (tol_faces=1/50, tol_deriv=-1e-5,
           print_period_1=1, print_period_2=1,
           do_trace=true)
-solver = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag"=>false)
 
 x_list = CLC._hypercube(3, 1.0)
 
 ## Solving
-c_list, x_dx_list, deriv, flag, trace = CLC.process_lyapunov_function(
+c_list, x_dx_list, deriv, flag, trace = @time CLC.process_lyapunov_function(
     prob, x_list, G0, Gmax, r0, rmin, params, solver)
 
 f = open(string(@__DIR__, "/lyapunov-", datafile, ".txt"), "w")
