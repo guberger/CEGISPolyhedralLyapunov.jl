@@ -4,8 +4,8 @@ using LinearAlgebra
 using Printf
 using JuMP
 using Gurobi
-include("../../src/CEGARLearningCLF.jl")
-CLC = CEGARLearningCLF
+include("../../src/CEGPolyhedralLyapunov.jl")
+CPL = CEGPolyhedralLyapunov
 
 ## Parameters
 G0 = 0.1
@@ -28,8 +28,8 @@ max_iter = 50
 
 for D in (4, 5, 6, 7, 8, 9)
     iter > max_iter && break
-    meth_learn = CLC.LearnPolyhedralPoints{D}()
-    meth_verify = CLC.VerifyPolyhedralMultiple{D}()
+    meth_learn = CPL.LearnPolyhedralPoints{D}()
+    meth_verify = CPL.VerifyPolyhedralMultiple{D}()
     # f_M = x -> sin(sqrt(x)) - log(x)
     # M = reshape(map(f_M, 1:D*D), D, D)
     M = Matrix{Float64}(I, D, D)
@@ -47,12 +47,12 @@ for D in (4, 5, 6, 7, 8, 9)
         A1 = U \ (ones(D, D) - (D + γ)*Matrix{Bool}(I, D, D)) * U
         A2 = U \ (ones(D, D) - (D + 1)*Matrix{Bool}(I, D, D)) * U
         As_list = [[A1], [A2]]
-        sys = CLC.PiecewiseLinearSystem{D}(2, Hs_list, As_list)
-        prob = CLC.CEGARProblem(sys, meth_learn, meth_verify)
-        x_list = CLC.vec_type[]
-        @time output = CLC.process_lyapunov_function(
+        sys = CPL.PiecewiseLinearSystem{D}(2, Hs_list, As_list)
+        prob = CPL.CEGARProblem(sys, meth_learn, meth_verify)
+        x_list = CPL.vec_type[]
+        @time output = CPL.process_lyapunov_function(
             prob, x_list, G0, Gmax, r0, rmin, params, solver)
-        time = @elapsed CLC.process_lyapunov_function(
+        time = @elapsed CPL.process_lyapunov_function(
             prob, x_list, G0, Gmax, r0, rmin, params, solver)
         complexity = length(output[1])
         flag = output[4]

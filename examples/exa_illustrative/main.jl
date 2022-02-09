@@ -4,8 +4,8 @@ using LinearAlgebra
 using JuMP
 using Gurobi
 using PyPlot
-include("../../src/CEGARLearningCLF.jl")
-CLC = CEGARLearningCLF
+include("../../src/CEGPolyhedralLyapunov.jl")
+CPL = CEGPolyhedralLyapunov
 include("../utils/polyhedra.jl")
 
 const GUROBI_ENV = Gurobi.Env()
@@ -14,16 +14,16 @@ solver = optimizer_with_attributes(
     "OutputFlag"=>false)
 
 ## Parameters
-meth_learn = CLC.LearnPolyhedralPoints{2}()
-meth_verify = CLC.VerifyPolyhedralMultiple{2}()
+meth_learn = CPL.LearnPolyhedralPoints{2}()
+meth_verify = CPL.VerifyPolyhedralMultiple{2}()
 Hs1 = [[0.0, -1.0]]
 As1 = [[-0.5 +1.0; -1.0 -0.5]]
 Hs2 = [[0.0, +1.0]]
 As2 = [[-0.0 +1.0; -1.0 -0.0]]
 Hs_list = [Hs1, Hs2]
 As_list = [As1, As2]
-sys = CLC.PiecewiseLinearSystem{2}(2, Hs_list, As_list)
-prob = CLC.CEGARProblem(sys, meth_learn, meth_verify)
+sys = CPL.PiecewiseLinearSystem{2}(2, Hs_list, As_list)
+prob = CPL.CEGARProblem(sys, meth_learn, meth_verify)
 G0 = 0.1
 Gmax = 10.0
 r0 = 0.01
@@ -37,9 +37,9 @@ params = (tol_faces=1e-5, tol_deriv=-1e-5,
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
 x_list = map(α -> [cos(α), sin(α)], α_list)
-x_dx_list = CLC._initial_witnesses(sys, x_list)
+x_dx_list = CPL._initial_witnesses(sys, x_list)
 
-δ, c_list, G, r, flag = CLC.learn_candidate_lyapunov_function(
+δ, c_list, G, r, flag = CPL.learn_candidate_lyapunov_function(
     meth_learn, x_dx_list,
     G0, Gmax, r0, rmin, params.tol_faces,
     params.print_period_1, solver)
@@ -111,7 +111,7 @@ fig.savefig("./examples/figures/fig_exa_illustrative_learner.png", dpi=200,
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
 c_list = map(α -> [cos(α), sin(α)], α_list)
-obj_max, x, flag, j, q, qA = CLC.verify_candidate_lyapunov_function(
+obj_max, x, flag, j, q, qA = CPL.verify_candidate_lyapunov_function(
     meth_verify, sys, c_list, params.tol_faces, solver)
 
 fig = figure(1, figsize=(8, 10))
@@ -178,7 +178,7 @@ fig.savefig("./examples/figures/fig_exa_illustrative_verifier.png", dpi=200,
 ## -----------------------------------------------------------------------------
 ## Process illustration
 x_list = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
-c_list, x_dx_list, deriv, flag, trace = CLC.process_lyapunov_function(
+c_list, x_dx_list, deriv, flag, trace = CPL.process_lyapunov_function(
     prob, x_list, G0, Gmax, r0, rmin, params, solver)
 
 ## Plotting
@@ -213,7 +213,7 @@ for (k, ax) in enumerate(ax_)
 end
 
 nv_max = -1.0
-verts_list = Vector{Vector{CLC.vec_type}}(undef, n_plot)
+verts_list = Vector{Vector{CPL.vec_type}}(undef, n_plot)
 
 for k = 1:n_plot
     global nv_max

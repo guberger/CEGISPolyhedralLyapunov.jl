@@ -81,7 +81,7 @@ function _learn_polyhedral(method::LearnPolyhedralPoints{D}, M, x_dx_list,
             for j = 1:N
                 j == i && continue
                 d = c_list[j]
-                @constraint(model, x'*(c - d) ≥ 0)
+                # @constraint(model, x'*(c - d) ≥ 0)
                 @constraint(model, dx'*d - G*x'*(c - d) + ndx*δ ≤ 0)
             end
         end
@@ -140,7 +140,7 @@ function _learn_polyhedral(method::LearnPolyhedralFixed{D}, M, x_dx_list,
         x = xt/nxt
         for j = 1:M
             c = c_list[j]
-            @constraint(model, x'*c ≤ val)
+            # @constraint(model, x'*c ≤ val)
             @constraint(model, val - x'*c ≤ BIG_M_x*(1 - bin_list[j]))
         end
         for dxt in x_dx_list[i][2]

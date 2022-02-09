@@ -1,4 +1,4 @@
-module CEGARLearningCLF
+module CEGPolyhedralLyapunov
 
 using LinearAlgebra
 using JuMP

@@ -5,11 +5,11 @@ using JuMP
 using HiGHS
 using Test
 @static if isdefined(Main, :TestLocal)
-    include("../src/CEGARLearningCLF.jl")
+    include("../src/CEGPolyhedralLyapunov.jl")
 else
-    using CEGARLearningCLF
+    using CEGPolyhedralLyapunov
 end
-CLC = CEGARLearningCLF
+CPL = CEGPolyhedralLyapunov
 
 # Temporary fix
 function HiGHS._check_ret(ret::Cint) 
@@ -26,8 +26,8 @@ sleep(0.1) # used for good printing
 println("Started test")
 
 ## Parameters
-meth_learn = CLC.LearnPolyhedralPoints{2}()
-meth_verify = CLC.VerifyPolyhedralMultiple{2}()
+meth_learn = CPL.LearnPolyhedralPoints{2}()
+meth_verify = CPL.VerifyPolyhedralMultiple{2}()
 params = (tol_faces=1e-1, tol_deriv=eps(1.0),
           print_period_1=1, print_period_2=1, iter_max=100,
           do_trace=true)
@@ -41,8 +41,8 @@ Hs3 = [[-1.0, 0.0]]
 As3 = [[0.0 0.0; 0.0 -1.0]]
 As_list = [As1, As2, As3]
 Hs_list = [Hs1, Hs2, Hs3]
-sys = CLC.PiecewiseLinearSystem{2}(3, Hs_list, As_list)
-prob = CLC.CEGARProblem(sys, meth_learn, meth_verify)
+sys = CPL.PiecewiseLinearSystem{2}(3, Hs_list, As_list)
+prob = CPL.CEGARProblem(sys, meth_learn, meth_verify)
 
 x_list = [[-1.0, 0.0]]
 
@@ -50,7 +50,7 @@ x_list = [[-1.0, 0.0]]
     G0 = Gmax = 1.0
     r0 = rmin = 0.0
     params2 = merge(params, (iter_max=1, do_trace=false))
-    c_list, x_dx_list, deriv, flag, trace = CLC.process_lyapunov_function(
+    c_list, x_dx_list, deriv, flag, trace = CPL.process_lyapunov_function(
         prob, x_list, G0, Gmax, r0, rmin, params2, solver)
     @test norm(c_list[1] - [-1, 0]) < eps(100.0)
     @test norm(c_list[2] - [-1, 0]) < eps(100.0)
@@ -66,7 +66,7 @@ end
 @testset "Process Points: feasible" begin
     G0 = Gmax = 1.0
     r0 = rmin = 0.0
-    c_list, x_dx_list, deriv, flag, trace = CLC.process_lyapunov_function(
+    c_list, x_dx_list, deriv, flag, trace = CPL.process_lyapunov_function(
         prob, x_list, G0, Gmax, r0, rmin, params, solver)
     @test norm(c_list[1] - [-1, 0]) < eps(100.0)
     @test norm(c_list[2] - [-1, 0]) < eps(100.0)

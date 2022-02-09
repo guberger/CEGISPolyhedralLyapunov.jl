@@ -30,10 +30,11 @@ function verify_candidate_lyapunov_function(method::VerifyPolyhedralMultiple,
             x = @variable(model, [1:D], base_name="x",
                     lower_bound=-x_bound, upper_bound=x_bound)
 
+            @constraint(model, c'*x == 1)
+
             for k = 1:M
                 k == j && continue
                 d = c_list[k]
-                @constraint(model, c'*x == 1)
                 @constraint(model, d'*x ≤ 1)
             end
 

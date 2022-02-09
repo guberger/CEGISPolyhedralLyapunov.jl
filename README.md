@@ -1,4 +1,4 @@
-# CEGARLearningCLF.jl
+# CEGPolyhedralLyapunov.jl
 
 A toolbox for the learning control Lyapunov functions from counterexamples and demonstrations
 
@@ -7,10 +7,10 @@ A toolbox for the learning control Lyapunov functions from counterexamples and d
 | [![Build Status][build-img]][build-url] |
 | [![Codecov branch][codecov-img]][codecov-url] |
 
-[build-img]: https://github.com/guberger/CEGARLearningCLF.jl/workflows/CI/badge.svg?branch=main
-[build-url]: https://github.com/guberger/CEGARLearningCLF.jl/actions?query=workflow%3ACI
-[codecov-img]: http://codecov.io/github/guberger/CEGARLearningCLF.jl/coverage.svg?branch=main
-[codecov-url]: http://codecov.io/github/guberger/CEGARLearningCLF.jl?branch=main
+[build-img]: https://github.com/guberger/CEGPolyhedralLyapunov.jl/workflows/CI/badge.svg?branch=main
+[build-url]: https://github.com/guberger/CEGPolyhedralLyapunov.jl/actions?query=workflow%3ACI
+[codecov-img]: http://codecov.io/github/guberger/CEGPolyhedralLyapunov.jl/coverage.svg?branch=main
+[codecov-url]: http://codecov.io/github/guberger/CEGPolyhedralLyapunov.jl?branch=main
 
 ## References
 

@@ -4,11 +4,11 @@ using JuMP
 using HiGHS
 using Test
 @static if isdefined(Main, :TestLocal)
-    include("../src/CEGARLearningCLF.jl")
+    include("../src/CEGPolyhedralLyapunov.jl")
 else
-    using CEGARLearningCLF
+    using CEGPolyhedralLyapunov
 end
-CLC = CEGARLearningCLF
+CPL = CEGPolyhedralLyapunov
 
 # Temporary fix
 function HiGHS._check_ret(ret::Cint) 
@@ -26,7 +26,7 @@ println("Started test")
 
 ## Parameters
 n_piece = 8
-method = CLC.LearnPolyhedralFixed{2}(n_piece)
+method = CPL.LearnPolyhedralFixed{2}(n_piece)
 tol_faces = 1e-5
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 print_period = 1
@@ -35,8 +35,8 @@ print_period = 1
 @testset "Learner Fixed: empty x_dx_list" begin
     G0 = Gmax = 1.0
     r0 = rmin = 1.0 + 1e-5
-    δ, c_list, G, r, flag = CLC.learn_candidate_lyapunov_function(
-        method, CLC.x_dx_type[],
+    δ, c_list, G, r, flag = CPL.learn_candidate_lyapunov_function(
+        method, CPL.x_dx_type[],
         G0, Gmax, r0, rmin, tol_faces,
         print_period, solver)
     @test isinf(δ)
@@ -56,7 +56,7 @@ x_dx_list = map(x -> (x, map(A -> A*x, A_list)), x_list)
 @testset "Learner Fixed: LTI infeasible G,r" begin
     G0 = Gmax = 1.0
     r0 = rmin = 1.0 + 1e-5
-    δ, c_list, G, r, flag = CLC.learn_candidate_lyapunov_function(
+    δ, c_list, G, r, flag = CPL.learn_candidate_lyapunov_function(
         method, x_dx_list,
         G0, Gmax, r0, rmin, tol_faces,
         print_period, solver)
@@ -72,7 +72,7 @@ end
     Gmax = 1.0 + 1e-5
     r0 = 4.0 - 1e-5
     rmin = 0.0
-    δ, c_list, G, r, flag = CLC.learn_candidate_lyapunov_function(
+    δ, c_list, G, r, flag = CPL.learn_candidate_lyapunov_function(
         method, x_dx_list,
         G0, Gmax, r0, rmin, tol_faces,
         print_period, solver)
@@ -84,7 +84,7 @@ end
 end
 
 n_piece = 1
-method = CLC.LearnPolyhedralFixed{2}(n_piece)
+method = CPL.LearnPolyhedralFixed{2}(n_piece)
 
 ## Solving
 @testset "Learner Fixed: LTI infeasible n_piece" begin
@@ -92,7 +92,7 @@ method = CLC.LearnPolyhedralFixed{2}(n_piece)
     Gmax = 1.0 + 1e-5
     r0 = 4.0 - 1e-5
     rmin = 0.0
-    δ, c_list, G, r, flag = CLC.learn_candidate_lyapunov_function(
+    δ, c_list, G, r, flag = CPL.learn_candidate_lyapunov_function(
         method, x_dx_list,
         G0, Gmax, r0, rmin, tol_faces,
         print_period, solver)
@@ -104,7 +104,7 @@ end
 
 ## Parameters
 n_piece = 40
-method = CLC.LearnPolyhedralFixed{2}(n_piece)
+method = CPL.LearnPolyhedralFixed{2}(n_piece)
 
 A1 = [-1.0 0.0; 0.0 -2.0]
 A2 = [-2.0 0.0; 0.0 -1.0]
@@ -117,7 +117,7 @@ x_dx_list = map(x -> (x, map(A -> A*x, A_list)), x_list)
 @testset "Learner Fixed: SLS infeasible" begin
     G0 = Gmax = 1.0
     r0 = rmin = 0.0 + 1e-5
-    δ, c_list, G, r, flag = CLC.learn_candidate_lyapunov_function(
+    δ, c_list, G, r, flag = CPL.learn_candidate_lyapunov_function(
         method, x_dx_list,
         G0, Gmax, r0, rmin, tol_faces,
         print_period, solver)
@@ -133,7 +133,7 @@ end
     Gmax = 2.0 + 1e-5
     r0 = 8.0 - 1e-5
     rmin = 0.0
-    δ, c_list, G, r, flag = CLC.learn_candidate_lyapunov_function(
+    δ, c_list, G, r, flag = CPL.learn_candidate_lyapunov_function(
         method, x_dx_list,
         G0, Gmax, r0, rmin, tol_faces,
         print_period, solver)
