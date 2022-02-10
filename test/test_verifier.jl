@@ -1,5 +1,4 @@
-module TestMain
-
+using StaticArrays
 using LinearAlgebra
 using JuMP
 using HiGHS
@@ -22,62 +21,59 @@ function HiGHS._check_ret(ret::Cint)
     return 
 end 
 
-sleep(0.1) # used for good printing
-println("Started test")
-
-## Parameters
-# method_s = CPL.VerifyPolyhedralSingle{2}()
-method_m = CPL.VerifyPolyhedralMultiple{2}()
-tol_faces = 1e-5
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
-Hs1 = [[+1.0, 0.0]]
-As1 = [[-1.0 0.0; 0.0 0.0], [-1.0 0.1; 0.0 -1.0]]
-Hs2 = [[-1.0, 0.0]]
-As2 = [[1.0 0.1; 0.0 0.0], [0.5 0.0; 0.0 0.5]]
-As_list = [As1, As2]
-Hs_list = [Hs1, Hs2]
-sys = CPL.PiecewiseLinearSystem{2}(2, Hs_list, As_list)
+## Parameters
+ϵ = 1e-5
+DV = Val(2)
 
-c_list = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
+## Tests
+consts1 = [[+1, 0]]
+fields1 = [[-1 0; 0 0], [-1 0.1; 0 -1]]
+consts2 = [[-1, 0]]
+fields2 = [[+1 0.1; 0 0], [0.5 0; 0 0.5]]
+sys1 = CPL.LinearSystem(DV, consts1, fields1)
+sys2 = CPL.LinearSystem(DV, consts2, fields2)
+systems = (sys1, sys2)
 
-## Solving
+coeffs = SVector{2}.([[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]])
+obj_max, x, flag, i, q, σ = CPL.verify_PLF(systems, coeffs, ϵ, solver)
+
 @testset "Verifier: #1" begin
-    obj_max, x, flag, j, q, qA = CPL.verify_candidate_lyapunov_function(
-        method_m, sys, c_list, tol_faces, solver)
     @test abs(obj_max - 1.1) < 1e-9
     @test norm(x - [1.0, 1.0]) < 1e-9
     @test flag
-    @test j == 2
+    @test i == 2
     @test q == 2
-    @test qA == 1
+    @test σ == 1
 end
 
-## Parameters
-As_list[2] = [zeros(2, 2), zeros(2, 2), [0.0 0.0; 1.0 0.0]]
+fields2 = [zeros(2, 2), zeros(2, 2), [0.0 0.0; 1.0 0.0]]
+sys2 = CPL.LinearSystem(DV, consts2, fields2)
+systems = (sys1, sys2)
 
-## Solving
+obj_max, x, flag, i, q, σ = CPL.verify_PLF(systems, coeffs, ϵ, solver)
+
 @testset "Verifier: #2" begin
-    obj_max, x, flag, j, q, qA = CPL.verify_candidate_lyapunov_function(
-        method_m, sys, c_list, tol_faces, solver)
     @test abs(obj_max - 1.0) < 1e-9
     @test norm(x - [1.0, 1.0]) < 1e-9
     @test flag
-    @test j == 4
+    @test i == 4
     @test q == 2
-    @test qA == 3
+    @test σ == 3
 end
 
-## Parameters
-As_list[1] = [[-1.0 0.1; 0.0 -1.0]]
-As_list[2] = [[-3.0 0.0; 0.0 -3.0]]
+fields1 = [[-1.0 0.1; 0.0 -1.0]]
+fields2 = [[-3.0 0.0; 0.0 -3.0]]
+sys1 = CPL.LinearSystem(DV, consts1, fields1)
+sys2 = CPL.LinearSystem(DV, consts2, fields2)
+systems = (sys1, sys2)
 
-## Solving
+obj_max, x, flag, i, q, σ = CPL.verify_PLF(systems, coeffs, ϵ, solver)
+
 @testset "Verifier: #3" begin
-    obj_max, x, flag, j, q, qA = CPL.verify_candidate_lyapunov_function(
-        method_m, sys, c_list, tol_faces, solver)
     @test abs(obj_max + 0.9) < 1e-9
     @test norm(x - [-1.0, -1.0]) < 1e-9
 end
 
-end # TestMain
+println("\nfinished-----------------------------------------------------------")

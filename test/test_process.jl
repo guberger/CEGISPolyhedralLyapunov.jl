@@ -1,0 +1,80 @@
+using LinearAlgebra
+using JuMP
+using HiGHS
+using Test
+@static if isdefined(Main, :TestLocal)
+    include("../src/CEGPolyhedralLyapunov.jl")
+else
+    using CEGPolyhedralLyapunov
+end
+CPL = CEGPolyhedralLyapunov
+
+# Temporary fix
+function HiGHS._check_ret(ret::Cint) 
+    if ret != Cint(0) && ret != Cint(1)
+        error(
+            "Encountered an error in HiGHS (Status $(ret)). Check the log " * 
+            "for details.", 
+        )
+    end 
+    return 
+end 
+
+solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
+
+## Parameters
+ϵ = 1e-1
+tol = eps(1.0)
+DV = Val(2)
+
+## Tests
+consts1 = [[+1, 0], [0, -1]]
+fields1 = [[0 +1; -1 0.01]]
+consts2 = [[+1, 0], [0, +1]]
+fields2 = [[0 -1; +1 0.01]]
+consts3 = [[-1, 0]]
+fields3 = [[0 0; 0 -1]]
+sys1 = CPL.LinearSystem(DV, consts1, fields1)
+sys2 = CPL.LinearSystem(DV, consts2, fields2)
+sys3 = CPL.LinearSystem(DV, consts3, fields3)
+systems = (sys1, sys2, sys3)
+
+points_init = [[-1, 0]]
+witnesses_init = CPL.make_witnesses(systems, points_init)
+G0 = Gmax = 1.0
+r0 = rmin = 0.0
+coeffs, witnesses, deriv, flag, trace =
+    CPL.process_PLF(systems, witnesses_init,
+                    G0, Gmax, r0, rmin, ϵ, tol,
+                    solver, trace=false, iter_max=1)
+
+@testset "Process Points: infeasible iter_max" begin
+    @test norm(coeffs[1] - [-1, 0]) < eps(100.0)
+    @test norm(coeffs[2] - [-1, 0]) < eps(100.0)
+    @test deriv > tol
+    @test !flag
+    @test isempty(trace.coeffs_list)
+    @test isempty(trace.witnesses_list)
+    @test isempty(trace.flags_learner)
+    @test isempty(trace.counterexample_list)
+    @test isempty(trace.flags_verifier)
+end
+
+coeffs, witnesses, deriv, flag, trace =
+    CPL.process_PLF(systems, witnesses_init,
+                    G0, Gmax, r0, rmin, ϵ, tol,
+                    solver, iter_max=100)
+
+@testset "Process Points: feasible" begin
+    @test norm(coeffs[1] - [-1, 0]) < eps(100.0)
+    @test norm(coeffs[2] - [-1, 0]) < eps(100.0)
+    @test abs(deriv) < eps(100.0)
+    @test flag
+    @test !isempty(trace.coeffs_list)
+    @test !isempty(trace.witnesses_list)
+    @test all(trace.flags_learner)
+    @test !isempty(trace.counterexample_list)
+    @test all(trace.flags_verifier)
+end
+
+println("\nfinished-----------------------------------------------------------")

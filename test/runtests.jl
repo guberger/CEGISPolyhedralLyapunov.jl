@@ -1,5 +1,4 @@
-include("test_learner_points.jl")
-include("test_learner_fixed.jl")
+include("test_structs.jl")
+include("test_learner.jl")
 include("test_verifier.jl")
-include("test_process_points.jl")
-include("test_process_fixed.jl")
+include("test_process.jl")

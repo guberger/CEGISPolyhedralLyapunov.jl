@@ -1,96 +1,78 @@
-function process_lyapunov_function(prob::CEGARProblem{D}, x_list,
-                                   G0, Gmax, r0, rmin, params, solver) where D
-    sys = prob.sys
-    c_list = vec_type[]
-    meth_learn = prob.meth_learn
-    meth_verify = prob.meth_verify
-    tol_faces = params.tol_faces
-    print_period = params.print_period_2
+function process_PLF(systems, witnesses_init,
+                     G0, Gmax, r0, rmin, ϵ, tol,
+                     solver; kwargs...)
+    D = state_dim(eltype(systems))
+    WT_ = Witness{D}
+    CT_ = SVector{D,Float64}
+    coeffs = CT_[]
+    output_period = get(kwargs, :output_period, 1)
+    learner_output = get(kwargs, :learner_output, true)
+    iter_max = get(kwargs, :iter_max, -1)
+    do_trace = get(kwargs, :trace, true)
 
     # Trace
-    do_trace = haskey(params, :do_trace) && params.do_trace
-    trace = (c_list=Vector{vec_type}[],
-             x_dx_list=Vector{x_dx_type}[],
-             flag_learner=Bool[],
-             x_dx=x_dx_type[],
-             flag_verifier=Bool[])
+    trace = (coeffs_list=Vector{CT_}[],
+             witnesses_list=Vector{WT_}[],
+             flags_learner=Bool[],
+             counterexample_list=WT_[],
+             flags_verifier=Bool[])
 
     iter = 0
     G = G0
     r = r0
     flag = false
     obj_max = Inf
-    x_dx_list = _initial_witnesses(sys, x_list)
-    c0_list = _hypercube(D, tol_faces/2)
+    witnesses = copy(witnesses_init)
+    dict_indexes = Dict([(w, (i,)) for (i, w) in enumerate(witnesses)])
+    get_indexes(witness) = get(dict_indexes, witness, (0,))
+    coeffs_cube = (ϵ/2).*make_hypercube(Val(D))
 
     while true
-        if haskey(params, :iter_max) && iter ≥ params.iter_max
-            @printf("Max iter (%d) exceeded\n", params.iter_max)
+        if iter_max ≥ 0 && iter ≥ iter_max
+            @printf("Max iter (%d) exceeded\n", iter_max)
             flag = false
             break
         end
         iter += 1
 
-        _, c_list, G, r, flag = learn_candidate_lyapunov_function(
-            meth_learn, x_dx_list, G, Gmax, r, rmin,
-            tol_faces, params.print_period_1, solver)
+        M = length(witnesses)
+        _, coeffs, G, r, flag = learn_PLF_params(M, witnesses, get_indexes,
+                                                 G, Gmax, r, rmin, ϵ,
+                                                 solver, output=learner_output)
 
         if do_trace
-            push!(trace.x_dx_list, copy(x_dx_list))
-            push!(trace.c_list, copy(c_list))
-            push!(trace.flag_learner, flag)
+            push!(trace.witnesses_list, copy(witnesses))
+            push!(trace.coeffs_list, copy(coeffs))
+            push!(trace.flags_learner, flag)
         end
 
         !flag && break
 
-        append!(c_list, c0_list)
-
-        obj_max, x, flag, j, q = verify_candidate_lyapunov_function(
-            meth_verify, sys, c_list, params.tol_faces, solver)
+        append!(coeffs, coeffs_cube)
+        obj_max, x, flag, i, q, σ = verify_PLF(systems, coeffs, ϵ, solver)
 
         if do_trace
-            push!(trace.flag_verifier, flag)
+            push!(trace.flags_verifier, flag)
         end
 
         !flag && break
         
-        if print_period ≥ 0 && mod(iter - 1, print_period) == 0
+        if output_period ≥ 0 && mod(iter - 1, output_period) == 0
             @printf("Iter: %d, obj_max: %f\n", iter, obj_max)
         end
         
-        obj_max < params.tol_deriv && break
+        obj_max < tol && break
 
-        x_dx = (x, map(A -> A*x, sys.As_list[q]))
+        witness = Witness(x, map(A -> A*x, systems[q].fields))
         if do_trace
-            push!(trace.x_dx, x_dx)
+            push!(trace.counterexample_list, witness)
         end
-        push!(x_dx_list, x_dx)
+        push!(witnesses, witness)
+        dict_indexes[witness] = (M + 1,)
     end
 
     @printf("\nTerminated (flag: %s): Iter: %d, deriv_max: %f\n",
         flag, iter, obj_max)
 
-    return c_list, x_dx_list, obj_max, flag, trace
-end
-
-function _initial_witnesses(sys, x_list)
-    Q = sys.n_mode
-    x_dx_list = x_dx_type[]
-    for x in x_list
-        for q in 1:Q
-            A_set, H_set = sys.As_list[q], sys.Hs_list[q]
-            any(h -> h'*x > 0, H_set) && continue
-            push!(x_dx_list, (x, map(A -> A*x, A_set)))
-        end
-    end
-    return x_dx_list
-end
-
-function _hypercube(D, ϵ)
-    c_list = Vector{vec_type}(undef, 2*D)
-    for i = 1:D
-        c_list[2*i - 1] = vcat(zeros(i - 1), [+ϵ], zeros(D - i))
-        c_list[2*i + 0] = vcat(zeros(i - 1), [-ϵ], zeros(D - i))
-    end
-    return c_list
+    return coeffs, witnesses, obj_max, flag, trace
 end

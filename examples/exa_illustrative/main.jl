@@ -1,5 +1,6 @@
-module TestMain
+module ExampleIllustrative
 
+using StaticArrays
 using LinearAlgebra
 using JuMP
 using Gurobi
@@ -14,35 +15,33 @@ solver = optimizer_with_attributes(
     "OutputFlag"=>false)
 
 ## Parameters
-meth_learn = CPL.LearnPolyhedralPoints{2}()
-meth_verify = CPL.VerifyPolyhedralMultiple{2}()
-Hs1 = [[0.0, -1.0]]
-As1 = [[-0.5 +1.0; -1.0 -0.5]]
-Hs2 = [[0.0, +1.0]]
-As2 = [[-0.0 +1.0; -1.0 -0.0]]
-Hs_list = [Hs1, Hs2]
-As_list = [As1, As2]
-sys = CPL.PiecewiseLinearSystem{2}(2, Hs_list, As_list)
-prob = CPL.CEGARProblem(sys, meth_learn, meth_verify)
+consts1 = [[0.0, -1.0]]
+fields1 = [[-0.5 +1.0; -1.0 -0.5]]
+consts2 = [[0.0, +1.0]]
+fields2 = [[-0.0 +1.0; -1.0 -0.0]]
+sys1 = CPL.LinearSystem(Val(2), consts1, fields1)
+sys2 = CPL.LinearSystem(Val(2), consts2, fields2)
+systems = (sys1, sys2)
+
 G0 = 0.1
 Gmax = 10.0
 r0 = 0.01
 rmin = 1e-6
-params = (tol_faces=1e-5, tol_deriv=-1e-5,
-          print_period_1=1, print_period_2=1,
-          do_trace=true)
+ϵ = 1e-5
+tol = -1e-5
 
 ## -----------------------------------------------------------------------------
 ## Learner illustration
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
-x_list = map(α -> [cos(α), sin(α)], α_list)
-x_dx_list = CPL._initial_witnesses(sys, x_list)
+points = map(α -> [cos(α), sin(α)], α_list)
+witnesses = CPL.make_witnesses(systems, points)
 
-δ, c_list, G, r, flag = CPL.learn_candidate_lyapunov_function(
-    meth_learn, x_dx_list,
-    G0, Gmax, r0, rmin, params.tol_faces,
-    params.print_period_1, solver)
+M = length(witnesses)
+dict_indexes = Dict([(w, (i,)) for (i, w) in enumerate(witnesses)])
+get_indexes(witness) = get(dict_indexes, witness, (0,))
+δ, coeffs, G, r, flag = CPL.learn_PLF_params(M, witnesses, get_indexes,
+                                             G0, Gmax, r0, rmin, ϵ, solver)
 
 fig = figure(0, figsize=(8, 10))
 ax = fig.add_subplot(aspect="equal")
@@ -55,17 +54,16 @@ ax.set_xticks(-2:1:2)
 ax.set_yticks(-2:1:2)
 ax.tick_params(axis="both", labelsize=15)
 
-verts = retrieve_vertices_2d(c_list)
+verts = retrieve_vertices_2d(coeffs)
 nv = maximum(x -> norm(x, Inf), verts)
 scaling = 1.8/nv
 
 norm_dx_max = -1.0
 
-for x_dx in x_dx_list
+for witness in witnesses
     global norm_dx_max
-    x, dx_list = x_dx
-    nx = norm_poly(x, c_list)
-    for dx in dx_list
+    nx = norm_poly(witness.point, coeffs)
+    for dx in witness.flows
         norm_dx_max = max(norm_dx_max, norm(dx)/nx)
     end
 end
@@ -82,12 +80,12 @@ ax.add_collection(polylist)
 
 α_dx = 0.6
 
-for x_dx in x_dx_list
-    x, dx_list = x_dx
-    nx = norm_poly(x, c_list)
+for witness in witnesses
+    x = witness.point
+    nx = norm_poly(x, coeffs)
     xs = x*scaling/nx
     ax.plot(xs..., marker=".", ms=15, c="blue")
-    for dx in dx_list
+    for dx in witness.flows
         dxs = dx/norm_dx_max
         ys = xs + α_dx*dxs
         ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="green", lw=2.5)
@@ -104,15 +102,14 @@ LH = (matplotlib.patches.Patch(fc="gold", ec="gold", lw=2.5, alpha=0.5,
 ax.legend(handles=LH, fontsize=20, loc="upper left")
 
 fig.savefig("./examples/figures/fig_exa_illustrative_learner.png", dpi=200,
-    transparent=false, bbox_inches="tight")
+            transparent=false, bbox_inches="tight")
 
 ## -----------------------------------------------------------------------------
 ## Verifier illustration
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
-c_list = map(α -> [cos(α), sin(α)], α_list)
-obj_max, x, flag, j, q, qA = CPL.verify_candidate_lyapunov_function(
-    meth_verify, sys, c_list, params.tol_faces, solver)
+coeffs = map(α -> SVector{2}(cos(α), sin(α)), α_list)
+obj_max, x, flag, i, q, σ = CPL.verify_PLF(systems, coeffs, ϵ, solver)
 
 fig = figure(1, figsize=(8, 10))
 ax = fig.add_subplot(aspect="equal")
@@ -134,11 +131,11 @@ for q = 1:2
     X = map(x -> [x...], Iterators.product(x1_grid, x2_grid))
     X1 = map(x -> x[1], X)
     X2 = map(x -> x[2], X)
-    F = [map(x -> (As_list[q][1]*x)[i], X) for i = 1:2]
+    F = [map(x -> (systems[q].fields[1]*x)[i], X) for i = 1:2]
     ax.quiver(X1, X2, F..., color="gray")
 end
 
-verts = retrieve_vertices_2d(c_list)
+verts = retrieve_vertices_2d(coeffs)
 nv = maximum(x -> norm(x, Inf), verts)
 scaling = 1.2/nv
 
@@ -153,10 +150,10 @@ polylist.set_linewidth(2.0)
 ax.add_collection(polylist)
 
 α_dx = 0.6
-nx = norm_poly(x, c_list)
+nx = norm_poly(x, coeffs)
 xs = x*scaling/nx
 ax.plot(xs..., marker=".", ms=15, c="black")
-dx = As_list[q][qA]*x
+dx = systems[q].fields[σ]*x
 dxs = dx/norm(dx)
 ys = xs + α_dx*dxs
 ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="red", lw=2.5)
@@ -170,23 +167,27 @@ ax.text(1.5, -1.6, L"\mathcal{Q}(x)=2",
 
 LH = (matplotlib.patches.Patch(fc="gold", ec="gold", lw=2.5, alpha=0.5,
         label=L"V(x)\leq1"),)
-ax.legend(handles=LH, fontsize=20, loc="upper left", facecolor="white", framealpha=1.0)
+ax.legend(handles=LH, fontsize=20, loc="upper left",
+          facecolor="white", framealpha=1.0)
 
 fig.savefig("./examples/figures/fig_exa_illustrative_verifier.png", dpi=200,
-    transparent=false, bbox_inches="tight")
+            transparent=false, bbox_inches="tight")
 
 ## -----------------------------------------------------------------------------
 ## Process illustration
-x_list = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
-c_list, x_dx_list, deriv, flag, trace = CPL.process_lyapunov_function(
-    prob, x_list, G0, Gmax, r0, rmin, params, solver)
+points = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
+witnesses_init = CPL.make_witnesses(systems, points)
+coeffs, witnesses, deriv, flag, trace =
+    CPL.process_PLF(systems, witnesses_init,
+                    G0, Gmax, r0, rmin, ϵ, tol,
+                    solver)
 
 ## Plotting
 fig = figure(2, figsize=(8, 10))
 ax_ = fig.subplots(nrows=4, ncols=3,
     gridspec_kw=Dict("wspace"=>0.1, "hspace"=>0.1),
     subplot_kw=Dict("aspect"=>"equal"))
-n_trace = length(trace.c_list)
+n_trace = length(trace.coeffs_list)
 indexes1 = 1:min(6, n_trace)
 indexes2 = n_trace ≤ 12 ? (7:n_trace) :
     unique(round.(Int, range(6, n_trace, length=7)[2:7]))
@@ -213,13 +214,13 @@ for (k, ax) in enumerate(ax_)
 end
 
 nv_max = -1.0
-verts_list = Vector{Vector{CPL.vec_type}}(undef, n_plot)
+verts_list = Vector{Vector{Vector{Float64}}}(undef, n_plot)
 
 for k = 1:n_plot
     global nv_max
     idx = indexes[k]
-    c_list = trace.c_list[idx]
-    verts = retrieve_vertices_2d(c_list)
+    coeffs = trace.coeffs_list[idx]
+    verts = retrieve_vertices_2d(coeffs)
     verts_list[k] = verts
     nv_max = max(nv_max, maximum(x -> norm(x, Inf), verts))
 end
@@ -231,12 +232,9 @@ norm_dx_max = -1.0
 for k = 1:n_plot
     global norm_dx_max
     idx = indexes[k]
-    c_list = trace.c_list[idx]
-    x_dx_list = trace.x_dx_list[idx]
-    for x_dx in x_dx_list
-        x, dx_list = x_dx
-        nx = norm_poly(x, c_list)
-        for dx in dx_list
+    for witness in trace.witnesses_list[idx]
+        nx = norm_poly(witness.point, trace.coeffs_list[idx])
+        for dx in witness.flows
             norm_dx_max = max(norm_dx_max, norm(dx)/nx)
         end
     end
@@ -249,7 +247,7 @@ for k = 1:n_plot
     idx = indexes[k]
     ax.plot(xlims, (0, 0), ls="--", c="black", lw=0.5)
     ax.plot(0, 0, marker="x", ms=5, c="black", mew=1.5)
-    c_list = trace.c_list[idx]
+    coeffs = trace.coeffs_list[idx]
     verts = map(x -> x*scaling, verts_list[k])
     polylist = matplotlib.collections.PolyCollection([verts])
     fca = matplotlib.colors.colorConverter.to_rgba("gold", alpha=0.5)
@@ -257,24 +255,24 @@ for k = 1:n_plot
     polylist.set_edgecolor("gold")
     polylist.set_linewidth(1.0)
     ax.add_collection(polylist)
-    x_dx_list = trace.x_dx_list[idx]
-    for x_dx in x_dx_list
-        x, dx_list = x_dx
-        nx = norm_poly(x, c_list)
+    for witness in trace.witnesses_list[idx]
+        x = witness.point
+        nx = norm_poly(x, coeffs)
         xs = x*scaling/nx
         ax.plot(xs..., marker=".", ms=7.5, c="blue")
-        for dx in dx_list
+        for dx in witness.flows
             dxs = dx/norm_dx_max
             ys = xs + α_dx*dxs
             ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="green", lw=1.5)
         end
     end
     if idx ≤ n_trace - 1
-        x, dx_list = trace.x_dx[idx]
-        nx = norm_poly(x, c_list)
+        counterexample = trace.counterexample_list[idx]
+        x = counterexample.point
+        nx = norm_poly(x, coeffs)
         xs = x*scaling/nx
         ax.plot(xs..., marker=".", ms=7.5, c="black")
-        for dx in dx_list
+        for dx in counterexample.flows
             dxs = dx/norm_dx_max
             ys = xs + α_dx*dxs
             ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="red", lw=1.5)
@@ -284,13 +282,12 @@ for k = 1:n_plot
         horizontalalignment="center", fontsize=14)
 end
 
-x0 = [1.0, -1e-6]
+x0 = SVector{2}(1.0, -1e-6)
 idx = indexes[12]
-c_list = trace.c_list[idx]
-x = x0*scaling/norm_poly(x0, c_list)
+x = x0*scaling/norm_poly(x0, trace.coeffs_list[idx])
 ax = ax_[12]
 
-ax.plot(x0..., marker=".", ms=7.5, c="purple")
+ax.plot(x..., marker=".", ms=7.5, c="purple")
 
 nstep = 100
 dt = 4π/nstep
@@ -302,19 +299,18 @@ for t = 1:nstep
         xplot_seq[i][t] = x[i]
     end
     q = 0
-    for qbis = 1:length(Hs_list)
-        if all(h -> h'*x ≤ 0, Hs_list[qbis])
-            q = qbis
+    for sys in systems
+        if all(h -> dot(h, x) ≤ 0, sys.consts)
+            A = sys.fields[1]
+            x = exp(A*dt)*x
             break
         end
-    end
-    A = As_list[q][1]
-    x = exp(A*dt)*x
+    end   
 end
 
 ax.plot(xplot_seq[1], xplot_seq[2], lw=1.5, c="purple")
 
 fig.savefig("./examples/figures/fig_exa_illustrative_process.png", dpi=200,
-    transparent=false, bbox_inches="tight")
+            transparent=false, bbox_inches="tight")
 
-end # TestMain
+end # module

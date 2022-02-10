@@ -1,4 +1,4 @@
-module TestMain
+module ExampleSpringPID_ComputeLyapunov
 
 using JuMP
 using Gurobi
@@ -15,34 +15,34 @@ solver = optimizer_with_attributes(
     "OutputFlag"=>false)
 
 ## Parameters
-meth_learn = CPL.LearnPolyhedralPoints{3}()
-meth_verify = CPL.VerifyPolyhedralMultiple{3}()
-Hs1 = [[+Ki, +Kp, +Kd]]
-As1 = [[-c_aw 1.0 0.0; 0.0 0.0 1.0; 0.0 -a0 -a1]]
-Hs2 = [[-Ki, -Kp, -Kd]]
-As2 = [[0.0 1.0 0.0; 0.0 0.0 1.0; -Ki -(a0 + Kp) -(a1 + Kd)]]
-Hs_list = [Hs1, Hs2]
-As_list = [As1, As2]
-sys = CPL.PiecewiseLinearSystem{3}(2, Hs_list, As_list)
-prob = CPL.CEGARProblem(sys, meth_learn, meth_verify)
+consts1 = [[+Ki, +Kp, +Kd]]
+fields1 = [[-c_aw 1.0 0.0; 0.0 0.0 1.0; 0.0 -a0 -a1]]
+consts2 = [[-Ki, -Kp, -Kd]]
+fields2 = [[0.0 1.0 0.0; 0.0 0.0 1.0; -Ki -(a0 + Kp) -(a1 + Kd)]]
+sys1 = CPL.LinearSystem(Val(3), consts1, fields1)
+sys2 = CPL.LinearSystem(Val(3), consts2, fields2)
+systems = (sys1, sys2)
+
 G0 = 0.1
 Gmax = 1000.0
 r0 = 0.01
 rmin = eps(1.0)
-params = (tol_faces=1/50, tol_deriv=-1e-5,
-          print_period_1=1, print_period_2=1,
-          do_trace=true)
+ϵ = 1/50
+tol = -1e-5
 
-x_list = CPL._hypercube(3, 1.0)
+points = CPL.make_hypercube(Val(3))
+witnesses_init = CPL.make_witnesses(systems, points)
 
 ## Solving
-c_list, x_dx_list, deriv, flag, trace = @time CPL.process_lyapunov_function(
-    prob, x_list, G0, Gmax, r0, rmin, params, solver)
+coeffs, witnesses, deriv, flag, trace =
+    @time CPL.process_PLF(systems, witnesses_init,
+                          G0, Gmax, r0, rmin, ϵ, tol,
+                          solver)
 
 f = open(string(@__DIR__, "/lyapunov-", datafile, ".txt"), "w")
-for c in c_list
+for c in coeffs
     println(f, c)
 end
 close(f)
 
-end # TestMain
+end # module

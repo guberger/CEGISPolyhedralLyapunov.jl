@@ -1,49 +1,42 @@
-"""
-    verify_candidate_lyapunov_function(method, sys,
-                                       c_list, tol_faces, solver)
+function _make_xvars_verifier(model, C, ::Val{D}) where D
+    _xvar(k) = @variable(model, lower_bound=-C, upper_bound=+C)
+    return SVector{D}(ntuple(k -> _xvar(k), Val(D)))
+end
 
-`AH_list` is a set of `(A_set, H_set)` where `A_set` is a set of matrices and
-`H_set` is a set of vectors `c` defining a cone by the inequalities `c'*x ≤ 0`.
-"""
-function verify_candidate_lyapunov_function(method::VerifyPolyhedralMultiple,
-                                            sys::PiecewiseLinearSystem,
-                                            c_list, tol_faces, solver)
-    D = state_dim(method)
-    M = length(c_list)
-    Q = sys.n_mode
+function _make_consts_verifier(model, x, coeffs, c, consts)
+    @constraint(model, dot(c, x) == 1)
+    for d in coeffs
+        d == c && continue
+        @constraint(model, dot(d, x) ≤ 1)
+    end
+    for h in consts
+        @constraint(model, dot(h, x) ≤ 0)
+    end
+    return nothing
+end
+
+function verify_PLF(systems, coeffs, ϵ, solver)
+    D = state_dim(eltype(systems))
+    Q = length(systems)
     obj_max = -Inf
-    x_opt = zeros(D)
-    j_opt = 0
+    x_opt = zeros(SVector{D})
+    i_opt = 0
     q_opt = 0
-    qA_opt = 0
+    σ_opt = 0
     flag = false
     flag_prob = false
-    x_bound = 2/max(tol_faces, 1e-9)
+    C = 2/max(ϵ, 1e-9)
     
-    for j = 1:M
+    for (i, c) in enumerate(coeffs)
         flag_prob && break
-        c = c_list[j]
-
-        for q = 1:Q
-            A_set, H_set = sys.As_list[q], sys.Hs_list[q]
+        for (q, sys) in enumerate(systems)
             model = Model(solver)
-            x = @variable(model, [1:D], base_name="x",
-                    lower_bound=-x_bound, upper_bound=x_bound)
+            x = _make_xvars_verifier(model, C, Val(D))
 
-            @constraint(model, c'*x == 1)
+            _make_consts_verifier(model, x, coeffs, c, sys.consts)
 
-            for k = 1:M
-                k == j && continue
-                d = c_list[k]
-                @constraint(model, d'*x ≤ 1)
-            end
-
-            for h in H_set
-                @constraint(model, h'*x ≤ 0)
-            end
-
-            for (qA, A) in enumerate(A_set)
-                @objective(model, Max, c'*(A*x))
+            for (σ, A) in enumerate(sys.fields)
+                @objective(model, Max, dot(c, A*x))
 
                 optimize!(model)
 
@@ -56,16 +49,14 @@ function verify_candidate_lyapunov_function(method::VerifyPolyhedralMultiple,
                     if obj_val > obj_max
                         obj_max = obj_val
                         x_opt = value.(x)
-                        j_opt, q_opt, qA_opt = j, q, qA
+                        i_opt, q_opt, σ_opt = i, q, σ
                     end
                 elseif TS == 2 && iszero(PS)
                     # nothing
                 else
-                    println("Problem in verifying Lyapunov function")
-                    @printf("j: %d, q: %d, qA: %d\n", j, q, qA)
-                    println(string.((termination_status(model),
-                                    primal_status(model),
-                                    dual_status(model))))
+                    println("Problem in verifying PLF")
+                    @printf("j: %d, q: %d, σ: %d\n", j, q, σ)
+                    println(string.(get_status(model)))
                     flag_prob = true
                     break
                 end
@@ -75,5 +66,5 @@ function verify_candidate_lyapunov_function(method::VerifyPolyhedralMultiple,
 
     flag = !flag_prob && flag
 
-    return obj_max, x_opt, flag, j_opt, q_opt, qA_opt
+    return obj_max, x_opt, flag, i_opt, q_opt, σ_opt
 end

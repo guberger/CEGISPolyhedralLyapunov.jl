@@ -1,4 +1,4 @@
-module TestMain
+module ExampleSpringPID
 
 using LinearAlgebra
 using PyPlot
@@ -11,16 +11,16 @@ include(string("./", datafile, ".jl"))
 
 str = readlines(string(@__DIR__, "/lyapunov-", datafile, ".txt"))
 M = length(str)
-c_list = Vector{Vector{Float64}}(undef, M)
+coeffs = Vector{Vector{Float64}}(undef, M)
 
-for (j, ln) in enumerate(str)
+for (i, ln) in enumerate(str)
     ln = replace(ln, r"[\[\],]"=>"")
     words = split(ln)
     @assert length(words) == 3
-    c_list[j] = parse.(Float64, words)
+    coeffs[i] = parse.(Float64, words)
 end
 
-simplices = retrieve_simplices_3d(c_list)
+simplices = retrieve_simplices_3d(coeffs)
 
 fig = figure(0, figsize=(8, 10))
 ax = fig.add_subplot(projection="3d")
@@ -65,7 +65,7 @@ Vplot_seq = Vector{Float64}(undef, nstep)
 
 for t = 1:nstep
     global x
-    Vplot_seq[t] = norm_poly(x, c_list)
+    Vplot_seq[t] = norm_poly(x, coeffs)
     xnext = Vector{Float64}(undef, 3)
     if Kd*x[3] + Kp*x[2] + Ki*x[1] ≥ 0
         xnext[1] = x[1] + dt*(x[2])
@@ -91,4 +91,4 @@ filename = string(@__DIR__, "/../figures/fig_exa_mass_spring_decrease.png")
 fig.savefig(filename, dpi=200,
     transparent=false, bbox_inches="tight")
 
-end # TestMain
+end # module
