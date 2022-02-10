@@ -1,25 +1,21 @@
-function _make_xvars_verifier(model, C, ::Val{D}) where D
-    _xvar(k) = @variable(model, lower_bound=-C, upper_bound=+C)
-    return SVector{D}(ntuple(k -> _xvar(k), Val(D)))
+function _make_xvars_verifier(model, C, dim)
+    return @variable(model, [1:dim], lower_bound=-C, upper_bound=+C)
 end
 
-function _make_consts_verifier(model, x, coeffs, c, consts)
+function _make_consts_verifier(model, x, coeffs, c, H)
     @constraint(model, dot(c, x) == 1)
     for d in coeffs
         d == c && continue
         @constraint(model, dot(d, x) ≤ 1)
     end
-    for h in consts
-        @constraint(model, dot(h, x) ≤ 0)
-    end
+    @constraint(model, H*x .≤ 0)
     return nothing
 end
 
-function verify_PLF(systems, coeffs, ϵ, solver)
-    D = state_dim(eltype(systems))
+function verify_PLF(dim, systems, coeffs, ϵ, solver)
     Q = length(systems)
     obj_max = -Inf
-    x_opt = zeros(SVector{D})
+    x_opt = zeros(dim)
     i_opt = 0
     q_opt = 0
     σ_opt = 0
@@ -31,9 +27,9 @@ function verify_PLF(systems, coeffs, ϵ, solver)
         flag_prob && break
         for (q, sys) in enumerate(systems)
             model = Model(solver)
-            x = _make_xvars_verifier(model, C, Val(D))
+            x = _make_xvars_verifier(model, C, dim)
 
-            _make_consts_verifier(model, x, coeffs, c, sys.consts)
+            _make_consts_verifier(model, x, coeffs, c, sys.domain)
 
             for (σ, A) in enumerate(sys.fields)
                 @objective(model, Max, dot(c, A*x))

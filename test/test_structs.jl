@@ -1,4 +1,3 @@
-using StaticArrays
 using LinearAlgebra
 using JuMP
 using Test
@@ -9,44 +8,29 @@ else
 end
 CPL = CEGPolyhedralLyapunov
 
-witness_svec = CPL.Witness(SVector{2}([1,0]), [SVector{2}([6,3])])
-witness_vec = CPL.Witness(Val(2), [1,0], [[6,3]])
+witness = CPL.Witness([1, 0], [[6, 3]], 0)
 
 @testset "Witness" begin
-    @inferred CPL.Witness(Val(2), [1,0], [[6,3]])
-    @test true
-    @inferred CPL.Witness(SVector{2}([1,0]), [SVector{2}([6,3])])
-    @test true
-    for witness in (witness_vec, witness_svec)
-        @test CPL.state_dim(witness) == 2
-        @test CPL.state_dim(typeof(witness)) == 2
-    end
+    @test witness.point == [1, 0]
+    @test witness.flows == [[6, 3]]
+    @test witness.index == 0
 end
 
-consts_vec = [m*ones(5) for m = 1:6]
-fields_vec = [ones(5, 5), zeros(5, 5)]
-sys_vec = CPL.LinearSystem(Val(5), consts_vec, fields_vec)
-consts_svec = [m*ones(SVector{5,Int}) for m = 1:6]
-fields_svec = [ones(SMatrix{5,5,Int}), zeros(SMatrix{5,5,Int})]
-sys_svec = CPL.LinearSystem(consts_svec, fields_svec)
+domain = ones(Int, 6, 5)
+fields = [ones(Int, 5, 5), zeros(Int, 5, 5)]
+sys = CPL.LinearSystem(domain, fields)
 
 @testset "LinearSystem" begin
-    @inferred CPL.LinearSystem(Val(5), consts_vec, fields_vec)
-    @test true
-    @inferred CPL.LinearSystem(consts_svec, fields_svec)
-    @test true
-    for sys in (sys_vec, sys_svec)
-        @test CPL.state_dim(sys) == 5
-        @test CPL.state_dim(typeof(sys)) == 5
-    end
+    @test sys.domain == ones(6, 5)
+    @test sys.fields == [ones(5, 5), zeros(5, 5)]
 end
 
-consts1 = [[+1, 0]]
+domain1 = [+1 0]
 fields1 = [[-1 0; 0 0], [-1 0.1; 0 -1]]
-consts2 = [[-1, 0]]
+domain2 = [-1 0]
 fields2 = [[+1 0.1; 0 0], [0.5 0; 0 0.5]]
-sys1 = CPL.LinearSystem(Val(2), consts1, fields1)
-sys2 = CPL.LinearSystem(Val(2), consts2, fields2)
+sys1 = CPL.LinearSystem(domain1, fields1)
+sys2 = CPL.LinearSystem(domain2, fields2)
 systems = (sys1, sys2)
 points = ([0, 1], [1, 1])
 witnesses = CPL.make_witnesses(systems, points)
@@ -58,11 +42,9 @@ witnesses = CPL.make_witnesses(systems, points)
     end
 end
 
-hc = CPL.make_hypercube(Val(5))
+hc = CPL.make_hypercube(5)
 
 @testset "make_hypercube" begin
-    @inferred CPL.make_hypercube(Val(5))
-    @test true
     for α in range(0, 2π, length=100)
         x = [cos(i*α) for i = 1:5]
         @test norm(x, Inf) ≈ maximum(h -> dot(h, x), hc)

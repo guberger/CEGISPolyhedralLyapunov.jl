@@ -1,6 +1,5 @@
 module ExampleIllustrative
 
-using StaticArrays
 using LinearAlgebra
 using JuMP
 using Gurobi
@@ -15,13 +14,14 @@ solver = optimizer_with_attributes(
     "OutputFlag"=>false)
 
 ## Parameters
-consts1 = [[0.0, -1.0]]
+domain1 = [0.0 -1.0]
 fields1 = [[-0.5 +1.0; -1.0 -0.5]]
-consts2 = [[0.0, +1.0]]
+domain2 = [0.0 +1.0]
 fields2 = [[-0.0 +1.0; -1.0 -0.0]]
-sys1 = CPL.LinearSystem(Val(2), consts1, fields1)
-sys2 = CPL.LinearSystem(Val(2), consts2, fields2)
+sys1 = CPL.LinearSystem(domain1, fields1)
+sys2 = CPL.LinearSystem(domain2, fields2)
 systems = (sys1, sys2)
+D = 2
 
 G0 = 0.1
 Gmax = 10.0
@@ -38,9 +38,7 @@ points = map(α -> [cos(α), sin(α)], α_list)
 witnesses = CPL.make_witnesses(systems, points)
 
 M = length(witnesses)
-dict_indexes = Dict([(w, (i,)) for (i, w) in enumerate(witnesses)])
-get_indexes(witness) = get(dict_indexes, witness, (0,))
-δ, coeffs, G, r, flag = CPL.learn_PLF_params(M, witnesses, get_indexes,
+δ, coeffs, G, r, flag = CPL.learn_PLF_params(M, D, witnesses,
                                              G0, Gmax, r0, rmin, ϵ, solver)
 
 fig = figure(0, figsize=(8, 10))
@@ -108,8 +106,8 @@ fig.savefig("./examples/figures/fig_exa_illustrative_learner.png", dpi=200,
 ## Verifier illustration
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
-coeffs = map(α -> SVector{2}(cos(α), sin(α)), α_list)
-obj_max, x, flag, i, q, σ = CPL.verify_PLF(systems, coeffs, ϵ, solver)
+coeffs = map(α -> [cos(α), sin(α)], α_list)
+obj_max, x, flag, i, q, σ = CPL.verify_PLF(D, systems, coeffs, ϵ, solver)
 
 fig = figure(1, figsize=(8, 10))
 ax = fig.add_subplot(aspect="equal")
@@ -178,7 +176,7 @@ fig.savefig("./examples/figures/fig_exa_illustrative_verifier.png", dpi=200,
 points = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 witnesses_init = CPL.make_witnesses(systems, points)
 coeffs, witnesses, deriv, flag, trace =
-    CPL.process_PLF(systems, witnesses_init,
+    CPL.process_PLF(D, systems, witnesses_init,
                     G0, Gmax, r0, rmin, ϵ, tol,
                     solver)
 
@@ -282,7 +280,7 @@ for k = 1:n_plot
         horizontalalignment="center", fontsize=14)
 end
 
-x0 = SVector{2}(1.0, -1e-6)
+x0 = [1.0, -1e-6]
 idx = indexes[12]
 x = x0*scaling/norm_poly(x0, trace.coeffs_list[idx])
 ax = ax_[12]
@@ -300,7 +298,7 @@ for t = 1:nstep
     end
     q = 0
     for sys in systems
-        if all(h -> dot(h, x) ≤ 0, sys.consts)
+        if all(sys.domain * x .≤ 0)
             A = sys.fields[1]
             x = exp(A*dt)*x
             break

@@ -1,4 +1,3 @@
-using StaticArrays
 using JuMP
 using HiGHS
 using Test
@@ -24,20 +23,20 @@ solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
 ## Parameters
 ϵ = 1e-5
-DV = Val(2)
+D = 2
 
 ## Tests
-A = [-1.0 0.0; 0.0 -1.0]
-A_list = [A]
+domain = zeros(1, D)
+fields = [[-1.0 0.0; 0.0 -1.0]]
+sys = CPL.LinearSystem(domain, fields)
+systems = (sys,)
 
-x_list = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
-witnesses = map(x -> CPL.Witness(DV, x, map(A -> A*x, A_list)), x_list)
+points = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
+witnesses = CPL.make_witnesses(systems, points)
 M = length(witnesses)
-dict_indexes = Dict([(w, (i,)) for (i, w) in enumerate(witnesses)])
-get_indexes(witness) = get(dict_indexes, witness, (0,))
 G0 = Gmax = 1.0
 r0 = rmin = 1.0 + 1e-5
-δ, coeffs, G, r, flag = CPL.learn_PLF_params(M, witnesses, get_indexes,
+δ, coeffs, G, r, flag = CPL.learn_PLF_params(M, D, witnesses,
                                              G0, Gmax, r0, rmin, ϵ, solver)
 
 @testset "Learner Points: LTI infeasible" begin
@@ -50,7 +49,7 @@ G0 = 0.25
 Gmax = 1.0 + 1e-5
 r0 = 4.0 - 1e-5
 rmin = 0.0
-δ, coeffs, G, r, flag = CPL.learn_PLF_params(M, witnesses, get_indexes,
+δ, coeffs, G, r, flag = CPL.learn_PLF_params(M, D, witnesses,
                                              G0, Gmax, r0, rmin, ϵ, solver)
 
 @testset "Learner Points: LTI feasible" begin
@@ -60,19 +59,19 @@ rmin = 0.0
     @test abs(δ - 1.0) < 1e-6
 end
 
-A1 = [-1.0 0.0; 0.0 -2.0]
-A2 = [-2.0 0.0; 0.0 -1.0]
-A_list = [A1, A2]
+domain = zeros(1, D)
+fields = [[-1.0 0.0; 0.0 -2.0],
+          [-2.0 0.0; 0.0 -1.0]]
+sys = CPL.LinearSystem(domain, fields)
+systems = (sys,)
 
-x_list = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
-witnesses = map(x -> CPL.Witness(DV, x, map(A -> A*x, A_list)), x_list)
+points = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
+witnesses = CPL.make_witnesses(systems, points)
 M = length(witnesses)
-dict_indexes = Dict([(w, (i,)) for (i, w) in enumerate(witnesses)])
-get_indexes(witness) = get(dict_indexes, witness, (0,))
 
 G0 = Gmax = 1.0
 r0 = rmin = 0.0 + 1e-5
-δ, coeffs, G, r, flag = CPL.learn_PLF_params(M, witnesses, get_indexes,
+δ, coeffs, G, r, flag = CPL.learn_PLF_params(M, D, witnesses,
                                              G0, Gmax, r0, rmin, ϵ, solver)
 
 @testset "Learner Points: SLS infeasible" begin
@@ -85,7 +84,7 @@ G0 = 0.25
 Gmax = 2.0 + 1e-5
 r0 = 8.0 - 1e-5
 rmin = 0.0
-δ, coeffs, G, r, flag = CPL.learn_PLF_params(M, witnesses, get_indexes,
+δ, coeffs, G, r, flag = CPL.learn_PLF_params(M, D, witnesses,
                                              G0, Gmax, r0, rmin, ϵ, solver)
 
 @testset "Learner Points: SLS feasible" begin

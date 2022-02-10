@@ -1,4 +1,3 @@
-using StaticArrays
 using LinearAlgebra
 using JuMP
 using HiGHS
@@ -25,19 +24,19 @@ solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
 ## Parameters
 ϵ = 1e-5
-DV = Val(2)
+D = 2
 
 ## Tests
-consts1 = [[+1, 0]]
+domain1 = [+1 0]
 fields1 = [[-1 0; 0 0], [-1 0.1; 0 -1]]
-consts2 = [[-1, 0]]
+domain2 = [-1 0]
 fields2 = [[+1 0.1; 0 0], [0.5 0; 0 0.5]]
-sys1 = CPL.LinearSystem(DV, consts1, fields1)
-sys2 = CPL.LinearSystem(DV, consts2, fields2)
+sys1 = CPL.LinearSystem(domain1, fields1)
+sys2 = CPL.LinearSystem(domain2, fields2)
 systems = (sys1, sys2)
 
-coeffs = SVector{2}.([[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]])
-obj_max, x, flag, i, q, σ = CPL.verify_PLF(systems, coeffs, ϵ, solver)
+coeffs = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
+obj_max, x, flag, i, q, σ = CPL.verify_PLF(D, systems, coeffs, ϵ, solver)
 
 @testset "Verifier: #1" begin
     @test abs(obj_max - 1.1) < 1e-9
@@ -49,10 +48,10 @@ obj_max, x, flag, i, q, σ = CPL.verify_PLF(systems, coeffs, ϵ, solver)
 end
 
 fields2 = [zeros(2, 2), zeros(2, 2), [0.0 0.0; 1.0 0.0]]
-sys2 = CPL.LinearSystem(DV, consts2, fields2)
+sys2 = CPL.LinearSystem(domain2, fields2)
 systems = (sys1, sys2)
 
-obj_max, x, flag, i, q, σ = CPL.verify_PLF(systems, coeffs, ϵ, solver)
+obj_max, x, flag, i, q, σ = CPL.verify_PLF(D, systems, coeffs, ϵ, solver)
 
 @testset "Verifier: #2" begin
     @test abs(obj_max - 1.0) < 1e-9
@@ -65,11 +64,11 @@ end
 
 fields1 = [[-1.0 0.1; 0.0 -1.0]]
 fields2 = [[-3.0 0.0; 0.0 -3.0]]
-sys1 = CPL.LinearSystem(DV, consts1, fields1)
-sys2 = CPL.LinearSystem(DV, consts2, fields2)
+sys1 = CPL.LinearSystem(domain1, fields1)
+sys2 = CPL.LinearSystem(domain2, fields2)
 systems = (sys1, sys2)
 
-obj_max, x, flag, i, q, σ = CPL.verify_PLF(systems, coeffs, ϵ, solver)
+obj_max, x, flag, i, q, σ = CPL.verify_PLF(D, systems, coeffs, ϵ, solver)
 
 @testset "Verifier: #3" begin
     @test abs(obj_max + 0.9) < 1e-9

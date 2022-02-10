@@ -1,6 +1,5 @@
 module ExamplePerformance
 
-using StaticArrays
 using LinearAlgebra
 using Printf
 using JuMP
@@ -22,38 +21,38 @@ rmin = 1e-6
 tol = -1e-5
 output_period = 10
 
-HP(D) = map(i -> i == 1 ? 1 : 0, 1:D)
+HP(D) = map(i -> i == 1 ? 1 : 0, reshape(1:D, 1, D))
 
 f = open(string(@__DIR__, "/measurements.txt"), "w")
 iter = 0
-max_iter = 50
+max_iter = 5
 
 for D in (4, 5, 6, 7, 8, 9)
     iter > max_iter && break
     ONE_ = ones(D, D)
     EYE_ = Matrix{Bool}(I, D, D)
     U = qr(map(i -> (-1)^i, 1:D)).Q
-    consts1 = [+HP(D)]
-    consts2 = [-HP(D)]
+    domain1 = +HP(D)
+    domain2 = -HP(D)
     str = @sprintf("D = %d\n", D)
     print(string("---> ", str))
     print(f, str)
     for γ in (1, 0.1, 0.01)
         global iter += 1
         iter > max_iter && break
-        fields1 = [SMatrix{D,D}(U \ (ONE_ - (D + γ)*EYE_) * U)]
-        fields2 = [SMatrix{D,D}(U \ (ONE_ - (D + 1)*EYE_) * U)]
-        sys1 = CPL.LinearSystem(Val(D), consts1, fields1)
-        sys2 = CPL.LinearSystem(Val(D), consts2, fields2)
+        fields1 = [U \ (ONE_ - (D + γ)*EYE_) * U]
+        fields2 = [U \ (ONE_ - (D + 1)*EYE_) * U]
+        sys1 = CPL.LinearSystem(domain1, fields1)
+        sys2 = CPL.LinearSystem(domain2, fields2)
         systems = (sys1, sys2)
-        witnesses_init = CPL.Witness{D}[]
+        witnesses_init = CPL.Witness[]
         coeffs, witnesses, deriv, flag, trace = @time CPL.process_PLF(
-            systems, witnesses_init,
+            D, systems, witnesses_init,
             G0, Gmax, r0, rmin, ϵ, tol,
             solver, output_period=10, learner_output=false, trace=false)
         time = 
         @elapsed CPL.process_PLF(
-            systems, witnesses_init,
+            D, systems, witnesses_init,
             G0, Gmax, r0, rmin, ϵ, tol,
             solver, output_period=10, learner_output=false, trace=false)
         complexity = length(coeffs)

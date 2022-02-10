@@ -25,18 +25,18 @@ solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 ## Parameters
 ϵ = 1e-1
 tol = eps(1.0)
-DV = Val(2)
+D = 2
 
 ## Tests
-consts1 = [[+1, 0], [0, -1]]
+domain1 = [+1 0; 0 -1]
 fields1 = [[0 +1; -1 0.01]]
-consts2 = [[+1, 0], [0, +1]]
+domain2 = [+1 0; 0 +1]
 fields2 = [[0 -1; +1 0.01]]
-consts3 = [[-1, 0]]
+domain3 = [-1 0]
 fields3 = [[0 0; 0 -1]]
-sys1 = CPL.LinearSystem(DV, consts1, fields1)
-sys2 = CPL.LinearSystem(DV, consts2, fields2)
-sys3 = CPL.LinearSystem(DV, consts3, fields3)
+sys1 = CPL.LinearSystem(domain1, fields1)
+sys2 = CPL.LinearSystem(domain2, fields2)
+sys3 = CPL.LinearSystem(domain3, fields3)
 systems = (sys1, sys2, sys3)
 
 points_init = [[-1, 0]]
@@ -44,7 +44,7 @@ witnesses_init = CPL.make_witnesses(systems, points_init)
 G0 = Gmax = 1.0
 r0 = rmin = 0.0
 coeffs, witnesses, deriv, flag, trace =
-    CPL.process_PLF(systems, witnesses_init,
+    CPL.process_PLF(D, systems, witnesses_init,
                     G0, Gmax, r0, rmin, ϵ, tol,
                     solver, trace=false, iter_max=1)
 
@@ -61,7 +61,7 @@ coeffs, witnesses, deriv, flag, trace =
 end
 
 coeffs, witnesses, deriv, flag, trace =
-    CPL.process_PLF(systems, witnesses_init,
+    CPL.process_PLF(D, systems, witnesses_init,
                     G0, Gmax, r0, rmin, ϵ, tol,
                     solver, iter_max=100)
 

@@ -1,20 +1,17 @@
-function process_PLF(systems, witnesses_init,
+function process_PLF(dim, systems, witnesses_init,
                      G0, Gmax, r0, rmin, ϵ, tol,
                      solver; kwargs...)
-    D = state_dim(eltype(systems))
-    WT_ = Witness{D}
-    CT_ = SVector{D,Float64}
-    coeffs = CT_[]
+    coeffs = _VT_[]
     output_period = get(kwargs, :output_period, 1)
     learner_output = get(kwargs, :learner_output, true)
     iter_max = get(kwargs, :iter_max, -1)
     do_trace = get(kwargs, :trace, true)
 
     # Trace
-    trace = (coeffs_list=Vector{CT_}[],
-             witnesses_list=Vector{WT_}[],
+    trace = (coeffs_list=Vector{_VT_}[],
+             witnesses_list=Vector{Witness}[],
              flags_learner=Bool[],
-             counterexample_list=WT_[],
+             counterexample_list=Witness[],
              flags_verifier=Bool[])
 
     iter = 0
@@ -23,9 +20,7 @@ function process_PLF(systems, witnesses_init,
     flag = false
     obj_max = Inf
     witnesses = copy(witnesses_init)
-    dict_indexes = Dict([(w, (i,)) for (i, w) in enumerate(witnesses)])
-    get_indexes(witness) = get(dict_indexes, witness, (0,))
-    coeffs_cube = (ϵ/2).*make_hypercube(Val(D))
+    coeffs_cube = (ϵ/2).*make_hypercube(dim)
 
     while true
         if iter_max ≥ 0 && iter ≥ iter_max
@@ -36,7 +31,7 @@ function process_PLF(systems, witnesses_init,
         iter += 1
 
         M = length(witnesses)
-        _, coeffs, G, r, flag = learn_PLF_params(M, witnesses, get_indexes,
+        _, coeffs, G, r, flag = learn_PLF_params(M, dim, witnesses,
                                                  G, Gmax, r, rmin, ϵ,
                                                  solver, output=learner_output)
 
@@ -49,7 +44,7 @@ function process_PLF(systems, witnesses_init,
         !flag && break
 
         append!(coeffs, coeffs_cube)
-        obj_max, x, flag, i, q, σ = verify_PLF(systems, coeffs, ϵ, solver)
+        obj_max, x, flag, i, q, σ = verify_PLF(dim, systems, coeffs, ϵ, solver)
 
         if do_trace
             push!(trace.flags_verifier, flag)
@@ -63,12 +58,11 @@ function process_PLF(systems, witnesses_init,
         
         obj_max < tol && break
 
-        witness = Witness(x, map(A -> A*x, systems[q].fields))
+        witness = Witness(x, map(A -> A*x, systems[q].fields), M + 1)
         if do_trace
             push!(trace.counterexample_list, witness)
         end
         push!(witnesses, witness)
-        dict_indexes[witness] = (M + 1,)
     end
 
     @printf("\nTerminated (flag: %s): Iter: %d, deriv_max: %f\n",

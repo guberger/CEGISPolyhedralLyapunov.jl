@@ -1,44 +1,39 @@
-function _make_cvars_learner(model, M, ::Val{D}) where D
-    _cvar(i, k) = @variable(model, lower_bound=-1, upper_bound=1)
-    return map(i -> SVector{D}(ntuple(k -> _cvar(i, k), Val(D))), 1:M)
+function _make_cvars_learner(model, M, dim)
+    _cvar() = @variable(model, [1:dim], lower_bound=-1, upper_bound=1)
+    return map(i -> _cvar(), 1:M)
 end
 
-function _make_consts_learner(model, coeffs, δ, witness, indexes, G, ϵ)
+function _make_consts_learner(model, coeffs, δ, witness, G, ϵ)
     xt = witness.point
     nxt = norm(xt)
     x = xt/nxt
-    for i in indexes
-        c = coeffs[i]
-        if ϵ > 0
-            @constraint(model, dot(x, c) ≥ ϵ)
-        end
+    c = coeffs[witness.index]
+    if ϵ > 0
+        @constraint(model, dot(x, c) ≥ ϵ)
+    end
+    for d in coeffs
+        d == c && continue
+        @constraint(model, dot(x, c - d) ≥ 0)
+    end
+    for dxt in witness.flows
+        dx = dxt/nxt
+        ndx = norm(dx)
+        @constraint(model, dot(dx, c) + ndx*δ ≤ 0)
         for d in coeffs
             d == c && continue
-            @constraint(model, dot(x, c - d) ≥ 0)
-        end
-        for dxt in witness.flows
-            dx = dxt/nxt
-            ndx = norm(dx)
-            @constraint(model, dot(dx, c) + ndx*δ ≤ 0)
-            for d in coeffs
-                d == c && continue
-                @constraint(model, dot(dx, d) - G*dot(x, c - d) + ndx*δ ≤ 0)
-            end
+            @constraint(model, dot(dx, d) - G*dot(x, c - d) + ndx*δ ≤ 0)
         end
     end
     return nothing
 end
 
-function learn_PLF(M, witnesses, get_indexes,
-                   G, ϵ, solver)
-    D = state_dim(eltype(witnesses))
+function learn_PLF(M, dim, witnesses, G, ϵ, solver)
     model = Model(solver)
-    coeffs = _make_cvars_learner(model, M, Val(D))
+    coeffs = _make_cvars_learner(model, M, dim)
     δ = @variable(model, lower_bound=0)
 
     for witness in witnesses
-        indexes = get_indexes(witness)
-        _make_consts_learner(model, coeffs, δ, witness, indexes, G, ϵ)
+        _make_consts_learner(model, coeffs, δ, witness, G, ϵ)
     end
 
     @objective(model, Max, δ)
@@ -50,25 +45,24 @@ function learn_PLF(M, witnesses, get_indexes,
         coeffs_opt = map(c -> value.(c), coeffs)
     else
         δ_opt = -1.0
-        coeffs_opt = [zeros(SVector{D}) for i = 1:M]
+        coeffs_opt = [zeros(dim) for i = 1:M]
     end
 
     return δ_opt, coeffs_opt, get_status(model)
 end
 
-function learn_PLF_params(M, witnesses, get_indexes,
+function learn_PLF_params(M, dim, witnesses,
                           G0, Gmax, r0, rmin,
                           ϵ, solver; output=true)
-    D = state_dim(eltype(witnesses))
     G = G0
     r = r0
 
     if iszero(M)
-        return Inf, SVector{D,Float64}[], G, r, true # δ, c_list, G, r, flag
+        return Inf, _VT_[], G, r, true # δ, c_list, G, r, flag
     end
 
     δ = -1.0
-    coeffs = [zeros(SVector{D}) for i = 1:M]
+    coeffs = [zeros(dim) for i = 1:M]
     s_status = ("Not started", "Unknown", "Unknown")
     iter = 0
     flag = false
@@ -78,8 +72,7 @@ function learn_PLF_params(M, witnesses, get_indexes,
         if output
             @printf("iter: %d. G: %f, r: %f\n", iter, G, r)
         end
-        δ, coeffs, status = learn_PLF(M, witnesses, get_indexes,
-                                      G, ϵ, solver)
+        δ, coeffs, status = learn_PLF(M, dim, witnesses, G, ϵ, solver)
         s_status = string.(status)
         if output
             @printf("\tstatus: %s. δ: %f\n", s_status, δ)
