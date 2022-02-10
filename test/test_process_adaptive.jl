@@ -40,38 +40,38 @@ sys3 = CPL.LinearSystem(domain3, fields3)
 systems = (sys1, sys2, sys3)
 
 points_init = [[-1, 0]]
-witnesses_init = CPL.make_witnesses(systems, points_init)
+flows_init = CPL.make_flows(systems, points_init)
 G0 = Gmax = 1.0
 r0 = rmin = 0.0
-coeffs, witnesses, deriv, flag, trace =
-    CPL.process_PLF(D, systems, witnesses_init,
-                    G0, Gmax, r0, rmin, ϵ, tol,
-                    solver, trace=false, iter_max=1)
+coeffs, flows, deriv, flag, trace =
+    CPL.process_PLF_adaptive(D, systems, flows_init,
+                             G0, Gmax, r0, rmin, ϵ, tol,
+                             solver, trace=false, iter_max=1)
 
-@testset "Process Points: infeasible iter_max" begin
+@testset "Process Adaptive: infeasible iter_max" begin
     @test norm(coeffs[1] - [-1, 0]) < eps(100.0)
     @test norm(coeffs[2] - [-1, 0]) < eps(100.0)
     @test deriv > tol
     @test !flag
     @test isempty(trace.coeffs_list)
-    @test isempty(trace.witnesses_list)
+    @test isempty(trace.flows_list)
     @test isempty(trace.flags_learner)
     @test isempty(trace.counterexample_list)
     @test isempty(trace.flags_verifier)
 end
 
-coeffs, witnesses, deriv, flag, trace =
-    CPL.process_PLF(D, systems, witnesses_init,
+coeffs, flows, deriv, flag, trace =
+    CPL.process_PLF_adaptive(D, systems, flows_init,
                     G0, Gmax, r0, rmin, ϵ, tol,
                     solver, iter_max=100)
 
-@testset "Process Points: feasible" begin
+@testset "Process Adaptive: feasible" begin
     @test norm(coeffs[1] - [-1, 0]) < eps(100.0)
     @test norm(coeffs[2] - [-1, 0]) < eps(100.0)
     @test abs(deriv) < eps(100.0)
     @test flag
     @test !isempty(trace.coeffs_list)
-    @test !isempty(trace.witnesses_list)
+    @test !isempty(trace.flows_list)
     @test all(trace.flags_learner)
     @test !isempty(trace.counterexample_list)
     @test all(trace.flags_verifier)

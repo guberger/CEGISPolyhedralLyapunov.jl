@@ -2,17 +2,8 @@ function _make_xvars_verifier(model, C, dim)
     return @variable(model, [1:dim], lower_bound=-C, upper_bound=+C)
 end
 
-function _make_consts_verifier(model, x, coeffs, c, H)
-    @constraint(model, dot(c, x) == 1)
-    for d in coeffs
-        d == c && continue
-        @constraint(model, dot(d, x) ≤ 1)
-    end
-    @constraint(model, H*x .≤ 0)
-    return nothing
-end
-
 function verify_PLF(dim, systems, coeffs, ϵ, solver)
+    M = length(coeffs)
     Q = length(systems)
     obj_max = -Inf
     x_opt = zeros(dim)
@@ -29,7 +20,15 @@ function verify_PLF(dim, systems, coeffs, ϵ, solver)
             model = Model(solver)
             x = _make_xvars_verifier(model, C, dim)
 
-            _make_consts_verifier(model, x, coeffs, c, sys.domain)
+            @constraint(model, dot(c, x) == 1)
+
+            for j = 1:M
+                j == i && continue
+                d = coeffs[j]
+                @constraint(model, dot(d, x) ≤ 1)
+            end
+
+            @constraint(model, sys.domain*x .≤ 0)
 
             for (σ, A) in enumerate(sys.fields)
                 @objective(model, Max, dot(c, A*x))

@@ -1,39 +1,36 @@
 function _make_cvars_learner(model, M, dim)
-    _cvar() = @variable(model, [1:dim], lower_bound=-1, upper_bound=1)
+    _cvar() = @variable(model, [1:dim], lower_bound=-1, upper_bound=+1)
     return map(i -> _cvar(), 1:M)
 end
 
-function _make_consts_learner(model, coeffs, δ, witness, G, ϵ)
-    xt = witness.point
-    nxt = norm(xt)
-    x = xt/nxt
-    c = coeffs[witness.index]
-    if ϵ > 0
-        @constraint(model, dot(x, c) ≥ ϵ)
-    end
-    for d in coeffs
-        d == c && continue
-        @constraint(model, dot(x, c - d) ≥ 0)
-    end
-    for dxt in witness.flows
-        dx = dxt/nxt
-        ndx = norm(dx)
-        @constraint(model, dot(dx, c) + ndx*δ ≤ 0)
-        for d in coeffs
-            d == c && continue
-            @constraint(model, dot(dx, d) - G*dot(x, c - d) + ndx*δ ≤ 0)
-        end
-    end
-    return nothing
-end
-
-function learn_PLF(M, dim, witnesses, G, ϵ, solver)
+function _learn_PLF_robust(M, dim, flows, G, ϵ, solver)
     model = Model(solver)
     coeffs = _make_cvars_learner(model, M, dim)
     δ = @variable(model, lower_bound=0)
 
-    for witness in witnesses
-        _make_consts_learner(model, coeffs, δ, witness, G, ϵ)
+    for (i, flow) in enumerate(flows)
+        xt = flow.point
+        nxt = norm(xt)
+        x = xt/nxt
+        c = coeffs[i]
+        if ϵ > 0
+            @constraint(model, dot(x, c) ≥ ϵ)
+        end
+        for j = 1:M
+            j == i && continue
+            d = coeffs[j]
+            @constraint(model, dot(x, c - d) ≥ 0)
+        end
+        for dxt in flow.grads
+            dx = dxt/nxt
+            ndx = norm(dx)
+            @constraint(model, dot(dx, c) + ndx*δ ≤ 0)
+            for j = 1:M
+                j == i && continue
+                d = coeffs[j]
+                @constraint(model, dot(dx, d) - G*dot(x, c - d) + ndx*δ ≤ 0)
+            end
+        end
     end
 
     @objective(model, Max, δ)
@@ -51,9 +48,11 @@ function learn_PLF(M, dim, witnesses, G, ϵ, solver)
     return δ_opt, coeffs_opt, get_status(model)
 end
 
-function learn_PLF_params(M, dim, witnesses,
+function learn_PLF_robust(dim, flows,
                           G0, Gmax, r0, rmin,
                           ϵ, solver; output=true)
+    
+    M = length(flows)
     G = G0
     r = r0
 
@@ -72,7 +71,7 @@ function learn_PLF_params(M, dim, witnesses,
         if output
             @printf("iter: %d. G: %f, r: %f\n", iter, G, r)
         end
-        δ, coeffs, status = learn_PLF(M, dim, witnesses, G, ϵ, solver)
+        δ, coeffs, status = _learn_PLF_robust(M, dim, flows, G, ϵ, solver)
         s_status = string.(status)
         if output
             @printf("\tstatus: %s. δ: %f\n", s_status, δ)
@@ -91,4 +90,48 @@ function learn_PLF_params(M, dim, witnesses,
     end
 
     return δ, coeffs, G, r, flag
+end
+
+function learn_PLF_branch(M, dim, nodes, ϵ, solver; output=true)
+    model = Model(solver)
+    coeffs = _make_cvars_learner(model, M, dim)
+    δ = @variable(model, lower_bound=0)
+
+    for node in nodes
+        x = node.witness.flow.point
+        i = node.witness.index
+        c = coeffs[i]
+        j = node.index
+        d = coeffs[j]
+        if ϵ > 0
+            @constraint(model, dot(x, d) ≥ ϵ)
+        end
+        if i != j
+            @constraint(model, dot(x, c - d) + 2*norm(x)*δ ≤ 0)
+        elseif i == j
+            for dx in node.witness.flow.grads
+                @constraint(model, dot(dx, c) + norm(dx)*δ ≤ 0)
+            end
+        end
+    end
+
+    @objective(model, Max, δ)
+
+    optimize!(model)
+
+    if has_values(model)
+        δ_opt = value(δ)
+        coeffs_opt = map(c -> value.(c), coeffs)
+    else
+        δ_opt = -1.0
+        coeffs_opt = [zeros(dim) for i = 1:M]
+    end
+
+    if output
+        @printf("status: %s. δ: %f\n", string.(get_status(model)), δ_opt)
+    end
+
+    flag = isone(Int(primal_status(model)))
+
+    return δ_opt, coeffs_opt, flag
 end

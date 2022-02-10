@@ -8,14 +8,23 @@ using Printf
 const _VT_ = Vector{Float64}
 const _AT_ = Matrix{Float64}
 
-struct Witness
+struct Flow
     point::_VT_
-    flows::Vector{_VT_}
+    grads::Vector{_VT_}
+end
+
+function Flow(point::AbstractVector, grads::Vector{<:AbstractVector})
+    return Flow(_VT_(point), _VT_.(grads))
+end
+
+struct Witness
+    flow::Flow
     index::Int
 end
 
-function Witness(point::AbstractVector, flows::Vector{<:AbstractVector}, i::Int)
-    return Witness(_VT_(point), _VT_.(flows), i)
+struct Node
+    witness::Witness
+    index::Int
 end
 
 struct LinearSystem
@@ -29,21 +38,16 @@ function LinearSystem(domain::AbstractMatrix,
 end
 
 ## Utils
-
-function make_witnesses(systems, points)
-    witnesses = Witness[]
-    i = 0
+function make_flows(systems, points)
+    flows = Flow[]
     for x in points
         for sys in systems
-            fields, H = sys.fields, sys.domain
-            any(H*x .> 0) && continue
-            i += 1
-            push!(witnesses, Witness(x, map(A -> A*x, fields), i))
+            any(sys.domain*x .> 0) && continue
+            push!(flows, Flow(x, map(A -> A*x, sys.fields)))
         end
     end
-    return witnesses
+    return flows
 end
-
 
 function make_hypercube(dim::Int)
     x = Vector{_VT_}(undef, 2*dim)
@@ -57,6 +61,9 @@ end
 get_status(model::Model) = (termination_status(model),
                             primal_status(model),
                             dual_status(model))
+
+## Includes
+include("collection.jl")
 
 include("learner.jl")
 include("verifier.jl")

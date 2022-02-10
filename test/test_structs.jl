@@ -1,5 +1,4 @@
 using LinearAlgebra
-using JuMP
 using Test
 @static if isdefined(Main, :TestLocal)
     include("../src/CEGPolyhedralLyapunov.jl")
@@ -8,12 +7,11 @@ else
 end
 CPL = CEGPolyhedralLyapunov
 
-witness = CPL.Witness([1, 0], [[6, 3]], 0)
+flow = CPL.Flow([1, 0], [[6, 3]])
 
-@testset "Witness" begin
-    @test witness.point == [1, 0]
-    @test witness.flows == [[6, 3]]
-    @test witness.index == 0
+@testset "Flow" begin
+    @test flow.point == [1, 0]
+    @test flow.grads == [[6, 3]]
 end
 
 domain = ones(Int, 6, 5)
@@ -33,12 +31,12 @@ sys1 = CPL.LinearSystem(domain1, fields1)
 sys2 = CPL.LinearSystem(domain2, fields2)
 systems = (sys1, sys2)
 points = ([0, 1], [1, 1])
-witnesses = CPL.make_witnesses(systems, points)
+flows = CPL.make_flows(systems, points)
 
-@testset "make_witnesses" begin
-    @test length(witnesses) == 3
-    for witness in witnesses
-        @test length(witness.flows) == 2
+@testset "make_flows" begin
+    @test length(flows) == 3
+    for flow in flows
+        @test length(flow.grads) == 2
     end
 end
 

@@ -1,4 +1,5 @@
 include("test_structs.jl")
-include("test_learner.jl")
+include("test_learner_robust.jl")
+include("test_learner_branch.jl")
 include("test_verifier.jl")
 include("test_process.jl")
