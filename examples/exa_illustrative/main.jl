@@ -17,7 +17,7 @@ solver = optimizer_with_attributes(
 domain1 = [0.0 -1.0]
 fields1 = [[-0.5 +1.0; -1.0 -0.5]]
 domain2 = [0.0 +1.0]
-fields2 = [[-0.0 +1.0; -1.0 -0.0]]
+fields2 = [[0.01 +1.0; -1.0 0.01]]
 sys1 = CPL.LinearSystem(domain1, fields1)
 sys2 = CPL.LinearSystem(domain2, fields2)
 systems = (sys1, sys2)
@@ -35,11 +35,15 @@ tol = -1e-5
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
 points = map(α -> [cos(α), sin(α)], α_list)
-witnesses = CPL.make_witnesses(systems, points)
+flows = CPL.Flow[]
+for sys in systems, x in points
+    local flow = CPL.make_flow((sys,), x)
+    isempty(flow.grads) && continue
+    push!(flows, flow)
+end
 
-M = length(witnesses)
-δ, coeffs, G, r, flag = CPL.learn_PLF_params(M, D, witnesses,
-                                             G0, Gmax, r0, rmin, ϵ, solver)
+δ, coeffs, G, r, flag = CPL.learn_PLF_adaptive(D, flows,
+                                               G0, Gmax, r0, rmin, ϵ, solver)
 
 fig = figure(0, figsize=(8, 10))
 ax = fig.add_subplot(aspect="equal")
@@ -58,10 +62,10 @@ scaling = 1.8/nv
 
 norm_dx_max = -1.0
 
-for witness in witnesses
+for flow in flows
     global norm_dx_max
-    nx = norm_poly(witness.point, coeffs)
-    for dx in witness.flows
+    nx = norm_poly(flow.point, coeffs)
+    for dx in flow.grads
         norm_dx_max = max(norm_dx_max, norm(dx)/nx)
     end
 end
@@ -78,12 +82,12 @@ ax.add_collection(polylist)
 
 α_dx = 0.6
 
-for witness in witnesses
-    x = witness.point
+for flow in flows
+    x = flow.point
     nx = norm_poly(x, coeffs)
     xs = x*scaling/nx
     ax.plot(xs..., marker=".", ms=15, c="blue")
-    for dx in witness.flows
+    for dx in flow.grads
         dxs = dx/norm_dx_max
         ys = xs + α_dx*dxs
         ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="green", lw=2.5)
@@ -107,7 +111,8 @@ fig.savefig("./examples/figures/fig_exa_illustrative_learner.png", dpi=200,
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
 coeffs = map(α -> [cos(α), sin(α)], α_list)
-obj_max, x, flag, i, q, σ = CPL.verify_PLF(D, systems, coeffs, ϵ, solver)
+ζ = 1e5
+obj_max, x, flag, i, q, σ = CPL.verify_PLF(np, D, systems, coeffs, ζ, solver)
 
 fig = figure(1, figsize=(8, 10))
 ax = fig.add_subplot(aspect="equal")
@@ -174,11 +179,16 @@ fig.savefig("./examples/figures/fig_exa_illustrative_verifier.png", dpi=200,
 ## -----------------------------------------------------------------------------
 ## Process illustration
 points = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
-witnesses_init = CPL.make_witnesses(systems, points)
-coeffs, witnesses, deriv, flag, trace =
-    CPL.process_PLF(D, systems, witnesses_init,
-                    G0, Gmax, r0, rmin, ϵ, tol,
-                    solver)
+flows_init = CPL.Flow[]
+for sys in systems, x in points
+    local flow = CPL.make_flow((sys,), x)
+    isempty(flow.grads) && continue
+    push!(flows_init, flow)
+end
+coeffs, flows, deriv, flag, trace =
+    CPL.process_PLF_adaptive(D, systems, flows_init,
+                             G0, Gmax, r0, rmin, ϵ, tol,
+                             solver)
 
 ## Plotting
 fig = figure(2, figsize=(8, 10))
@@ -230,9 +240,9 @@ norm_dx_max = -1.0
 for k = 1:n_plot
     global norm_dx_max
     idx = indexes[k]
-    for witness in trace.witnesses_list[idx]
-        nx = norm_poly(witness.point, trace.coeffs_list[idx])
-        for dx in witness.flows
+    for flow in trace.flows_list[idx]
+        nx = norm_poly(flow.point, trace.coeffs_list[idx])
+        for dx in flow.grads
             norm_dx_max = max(norm_dx_max, norm(dx)/nx)
         end
     end
@@ -253,12 +263,12 @@ for k = 1:n_plot
     polylist.set_edgecolor("gold")
     polylist.set_linewidth(1.0)
     ax.add_collection(polylist)
-    for witness in trace.witnesses_list[idx]
-        x = witness.point
+    for flow in trace.flows_list[idx]
+        x = flow.point
         nx = norm_poly(x, coeffs)
         xs = x*scaling/nx
         ax.plot(xs..., marker=".", ms=7.5, c="blue")
-        for dx in witness.flows
+        for dx in flow.grads
             dxs = dx/norm_dx_max
             ys = xs + α_dx*dxs
             ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="green", lw=1.5)
@@ -270,7 +280,7 @@ for k = 1:n_plot
         nx = norm_poly(x, coeffs)
         xs = x*scaling/nx
         ax.plot(xs..., marker=".", ms=7.5, c="black")
-        for dx in counterexample.flows
+        for dx in counterexample.grads
             dxs = dx/norm_dx_max
             ys = xs + α_dx*dxs
             ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="red", lw=1.5)

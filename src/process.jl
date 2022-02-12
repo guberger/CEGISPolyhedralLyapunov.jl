@@ -21,6 +21,7 @@ function process_PLF_adaptive(dim, systems, flows_init,
     obj_max = Inf
     flows = collect(Flow, flows_init)
     coeffs_cube = (ϵ/2).*hypercube(dim)
+    ζ = 4/ϵ
 
     while true
         if iter_max ≥ 0 && iter ≥ iter_max
@@ -49,7 +50,8 @@ function process_PLF_adaptive(dim, systems, flows_init,
 
         append!(coeffs, coeffs_cube)
         M = length(coeffs)
-        obj_max, x, flag, i, q, σ = verify_PLF(M, dim, systems, coeffs, solver)
+        obj_max, x, flag, i, q, σ = verify_PLF(M, dim, systems, coeffs,
+                                               ζ, solver)
 
         if do_trace
             push!(trace.flags_verifier, flag)
@@ -93,6 +95,7 @@ function process_PLF_fixed(M, dim, systems, nodes_init,
     coeffs_cube = ϵ.*hypercube(dim)
     append!(coeffs, coeffs_cube)
     N = length(coeffs)
+    ζ = 2/ϵ
     
     while !isempty(nodes_stack)
         if iter_max ≥ 0 && iter ≥ iter_max
@@ -123,7 +126,8 @@ function process_PLF_fixed(M, dim, systems, nodes_init,
         #     println()
         # end
 
-        obj_max, x, flag, i, q, σ = verify_PLF(N, dim, systems, coeffs, solver)
+        obj_max, x, flag, i, q, σ = verify_PLF(N, dim, systems, coeffs,
+                                               ζ, solver)
 
         !flag && break
 

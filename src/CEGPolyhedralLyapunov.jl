@@ -7,8 +7,8 @@ using Printf
 
 const _VT_ = Vector{Float64}
 const _AT_ = Matrix{Float64}
-const _TSC_ = TerminationStatusCode
-const _RSC_ = ResultStatusCode
+const _TSC_ = MathOptInterface.TerminationStatusCode
+const _RSC_ = MathOptInterface.ResultStatusCode
 
 struct Flow
     point::_VT_

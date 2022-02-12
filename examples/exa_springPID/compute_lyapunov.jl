@@ -32,13 +32,18 @@ rmin = eps(1.0)
 tol = -1e-5
 
 points = CPL.hypercube(D)
-witnesses_init = CPL.make_witnesses(systems, points)
+flows_init = CPL.Flow[]
+for sys in systems, x in points
+    local flow = CPL.make_flow((sys,), x)
+    isempty(flow.grads) && continue
+    push!(flows_init, flow)
+end
 
 ## Solving
-coeffs, witnesses, deriv, flag, trace =
-    @time CPL.process_PLF(D, systems, witnesses_init,
-                          G0, Gmax, r0, rmin, ϵ, tol,
-                          solver)
+coeffs, flows, deriv, flag, trace =
+    CPL.process_PLF_adaptive(D, systems, flows_init,
+                             G0, Gmax, r0, rmin, ϵ, tol,
+                             solver, output_period=10, learner_output=false)
 
 f = open(string(@__DIR__, "/lyapunov-", datafile, ".txt"), "w")
 for c in coeffs

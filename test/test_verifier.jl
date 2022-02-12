@@ -26,6 +26,27 @@ solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 D = 2
 
 ## Tests
+domain = zeros(1, D)
+fields = [[0 1; 0 0]]
+sys = CPL.LinearSystem(domain, fields)
+systems = (sys,)
+
+coeffs = [[-1, 0], [1, 0]]
+M = length(coeffs)
+obj_max, x, flag, i, q, σ = CPL.verify_PLF(M, D, systems, coeffs, Inf, solver)
+
+@testset "Verifier: unbounded" begin
+    @test !flag
+end
+
+ζ = 100
+obj_max, x, flag, i, q, σ = CPL.verify_PLF(M, D, systems, coeffs, ζ, solver)
+
+@testset "Verifier: reach bound" begin
+    @test abs(obj_max - ζ/norm([1, ζ])) < 1e-7
+    @test flag
+end
+
 domain1 = [+1 0]
 fields1 = [[-1 0; 0 0], [-1 0.1; 0 -1]]
 domain2 = [-1 0]
@@ -36,10 +57,10 @@ systems = (sys1, sys2)
 
 coeffs = [[-1, 0], [1, 0], [0, -1], [0, 1]]
 M = length(coeffs)
-obj_max, x, flag, i, q, σ = CPL.verify_PLF(M, D, systems, coeffs, solver)
+obj_max, x, flag, i, q, σ = CPL.verify_PLF(M, D, systems, coeffs, Inf, solver)
 
 @testset "Verifier: #1" begin
-    @test abs(obj_max - 1.1) < 1e-9
+    @test abs(obj_max - 1.1/sqrt(2)) < 1e-9
     @test norm(x - [1, 1]) < 1e-9
     @test flag
     @test i == 2
@@ -51,10 +72,10 @@ fields2 = [zeros(2, 2), zeros(2, 2), [0 0; 1 0]]
 sys2 = CPL.LinearSystem(domain2, fields2)
 systems = (sys1, sys2)
 
-obj_max, x, flag, i, q, σ = CPL.verify_PLF(M, D, systems, coeffs, solver)
+obj_max, x, flag, i, q, σ = CPL.verify_PLF(M, D, systems, coeffs, Inf, solver)
 
 @testset "Verifier: #2" begin
-    @test abs(obj_max - 1) < 1e-9
+    @test abs(obj_max - 1/sqrt(2)) < 1e-9
     @test norm(x - [1, 1]) < 1e-9
     @test flag
     @test i == 4
@@ -68,10 +89,10 @@ sys1 = CPL.LinearSystem(domain1, fields1)
 sys2 = CPL.LinearSystem(domain2, fields2)
 systems = (sys1, sys2)
 
-obj_max, x, flag, i, q, σ = CPL.verify_PLF(M, D, systems, coeffs, solver)
+obj_max, x, flag, i, q, σ = CPL.verify_PLF(M, D, systems, coeffs, Inf, solver)
 
 @testset "Verifier: #3" begin
-    @test abs(obj_max + 0.9) < 1e-9
+    @test abs(obj_max + 0.9/sqrt(2)) < 1e-9
     @test norm(x - [-1, -1]) < 1e-9
 end
 
@@ -83,11 +104,11 @@ systems = (sys,)
 coeffs1 = [[-1, 0], [1, 0], [0, -1], [0, 1]]
 coeffs2 = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
 M = length(coeffs)
-obj_max1, x, flag, i, q, σ = CPL.verify_PLF(M, D, systems, coeffs1, solver)
-obj_max2, x, flag, i, q, σ = CPL.verify_PLF(M, D, systems, coeffs2, solver)
+obj_max1 = CPL.verify_PLF(M, D, systems, coeffs1, Inf, solver)[1]
+obj_max2 = CPL.verify_PLF(M, D, systems, coeffs2, Inf, solver)[1]
 
-@testset "Verifier: #3" begin
-    @test abs(obj_max1 - 1.9) < 1e-7
+@testset "Verifier: #4" begin
+    @test abs(obj_max1 - 1.9/sqrt(2)) < 1e-7
     @test abs(obj_max2 + 0.1) < 1e-7
 end
 
