@@ -25,56 +25,30 @@ solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 ## Parameters
 ϵ = 1e-1
 tol = eps(1.0)
+δ_min = 1e-1
 D = 2
+M = 4
 
 ## Tests
-domain1 = [+1 0; 0 -1]
-fields1 = [[0 +1; -1 0.01]]
-domain2 = [+1 0; 0 +1]
-fields2 = [[0 -1; +1 0.01]]
-domain3 = [-1 0]
-fields3 = [[0 0; 0 -1]]
-sys1 = CPL.LinearSystem(domain1, fields1)
-sys2 = CPL.LinearSystem(domain2, fields2)
-sys3 = CPL.LinearSystem(domain3, fields3)
-systems = (sys1, sys2, sys3)
+domain = zeros(1, D)
+fields = [[-101.1 99; 101 -99.1], [-101.1 -99; -101 -99.1]]
+sys = CPL.LinearSystem(domain, fields)
+systems = (sys,)
 
-points_init = [[-1, 0]]
-flows_init = CPL.make_flows(systems, points_init)
-G0 = Gmax = 1.0
-r0 = rmin = 0.0
-coeffs, flows, deriv, flag, trace =
-    CPL.process_PLF_adaptive(D, systems, flows_init,
-                             G0, Gmax, r0, rmin, ϵ, tol,
-                             solver, trace=false, iter_max=1)
+# flows_init = map()
+# witness1 = CPL.Witness(flow1, 1)
+# witness2 = CPL.Witness(flow2, 2)
+# node1 = CPL.Node(witness1, 1)
+# node2 = CPL.Node(witness1, 2)
+# node3 = CPL.Node(witness2, 2)
+# nodes_init = (node1, node2, node3)
+nodes_init = CPL.Node[]
 
-@testset "Process Adaptive: infeasible iter_max" begin
-    @test norm(coeffs[1] - [-1, 0]) < eps(100.0)
-    @test norm(coeffs[2] - [-1, 0]) < eps(100.0)
-    @test deriv > tol
-    @test !flag
-    @test isempty(trace.coeffs_list)
-    @test isempty(trace.flows_list)
-    @test isempty(trace.flags_learner)
-    @test isempty(trace.counterexample_list)
-    @test isempty(trace.flags_verifier)
-end
-
-coeffs, flows, deriv, flag, trace =
-    CPL.process_PLF_adaptive(D, systems, flows_init,
-                    G0, Gmax, r0, rmin, ϵ, tol,
-                    solver, iter_max=100)
-
-@testset "Process Adaptive: feasible" begin
-    @test norm(coeffs[1] - [-1, 0]) < eps(100.0)
-    @test norm(coeffs[2] - [-1, 0]) < eps(100.0)
-    @test abs(deriv) < eps(100.0)
-    @test flag
-    @test !isempty(trace.coeffs_list)
-    @test !isempty(trace.flows_list)
-    @test all(trace.flags_learner)
-    @test !isempty(trace.counterexample_list)
-    @test all(trace.flags_verifier)
-end
+coeffs, nodes, obj_max, flag =
+    CPL.process_PLF_fixed(M, D, systems, nodes_init,
+                          ϵ, tol, δ_min, solver,
+                          iter_max=100000,
+                          output_period=100,
+                          learner_output=false)
 
 println("\nfinished-----------------------------------------------------------")

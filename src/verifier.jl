@@ -1,10 +1,4 @@
-function _make_xvars_verifier(model, C, dim)
-    return @variable(model, [1:dim], lower_bound=-C, upper_bound=+C)
-end
-
-function verify_PLF(dim, systems, coeffs, ϵ, solver)
-    M = length(coeffs)
-    Q = length(systems)
+function verify_PLF(M, dim, systems, coeffs, solver)
     obj_max = -Inf
     x_opt = zeros(dim)
     i_opt = 0
@@ -12,13 +6,14 @@ function verify_PLF(dim, systems, coeffs, ϵ, solver)
     σ_opt = 0
     flag = false
     flag_prob = false
-    C = 2/max(ϵ, 1e-9)
     
-    for (i, c) in enumerate(coeffs)
+    for i = 1:M
+        c = coeffs[i]
         flag_prob && break
+
         for (q, sys) in enumerate(systems)
             model = Model(solver)
-            x = _make_xvars_verifier(model, C, dim)
+            x = @variable(model, [1:dim])
 
             @constraint(model, dot(c, x) == 1)
 
@@ -43,7 +38,7 @@ function verify_PLF(dim, systems, coeffs, ϵ, solver)
                     obj_val = objective_value(model)
                     if obj_val > obj_max
                         obj_max = obj_val
-                        x_opt = value.(x)
+                        map!(xv -> value(xv), x_opt, x)
                         i_opt, q_opt, σ_opt = i, q, σ
                     end
                 elseif TS == 2 && iszero(PS)

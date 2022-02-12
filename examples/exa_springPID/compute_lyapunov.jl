@@ -31,7 +31,7 @@ rmin = eps(1.0)
 ϵ = 1/50
 tol = -1e-5
 
-points = CPL.make_hypercube(D)
+points = CPL.hypercube(D)
 witnesses_init = CPL.make_witnesses(systems, points)
 
 ## Solving

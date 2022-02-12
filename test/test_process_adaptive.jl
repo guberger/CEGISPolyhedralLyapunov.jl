@@ -39,8 +39,13 @@ sys2 = CPL.LinearSystem(domain2, fields2)
 sys3 = CPL.LinearSystem(domain3, fields3)
 systems = (sys1, sys2, sys3)
 
-points_init = [[-1, 0]]
-flows_init = CPL.make_flows(systems, points_init)
+x_init = [-1, 0]
+flows_init = CPL.Flow[]
+for sys in systems
+    local flow = CPL.make_flow((sys,), x_init)
+    isempty(flow.grads) && continue
+    push!(flows_init, flow)
+end
 G0 = Gmax = 1.0
 r0 = rmin = 0.0
 coeffs, flows, deriv, flag, trace =
@@ -63,7 +68,7 @@ end
 coeffs, flows, deriv, flag, trace =
     CPL.process_PLF_adaptive(D, systems, flows_init,
                     G0, Gmax, r0, rmin, ϵ, tol,
-                    solver, iter_max=100)
+                    solver, iter_max=100, learner_output=false)
 
 @testset "Process Adaptive: feasible" begin
     @test norm(coeffs[1] - [-1, 0]) < eps(100.0)

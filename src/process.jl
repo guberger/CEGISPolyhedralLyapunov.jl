@@ -20,7 +20,7 @@ function process_PLF_adaptive(dim, systems, flows_init,
     flag = false
     obj_max = Inf
     flows = collect(Flow, flows_init)
-    coeffs_cube = (ϵ/2).*make_hypercube(dim)
+    coeffs_cube = (ϵ/2).*hypercube(dim)
 
     while true
         if iter_max ≥ 0 && iter ≥ iter_max
@@ -30,9 +30,10 @@ function process_PLF_adaptive(dim, systems, flows_init,
         end
         iter += 1
 
-        _, coeffs, G, r, flag = learn_PLF_robust(dim, flows,
-                                                 G, Gmax, r, rmin, ϵ,
-                                                 solver, output=learner_output)
+        δ, coeffs, G, r, flag = learn_PLF_adaptive(dim, flows,
+                                                   G, Gmax, r, rmin, ϵ,
+                                                   solver,
+                                                   output=learner_output)
 
         if do_trace
             push!(trace.flows_list, copy(flows))
@@ -42,8 +43,13 @@ function process_PLF_adaptive(dim, systems, flows_init,
 
         !flag && break
 
+        if output_period ≥ 0 && mod(iter - 1, output_period) == 0
+            @printf("Iter: %d, G: %f, r: %f\n", iter, G, r)
+        end
+
         append!(coeffs, coeffs_cube)
-        obj_max, x, flag, i, q, σ = verify_PLF(dim, systems, coeffs, ϵ, solver)
+        M = length(coeffs)
+        obj_max, x, flag, i, q, σ = verify_PLF(M, dim, systems, coeffs, solver)
 
         if do_trace
             push!(trace.flags_verifier, flag)
@@ -52,7 +58,7 @@ function process_PLF_adaptive(dim, systems, flows_init,
         !flag && break
         
         if output_period ≥ 0 && mod(iter - 1, output_period) == 0
-            @printf("Iter: %d, obj_max: %f\n", iter, obj_max)
+            @printf("|---- obj_max: %f\n", obj_max)
         end
         
         obj_max < tol && break
@@ -70,14 +76,76 @@ function process_PLF_adaptive(dim, systems, flows_init,
     return coeffs, flows, obj_max, flag, trace
 end
 
-function process_PLF_fixed(M, dim, nodes_init, ϵ, tol, solver; kwargs...)
-    coeffs = [zeros(D) for i = 1:M]
+function process_PLF_fixed(M, dim, systems, nodes_init,
+                           ϵ, tol, δ_min, solver; kwargs...)
+    coeffs = [zeros(dim) for i = 1:M]
     output_period = get(kwargs, :output_period, 1)
     learner_output = get(kwargs, :learner_output, true)
     iter_max = get(kwargs, :iter_max, -1)
     depth_max = get(kwargs, :depth_max, -1)
 
-    nodes_stack = [linked_collection(Node, nodes_init)]
+    iter = 0
+    flag = false
+    obj_max = Inf
+    nodes_stack = Tree[]
+    nodes = seed(nodes_init)
+    push!(nodes_stack, nodes)
+    coeffs_cube = ϵ.*hypercube(dim)
+    append!(coeffs, coeffs_cube)
+    N = length(coeffs)
+    
+    while !isempty(nodes_stack)
+        if iter_max ≥ 0 && iter ≥ iter_max
+            @printf("Max iter (%d) exceeded\n", iter_max)
+            flag = false
+            break
+        end
+        iter += 1
 
+        nodes = pop!(nodes_stack)
+        δ, flag = learn_PLF_fixed!(M, dim, coeffs, nodes,
+                                   solver, output=learner_output)
 
+        !flag && break
+
+        if output_period ≥ 0 && mod(iter - 1, output_period) == 0
+            @printf("Iter: %d, δ: %f\n", iter, δ)
+        end
+        
+        δ < 0 && continue
+
+        # if δ < δ_min
+        #     print("nodes: ")
+        #     for node in nodes
+        #         print((node.witness.flow.point, node.witness.index, node.index))
+        #         print(" ")
+        #     end
+        #     println()
+        # end
+
+        obj_max, x, flag, i, q, σ = verify_PLF(N, dim, systems, coeffs, solver)
+
+        !flag && break
+
+        if output_period ≥ 0 && mod(iter - 1, output_period) == 0
+            @printf("|---- obj_max: %f\n", obj_max)
+        end
+
+        obj_max < tol && break
+
+        if δ > δ_min
+            flow = make_flow(systems, x)
+            witness = Witness(flow, i)
+            for i = 1:M
+                node = Node(witness, i)
+                child = grow(nodes, node)
+                push!(nodes_stack, child)
+            end
+        end
+    end
+
+    @printf("\nTerminated (flag: %s): Iter: %d, deriv_max: %f\n",
+        flag, iter, obj_max)
+
+    return coeffs, nodes, obj_max, flag
 end

@@ -30,22 +30,55 @@ fields2 = [[+1 0.1; 0 0], [0.5 0; 0 0.5]]
 sys1 = CPL.LinearSystem(domain1, fields1)
 sys2 = CPL.LinearSystem(domain2, fields2)
 systems = (sys1, sys2)
-points = ([0, 1], [1, 1])
-flows = CPL.make_flows(systems, points)
+grads = Vector{Float64}[]
+CPL.add_grads!(grads, systems, [0, 1])
+flow1 = CPL.make_flow(systems, [0, 1])
+flow2 = CPL.make_flow(systems, [1, 1])
 
-@testset "make_flows" begin
-    @test length(flows) == 3
-    for flow in flows
-        @test length(flow.grads) == 2
-    end
+@testset "add_grads! & make_flow" begin
+    @test length(grads) == 4
+    @test length(flow1.grads) == 4
+    @test length(flow2.grads) == 2
 end
 
-hc = CPL.make_hypercube(5)
+hc = CPL.hypercube(5)
 
-@testset "make_hypercube" begin
+@testset "hypercube" begin
     for α in range(0, 2π, length=100)
         x = [cos(i*α) for i = 1:5]
         @test norm(x, Inf) ≈ maximum(h -> dot(h, x), hc)
+    end
+end
+
+D = 2
+domain = zeros(1, D)
+fields = [[-1.0 0.0; 0.0 -1.0]]
+sys = CPL.LinearSystem(domain, fields)
+
+flow1 = CPL.make_flow((sys,), [-1, 0])
+flow2 = CPL.make_flow((sys,), [+1, 0])
+witness1 = CPL.Witness(flow1, 1)
+witness2 = CPL.Witness(flow2, 2)
+node1 = CPL.Node(witness1, 1)
+node2 = CPL.Node(witness1, 2)
+node3 = CPL.Node(witness2, 2)
+nodes = (node1, node2, node3)
+tree = CPL.seed(nodes)
+
+@testset "Tree" begin
+    for node in nodes
+        flag = false
+        for node_t in tree
+            flag = flag || node == node_t
+        end
+        @test flag
+    end
+    for node_t in tree
+        flag = false
+        for node in nodes
+            flag = flag || node_t == node
+        end
+        @test flag
     end
 end
 
