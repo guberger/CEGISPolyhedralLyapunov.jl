@@ -36,12 +36,12 @@ systems = (sys,)
 
 nodes_init = CPL.Node[]
 
-δ_min = 0.45
+δ_min = 0.005
 coeffs, nodes, obj_max, flag =
     CPL.process_PLF_fixed(M, D, systems, nodes_init,
                           ϵ, tol, δ_min, solver,
-                          iter_max=Inf,
-                          output_period=100,
+                          depth_max=5,
+                          output_depth=-1,
                           learner_output=false)
 
 @testset "process_PLF_fixed: infeasible" begin
@@ -55,12 +55,12 @@ systems = (sys,)
 
 nodes_init = CPL.Node[]
 
-δ_min = 0.25
+δ_min = 0.005
 coeffs, nodes, obj_max, flag =
     CPL.process_PLF_fixed(M, D, systems, nodes_init,
                           ϵ, tol, δ_min, solver,
-                          iter_max=1000,
-                          output_period=100,
+                          depth_max=5,
+                          output_period=1,
                           learner_output=false)
 
 @testset "process_PLF_fixed: feasible" begin

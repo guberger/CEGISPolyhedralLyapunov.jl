@@ -1,6 +1,7 @@
 module CEGPolyhedralLyapunov
 
 using LinearAlgebra
+using DataStructures
 using JuMP
 using Printf
 
@@ -40,14 +41,19 @@ end
 
 abstract type Tree end
 
-mutable struct Root <: Tree end
+mutable struct Root <: Tree
+    length::Int
+end
+
+Root() = Root(0)
 
 mutable struct Branch <: Tree
     node::Node
     tail::Tree
+    length::Int
 end
 
-grow(tree::Tree, node::Node) = Branch(node, tree)
+grow(tree::Tree, node::Node) = Branch(node, tree, tree.length + 1)
 
 function seed(nodes)
     tree = Root()
@@ -59,6 +65,8 @@ end
 
 Base.isempty(::Root) = true
 Base.isempty(::Branch) = false
+Base.length(tree::Tree) = tree.length
+
 Base.iterate(::Tree, ::Root) = nothing
 function Base.iterate(tree::Tree, state::Branch=tree)
     state.node, state.tail

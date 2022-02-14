@@ -66,6 +66,15 @@ nodes = (node1, node2, node3)
 tree = CPL.seed(nodes)
 
 @testset "Tree" begin
+    @test length(tree) == 3
+    i = 3
+    tail = tree
+    while length(tail) > 0
+        @test length(tail) == i
+        i -= 1
+        tail = tail.tail
+    end
+    @test iszero(length(tail))
     for node in nodes
         flag = false
         for node_t in tree
