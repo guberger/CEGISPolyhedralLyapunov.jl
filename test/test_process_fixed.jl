@@ -41,7 +41,7 @@ coeffs, nodes, obj_max, flag =
     CPL.process_PLF_fixed(M, D, systems, nodes_init,
                           ϵ, tol, δ_min, solver,
                           depth_max=5,
-                          output_depth=-1,
+                          output_depth=10,
                           learner_output=false)
 
 @testset "process_PLF_fixed: infeasible" begin

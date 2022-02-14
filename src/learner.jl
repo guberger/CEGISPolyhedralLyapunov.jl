@@ -132,13 +132,9 @@ function learn_PLF_fixed!(M, dim, coeffs_opt, nodes, solver; output=true)
 
     optimize!(model)
 
-    if has_values(model)
-        δ_opt = value(δ)
-        for i = 1:M
-            map!(cv -> value(cv), coeffs_opt[i], coeffs[i])
-        end
-    else
-        δ_opt = -1.0
+    δ_opt = value(δ)
+    for i = 1:M
+        map!(cv -> value(cv), coeffs_opt[i], coeffs[i])
     end
 
     if output
