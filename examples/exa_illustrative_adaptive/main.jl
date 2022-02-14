@@ -37,7 +37,7 @@ np = 10
 points = map(α -> [cos(α), sin(α)], α_list)
 flows = CPL.Flow[]
 for sys in systems, x in points
-    local flow = CPL.make_flow((sys,), x)
+    flow = CPL.make_flow((sys,), x)
     isempty(flow.grads) && continue
     push!(flows, flow)
 end
@@ -88,7 +88,7 @@ for flow in flows
     xs = x*scaling/nx
     ax.plot(xs..., marker=".", ms=15, c="blue")
     for dx in flow.grads
-        dxs = dx/norm_dx_max
+        dxs = dx/(nx*norm_dx_max)
         ys = xs + α_dx*dxs
         ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="green", lw=2.5)
     end
@@ -269,7 +269,7 @@ for k = 1:n_plot
         xs = x*scaling/nx
         ax.plot(xs..., marker=".", ms=7.5, c="blue")
         for dx in flow.grads
-            dxs = dx/norm_dx_max
+            dxs = dx/(nx*norm_dx_max)
             ys = xs + α_dx*dxs
             ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="green", lw=1.5)
         end
@@ -281,7 +281,7 @@ for k = 1:n_plot
         xs = x*scaling/nx
         ax.plot(xs..., marker=".", ms=7.5, c="black")
         for dx in counterexample.grads
-            dxs = dx/norm_dx_max
+            dxs = dx/(nx*norm_dx_max)
             ys = xs + α_dx*dxs
             ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="red", lw=1.5)
         end

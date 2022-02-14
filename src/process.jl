@@ -78,7 +78,7 @@ function process_PLF_adaptive(dim, systems, flows_init,
     return coeffs, flows, obj_max, flag, trace
 end
 
-function process_PLF_fixed(M, dim, systems, nodes_init,
+function process_PLF_fixed(M, dim, systems, seeds_init,
                            ϵ, tol, δ_min, solver; kwargs...)
     coeffs = [zeros(dim) for i = 1:M]
     output_depth = get(kwargs, :output_depth, 1)
@@ -87,10 +87,16 @@ function process_PLF_fixed(M, dim, systems, nodes_init,
 
     depth_rec = 0 # record of max reached depth
     flag = false
+    iter = 0
     obj_max = Inf
     nodes_queue = PriorityQueue{Tree,Float64}(Base.Order.Reverse)
-    nodes = seed(nodes_init)
-    enqueue!(nodes_queue, nodes, Inf)
+    nodes = Root()
+    for seed_init in seeds_init
+        nodes = seed(seed_init)
+        enqueue!(nodes_queue, nodes, Inf)
+        # enqueue!(nodes_queue, nodes, iter)
+        # iter += 1
+    end
     coeffs_cube = ϵ.*hypercube(dim)
     append!(coeffs, coeffs_cube)
     N = length(coeffs)
@@ -141,10 +147,13 @@ function process_PLF_fixed(M, dim, systems, nodes_init,
                 node = Node(witness, i)
                 child = grow(nodes, node)
                 enqueue!(nodes_queue, child, δ)
+                # enqueue!(nodes_queue, child, iter)
+                # iter += 1
             end
         else
             if output_depth ≥ 0
-                @printf("Abort branch: δ too small: %f < %f\n", δ, δ_min)
+                @printf("Abort branch: δ too small: %f < %f, depth: %d\n",
+                    δ, δ_min, depth)
             end
         end
     end

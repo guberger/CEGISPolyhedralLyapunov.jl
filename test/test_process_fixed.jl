@@ -34,11 +34,11 @@ fields = [[1.0 0; 0.0 1.0]]
 sys = CPL.LinearSystem(domain, fields)
 systems = (sys,)
 
-nodes_init = CPL.Node[]
+seeds_init = (CPL.Node[],)
 
 δ_min = 0.005
 coeffs, nodes, obj_max, flag =
-    CPL.process_PLF_fixed(M, D, systems, nodes_init,
+    CPL.process_PLF_fixed(M, D, systems, seeds_init,
                           ϵ, tol, δ_min, solver,
                           depth_max=5,
                           output_depth=10,
@@ -53,14 +53,14 @@ fields = [[-101.1 99; 101 -99.1], [-101.1 -99; -101 -99.1]]
 sys = CPL.LinearSystem(domain, fields)
 systems = (sys,)
 
-nodes_init = CPL.Node[]
+seeds_init = (CPL.Node[],)
 
 δ_min = 0.005
 coeffs, nodes, obj_max, flag =
-    CPL.process_PLF_fixed(M, D, systems, nodes_init,
+    CPL.process_PLF_fixed(M, D, systems, seeds_init,
                           ϵ, tol, δ_min, solver,
                           depth_max=5,
-                          output_period=1,
+                          output_depth=1,
                           learner_output=false)
 
 @testset "process_PLF_fixed: feasible" begin
