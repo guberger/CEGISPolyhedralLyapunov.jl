@@ -16,7 +16,8 @@ solver = optimizer_with_attributes(
 ϵ = 1e-1
 tol = -eps(1.0)
 D = 2
-M = 6
+M = 5
+meth = CPL.Chebyshev()
 
 ## Tests
 domain = zeros(1, D)
@@ -25,13 +26,11 @@ fields = [[-α +1.0; -1.0 -α]]
 sys = CPL.LinearSystem(domain, fields)
 systems = (sys,)
 
-# points = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
-# flows = map(x -> CPL.make_flow(sys, x), points)
 seeds_init = (CPL.Node[],)
 
 δ_min = 0.00005
 coeffs, nodes, obj_max, flag =
-    CPL.process_PLF_fixed(M, D, systems, seeds_init,
+    CPL.process_PLF_fixed(meth, M, D, systems, seeds_init,
                           ϵ, tol, δ_min, solver,
                           depth_max=15,
                           output_depth=1000,

@@ -142,3 +142,38 @@ function learn_PLF_fixed!(::Chebyshev,
 
     return δ_opt, flag
 end
+
+function learn_PLF_fixed!(::MVE,
+                          Deb, M, dim, coeffs, Δs, coeffs_opt,
+                          nodes, solver; output=true)
+    if isempty(nodes)
+        return Inf, true # δ, flag
+    end
+
+    model = Model(solver)
+    for i = Deb+1:Deb+M
+        coeffs[i] = @variable(model, [1:dim], lower_bound=-1, upper_bound=+1)
+    end
+    δ = @variable(model)
+
+    for node in nodes
+        _make_constraints_fixed_chebyshev(model, coeffs, δ, node)
+    end
+
+    @objective(model, Max, δ)
+
+    optimize!(model)
+
+    δ_opt = value(δ)
+    for i = Deb+1:Deb+M
+        map!(cv -> value(cv), coeffs_opt[i], coeffs[i])
+    end
+
+    if output
+        @printf("status: %s, %s, %s; δ: %f\n", get_status(model)..., δ_opt)
+    end
+
+    flag = primal_status(model) == _RSC_(1)
+
+    return δ_opt, flag
+end
