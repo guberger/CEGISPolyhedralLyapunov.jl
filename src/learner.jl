@@ -1,4 +1,4 @@
-function _make_constraints_adaptive(model, coeffs, δ, M, G, ϵ, i, flow)
+function _make_constraints_adaptive(model, M, coeffs, δ, G, ϵ, i, flow)
     xt = flow.point
     nxt = norm(xt)
     x = xt/nxt
@@ -24,14 +24,16 @@ function _make_constraints_adaptive(model, coeffs, δ, M, G, ϵ, i, flow)
     return nothing
 end
 
-function _learn_PLF_adaptive(M, dim, flows, G, ϵ, solver)
+function _learn_PLF_adaptive!(Deb, M, dim, coeffs, coeffs_opt,
+                              flows, G, ϵ, solver)
     model = Model(solver)
-    coeffs = [@variable(model, [1:dim], lower_bound=-1, upper_bound=+1)
-              for i = 1:M]
+    for i = 1:M
+        coeffs[i] = @variable(model, [1:dim], lower_bound=-1, upper_bound=+1)
+    end
     δ = @variable(model, lower_bound=0)
 
     for (i, flow) in enumerate(flows)
-        _make_constraints_adaptive(model, coeffs, δ, M, G, ϵ, i, flow)
+        _make_constraints_adaptive(model, M, coeffs, δ, G, ϵ, i, flow)
     end
 
     @objective(model, Max, δ)
@@ -40,29 +42,27 @@ function _learn_PLF_adaptive(M, dim, flows, G, ϵ, solver)
 
     if has_values(model)
         δ_opt = value(δ)
-        coeffs_opt = map(c -> value.(c), coeffs)
+        for i = 1:M
+            map!(c -> value(c), coeffs_opt[Deb + i], coeffs[i])
+        end
     else
         δ_opt = -1.0
-        coeffs_opt = [zeros(dim) for i = 1:M]
     end
 
-    return δ_opt, coeffs_opt, get_status(model)
+    return δ_opt, get_status(model)
 end
 
-function learn_PLF_adaptive(dim, flows,
-                            G0, Gmax, r0, rmin,
-                            ϵ, solver; output=true)
-    
-    M = length(flows)
+function learn_PLF_adaptive!(Deb, M, dim, coeffs, coeffs_opt,
+                             flows, G0, Gmax, r0, rmin,
+                             ϵ, solver; output=true)
     G = G0
     r = r0
 
     if iszero(M)
-        return Inf, _VT_[], G, r, true # δ, c_list, G, r, flag
+        return Inf, G, r, true # δ, G, r, flag
     end
 
     δ = -1.0
-    coeffs = [zeros(dim) for i = 1:M]
     status = (_TSC_(0), _RSC_(0), _RSC_(0))
     iter = 0
     flag = false
@@ -72,7 +72,8 @@ function learn_PLF_adaptive(dim, flows,
         if output
             @printf("iter: %d. G: %f, r: %f\n", iter, G, r)
         end
-        δ, coeffs, status = _learn_PLF_adaptive(M, dim, flows, G, ϵ, solver)
+        δ, status = _learn_PLF_adaptive!(Deb, M, dim, coeffs, coeffs_opt,
+                                         flows, G, ϵ, solver)
         if output
             @printf("|---- status: %s, %s, %s; δ: %f\n", status..., δ)
         end
@@ -88,62 +89,48 @@ function learn_PLF_adaptive(dim, flows,
         @printf("|--- status: %s, %s, %s; δ: %f\n", status..., δ)
     end
 
-    return δ, coeffs, G, r, flag
+    return δ, G, r, flag
 end
 
-function _make_constraints_fixed(model, coeffs, matrices, node)
+function _make_constraints_fixed_chebyshev(model, coeffs, δ, node)
     x = node.witness.flow.point
     i = node.witness.index
     c = coeffs[i]
-    Γ = matrices[i]
     j = node.index
     d = coeffs[j]
-    Δ = matrices[j]
     if i != j
-        @constraint(model, vcat(dot(x, d - c), Γ*x - Δ*x) in SecondOrderCone())
+        @constraint(model, dot(x, c - d) + 2*norm(x)*δ ≤ 0)
     elseif i == j
         for dx in node.witness.flow.grads
-            @constraint(model, vcat(-dot(dx, c), Γ*x) in SecondOrderCone())
+            @constraint(model, dot(dx, c) + norm(dx)*δ ≤ 0)
         end
     end
     return nothing
 end
 
-function learn_PLF_fixed!(M, dim, coeffs_opt, nodes, solver; output=true)
+function learn_PLF_fixed!(::Chebyshev,
+                          Deb, M, dim, coeffs, coeffs_opt,
+                          nodes, solver; output=true)
     if isempty(nodes)
         return Inf, true # δ, flag
     end
 
-    N = length(coeffs_opt)
-
     model = Model(solver)
-    coeffs = [@variable(model, [1:dim], lower_bound=-1, upper_bound=+1)
-              for i = 1:N]
-    Q = @variable(model, [1:dim*N, 1:dim*N], PSD)
-    for i = M+1:N
-        for k = 1:dim
-            fix(coeffs[i][k], coeffs_opt[i][k], force=true)
-        end
-        for j = 1
+    for i = Deb+1:Deb+M
+        coeffs[i] = @variable(model, [1:dim], lower_bound=-1, upper_bound=+1)
     end
-    Q = @variable(model, [1:dim*M, 1:dim*M], PSD)
     δ = @variable(model)
-    slices = [Matrix{VariableRef}[] for i = 1:N]
-    for 
-    slices = [Q[:, (i-1)*dim+1:i*dim] for i = 1:N]
 
     for node in nodes
-        _make_constraints_fixed(model, coeffs, Q, node)
+        _make_constraints_fixed_chebyshev(model, coeffs, δ, node)
     end
 
-    upper_tri = [Q[i, j] for j in 1:dim for i in 1:j]
-    @constraint(model, vcat(δ, upper_tri) in MOI.RootDetConeTriangle(dim))
     @objective(model, Max, δ)
 
     optimize!(model)
 
     δ_opt = value(δ)
-    for i = 1:M
+    for i = Deb+1:Deb+M
         map!(cv -> value(cv), coeffs_opt[i], coeffs[i])
     end
 

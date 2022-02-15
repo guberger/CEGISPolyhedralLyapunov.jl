@@ -10,6 +10,9 @@ const _AT_ = Matrix{Float64}
 const _TSC_ = JuMP.MathOptInterface.TerminationStatusCode
 const _RSC_ = JuMP.MathOptInterface.ResultStatusCode
 
+struct Chebyshev end
+struct MVE end
+
 struct Flow
     point::_VT_
     grads::Vector{_VT_}

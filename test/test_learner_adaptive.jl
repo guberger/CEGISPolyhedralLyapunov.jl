@@ -8,32 +8,25 @@ else
 end
 CPL = CEGPolyhedralLyapunov
 
-# Temporary fix
-# function HiGHS._check_ret(ret::Cint) 
-#     if ret != Cint(0) && ret != Cint(1)
-#         error(
-#             "Encountered an error in HiGHS (Status $(ret)). Check the log " * 
-#             "for details.", 
-#         ) 
-#     end 
-#     return 
-# end
-
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
 ## Parameters
 ϵ = 1e-5
 D = 2
+coeffs_ = Vector{VariableRef}[]
+coeffs = Vector{Float64}[]
 
 ## Tests
+flows = CPL.Flow[]
+M = length(flows)
 G0 = Gmax = 1.0
 r0 = rmin = 1.0
-δ, coeffs, G, r, flag = CPL.learn_PLF_adaptive(D, CPL.Flow[],
-                                               G0, Gmax, r0, rmin, ϵ, solver)
+δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs_, coeffs,
+                                        flows, G0, Gmax, r0, rmin,
+                                        ϵ, solver)
 
 @testset "Learner Adaptive: empty flows" begin
     @test isinf(δ)
-    @test isempty(coeffs)
     @test G == G0
     @test r == r0
     @test flag
@@ -46,10 +39,14 @@ systems = (sys,)
 
 points = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 flows = map(x -> CPL.make_flow(systems, x), points)
+M = length(flows)
+resize!(coeffs_, M)
+coeffs = [Vector{Float64}(undef, D) for i = 1:M]
 G0 = Gmax = 1.0
 r0 = rmin = 1.0 + 1e-5
-δ, coeffs, G, r, flag = CPL.learn_PLF_adaptive(D, flows,
-                                               G0, Gmax, r0, rmin, ϵ, solver)
+δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs_, coeffs,
+                                        flows, G0, Gmax, r0, rmin,
+                                        ϵ, solver)
 
 @testset "Learner Adaptive: LTI infeasible" begin
     @test G == G0
@@ -61,8 +58,9 @@ G0 = 0.25
 Gmax = 1.0 + 1e-5
 r0 = 4.0 - 1e-5
 rmin = 0.0
-δ, coeffs, G, r, flag = CPL.learn_PLF_adaptive(D, flows,
-                                             G0, Gmax, r0, rmin, ϵ, solver)
+δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs_, coeffs,
+                                        flows, G0, Gmax, r0, rmin,
+                                        ϵ, solver)
 
 @testset "Learner Adaptive: LTI feasible" begin
     @test G == 1.0
@@ -79,11 +77,15 @@ systems = (sys,)
 
 points = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 flows = map(x -> CPL.make_flow(systems, x), points)
+M = length(flows)
+resize!(coeffs_, M)
+coeffs = [Vector{Float64}(undef, D) for i = 1:M]
 
 G0 = Gmax = 1.0
 r0 = rmin = 0.0 + 1e-5
-δ, coeffs, G, r, flag = CPL.learn_PLF_adaptive(D, flows,
-                                             G0, Gmax, r0, rmin, ϵ, solver)
+δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs_, coeffs,
+                                        flows, G0, Gmax, r0, rmin,
+                                        ϵ, solver)
 
 @testset "Learner Adaptive: SLS infeasible" begin
     @test G == G0
@@ -95,8 +97,9 @@ G0 = 0.25
 Gmax = 2.0 + 1e-5
 r0 = 8.0 - 1e-5
 rmin = 0.0
-δ, coeffs, G, r, flag = CPL.learn_PLF_adaptive(D, flows,
-                                             G0, Gmax, r0, rmin, ϵ, solver)
+δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs_, coeffs,
+                                        flows, G0, Gmax, r0, rmin,
+                                        ϵ, solver)
 
 @testset "Learner Adaptive: SLS feasible" begin
     @test G == 2.0

@@ -1,7 +1,6 @@
-function verify_PLF(M, dim, systems, coeffs, ζ, solver)
+function verify_PLF!(M, dim, x_opt, systems, coeffs, ζ, solver)
     obj_max = -Inf
-    x_opt = zeros(dim)
-    x_tmp = zeros(dim)
+    x_tmp = _VT_(undef, dim)
     i_opt = 0
     q_opt = 0
     σ_opt = 0
@@ -58,5 +57,5 @@ function verify_PLF(M, dim, systems, coeffs, ζ, solver)
 
     flag = !flag_prob && flag
 
-    return obj_max, x_opt, flag, i_opt, q_opt, σ_opt
+    return obj_max, flag, i_opt, q_opt, σ_opt
 end

@@ -9,17 +9,6 @@ else
 end
 CPL = CEGPolyhedralLyapunov
 
-# Temporary fix
-# function HiGHS._check_ret(ret::Cint) 
-#     if ret != Cint(0) && ret != Cint(1)
-#         error(
-#             "Encountered an error in HiGHS (Status $(ret)). Check the log " * 
-#             "for details.", 
-#         )
-#     end 
-#     return 
-# end
-
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
 ## Parameters
@@ -27,6 +16,7 @@ solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 tol = eps(1.0)
 D = 2
 M = 4
+meth = CPL.Chebyshev()
 
 ## Tests
 domain = zeros(1, D)
@@ -38,7 +28,7 @@ seeds_init = (CPL.Node[],)
 
 δ_min = 0.005
 coeffs, nodes, obj_max, flag =
-    CPL.process_PLF_fixed(M, D, systems, seeds_init,
+    CPL.process_PLF_fixed(meth, M, D, systems, seeds_init,
                           ϵ, tol, δ_min, solver,
                           depth_max=5,
                           output_depth=10,
@@ -57,7 +47,7 @@ seeds_init = (CPL.Node[],)
 
 δ_min = 0.005
 coeffs, nodes, obj_max, flag =
-    CPL.process_PLF_fixed(M, D, systems, seeds_init,
+    CPL.process_PLF_fixed(meth, M, D, systems, seeds_init,
                           ϵ, tol, δ_min, solver,
                           depth_max=5,
                           output_depth=1,

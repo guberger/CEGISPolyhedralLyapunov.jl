@@ -1,7 +1,6 @@
 function process_PLF_adaptive(dim, systems, flows_init,
                               G0, Gmax, r0, rmin, ϵ, tol,
                               solver; kwargs...)
-    coeffs = _VT_[]
     output_period = get(kwargs, :output_period, 1)
     learner_output = get(kwargs, :learner_output, true)
     iter_max = get(kwargs, :iter_max, -1)
@@ -21,7 +20,10 @@ function process_PLF_adaptive(dim, systems, flows_init,
     obj_max = Inf
     flows = collect(Flow, flows_init)
     coeffs_cube = (ϵ/2).*hypercube(dim)
+    M0 = length(coeffs_cube)
     ζ = 4/ϵ
+    coeffs_ = Vector{VariableRef}[]
+    coeffs = coeffs_cube
 
     while true
         if iter_max ≥ 0 && iter ≥ iter_max
@@ -31,10 +33,18 @@ function process_PLF_adaptive(dim, systems, flows_init,
         end
         iter += 1
 
-        δ, coeffs, G, r, flag = learn_PLF_adaptive(dim, flows,
-                                                   G, Gmax, r, rmin, ϵ,
-                                                   solver,
-                                                   output=learner_output)
+        M = length(flows)
+        M1old = length(coeffs)
+        M1 = M + M0
+        resize!(coeffs_, M)
+        resize!(coeffs, M1)
+        for i = M1old+1:M1
+            coeffs[i] = _VT_(undef, dim)
+        end
+
+        δ, G, r, flag = learn_PLF_adaptive!(M0, M, dim, coeffs_, coeffs,
+                                            flows, G, Gmax, r, rmin,
+                                            ϵ, solver, output=learner_output)
 
         if do_trace
             push!(trace.flows_list, copy(flows))
@@ -48,10 +58,9 @@ function process_PLF_adaptive(dim, systems, flows_init,
             @printf("Iter: %d, G: %f, r: %f\n", iter, G, r)
         end
 
-        append!(coeffs, coeffs_cube)
-        M = length(coeffs)
-        obj_max, x, flag, i, q, σ = verify_PLF(M, dim, systems, coeffs,
-                                               ζ, solver)
+        x = _VT_(undef, dim)
+        obj_max, flag, i, q, σ = verify_PLF!(M1, dim, x, systems, coeffs,
+                                             ζ, solver)
 
         if do_trace
             push!(trace.flags_verifier, flag)
@@ -78,9 +87,9 @@ function process_PLF_adaptive(dim, systems, flows_init,
     return coeffs, flows, obj_max, flag, trace
 end
 
-function process_PLF_fixed(M, dim, systems, seeds_init,
+function process_PLF_fixed(meth,
+                           M, dim, systems, seeds_init,
                            ϵ, tol, δ_min, solver; kwargs...)
-    coeffs = [zeros(dim) for i = 1:M]
     output_depth = get(kwargs, :output_depth, 1)
     learner_output = get(kwargs, :learner_output, true)
     depth_max = get(kwargs, :depth_max, -1)
@@ -97,9 +106,19 @@ function process_PLF_fixed(M, dim, systems, seeds_init,
         # enqueue!(nodes_queue, nodes, iter)
         # iter += 1
     end
+
     coeffs_cube = ϵ.*hypercube(dim)
-    append!(coeffs, coeffs_cube)
-    N = length(coeffs)
+    M0 = length(coeffs_cube)
+    M1 = M + M0
+    coeffs_ = Vector{Vector{AffExpr}}(undef, M1)
+    coeffs = Vector{_VT_}(undef, M1)
+    for i = 1:M0
+        coeffs_[i] = coeffs_cube[i]
+        coeffs[i] = coeffs_cube[i]
+    end
+    for i = M0+1:M1
+        coeffs[i] = zeros(dim)
+    end
     ζ = 2/ϵ
     
     while !isempty(nodes_queue)
@@ -113,8 +132,8 @@ function process_PLF_fixed(M, dim, systems, seeds_init,
         end
         depth_rec = max(depth_rec, depth)
 
-        δ, flag = learn_PLF_fixed!(M, dim, coeffs, nodes,
-                                   solver, output=learner_output)
+        δ, flag = learn_PLF_fixed!(meth, M0, M, dim, coeffs_, coeffs,
+                                   nodes, solver, output=learner_output)
 
         !flag && break
 
@@ -129,8 +148,9 @@ function process_PLF_fixed(M, dim, systems, seeds_init,
             continue
         end
 
-        obj_max, x, flag, i, q, σ = verify_PLF(N, dim, systems, coeffs,
-                                               ζ, solver)
+        x = _VT_(undef, dim)
+        obj_max, flag, i, q, σ = verify_PLF!(M1, dim, x, systems, coeffs,
+                                             ζ, solver)
 
         !flag && break
 
@@ -143,8 +163,8 @@ function process_PLF_fixed(M, dim, systems, seeds_init,
         if δ ≥ δ_min
             flow = make_flow(systems, x)
             witness = Witness(flow, i)
-            for i = 1:M
-                node = Node(witness, i)
+            for j = M0+1:M1
+                node = Node(witness, j)
                 child = grow(nodes, node)
                 enqueue!(nodes_queue, child, δ)
                 # enqueue!(nodes_queue, child, iter)

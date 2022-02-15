@@ -41,9 +41,13 @@ for sys in systems, x in points
     isempty(flow.grads) && continue
     push!(flows, flow)
 end
+M = length(flows)
+coeffs_ = Vector{Vector{VariableRef}}(undef, M)
+coeffs = [Vector{Float64}(undef, D) for i = 1:M]
 
-δ, coeffs, G, r, flag = CPL.learn_PLF_adaptive(D, flows,
-                                               G0, Gmax, r0, rmin, ϵ, solver)
+δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs_, coeffs,
+                                        flows, G0, Gmax, r0, rmin,
+                                        ϵ, solver)
 
 fig = figure(0, figsize=(8, 10))
 ax = fig.add_subplot(aspect="equal")
@@ -112,7 +116,8 @@ np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
 coeffs = map(α -> [cos(α), sin(α)], α_list)
 ζ = 1e5
-obj_max, x, flag, i, q, σ = CPL.verify_PLF(np, D, systems, coeffs, ζ, solver)
+x = Vector{Float64}(undef, D)
+obj_max, flag, i, q, σ = CPL.verify_PLF!(np, D, x, systems, coeffs, ζ, solver)
 
 fig = figure(1, figsize=(8, 10))
 ax = fig.add_subplot(aspect="equal")

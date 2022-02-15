@@ -9,17 +9,6 @@ else
 end
 CPL = CEGPolyhedralLyapunov
 
-# Temporary fix
-# function HiGHS._check_ret(ret::Cint) 
-#     if ret != Cint(0) && ret != Cint(1)
-#         error(
-#             "Encountered an error in HiGHS (Status $(ret)). Check the log " * 
-#             "for details.", 
-#         )
-#     end 
-#     return 
-# end
-
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
 ## Parameters
@@ -54,8 +43,8 @@ coeffs, flows, deriv, flag, trace =
                              solver, trace=false, iter_max=1)
 
 @testset "Process Adaptive: infeasible iter_max" begin
-    @test norm(coeffs[1] - [-1, 0]) < eps(100.0)
-    @test norm(coeffs[2] - [-1, 0]) < eps(100.0)
+    @test norm(coeffs[5] - [-1, 0]) < eps(100.0)
+    @test norm(coeffs[6] - [-1, 0]) < eps(100.0)
     @test deriv > tol
     @test !flag
     @test isempty(trace.coeffs_list)
@@ -71,8 +60,8 @@ coeffs, flows, deriv, flag, trace =
                     solver, iter_max=100, learner_output=false)
 
 @testset "Process Adaptive: feasible" begin
-    @test norm(coeffs[1] - [-1, 0]) < eps(100.0)
-    @test norm(coeffs[2] - [-1, 0]) < eps(100.0)
+    @test norm(coeffs[5] - [-1, 0]) < eps(100.0)
+    @test norm(coeffs[6] - [-1, 0]) < eps(100.0)
     @test abs(deriv) < eps(100.0)
     @test flag
     @test !isempty(trace.coeffs_list)
