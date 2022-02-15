@@ -91,17 +91,19 @@ function learn_PLF_adaptive(dim, flows,
     return δ, coeffs, G, r, flag
 end
 
-function _make_constraints_fixed(model, coeffs, δ, node)
+function _make_constraints_fixed(model, coeffs, matrices, node)
     x = node.witness.flow.point
     i = node.witness.index
     c = coeffs[i]
+    Γ = matrices[i]
     j = node.index
     d = coeffs[j]
+    Δ = matrices[j]
     if i != j
-        @constraint(model, dot(x, c - d) + 2*norm(x)*δ ≤ 0)
+        @constraint(model, vcat(dot(x, d - c), Γ*x - Δ*x) in SecondOrderCone())
     elseif i == j
         for dx in node.witness.flow.grads
-            @constraint(model, dot(dx, c) + norm(dx)*δ ≤ 0)
+            @constraint(model, vcat(-dot(dx, c), Γ*x) in SecondOrderCone())
         end
     end
     return nothing
@@ -117,17 +119,25 @@ function learn_PLF_fixed!(M, dim, coeffs_opt, nodes, solver; output=true)
     model = Model(solver)
     coeffs = [@variable(model, [1:dim], lower_bound=-1, upper_bound=+1)
               for i = 1:N]
+    Q = @variable(model, [1:dim*N, 1:dim*N], PSD)
     for i = M+1:N
         for k = 1:dim
             fix(coeffs[i][k], coeffs_opt[i][k], force=true)
         end
+        for j = 1
     end
+    Q = @variable(model, [1:dim*M, 1:dim*M], PSD)
     δ = @variable(model)
+    slices = [Matrix{VariableRef}[] for i = 1:N]
+    for 
+    slices = [Q[:, (i-1)*dim+1:i*dim] for i = 1:N]
 
     for node in nodes
-        _make_constraints_fixed(model, coeffs, δ, node)
+        _make_constraints_fixed(model, coeffs, Q, node)
     end
 
+    upper_tri = [Q[i, j] for j in 1:dim for i in 1:j]
+    @constraint(model, vcat(δ, upper_tri) in MOI.RootDetConeTriangle(dim))
     @objective(model, Max, δ)
 
     optimize!(model)

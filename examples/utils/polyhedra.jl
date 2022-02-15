@@ -11,8 +11,8 @@ function retrieve_vertices_2d(c_list)
         Ahrep[j, :] = c_list[j]
     end
     poly = HPolytope(Ahrep, bhrep)
-    verts = vertices_list(poly, backend=CDDLib.Library())
-    return convex_hull(verts)
+    points = vertices_list(poly, backend=CDDLib.Library())
+    return convex_hull(points)
 end
 
 function retrieve_simplices_3d(c_list)
