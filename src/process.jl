@@ -1,3 +1,6 @@
+##------------------------------------------------------------------------------
+## Adaptive
+
 function process_PLF_adaptive(dim, systems, flows_init,
                               G0, Gmax, r0, rmin, ϵ, tol,
                               solver; kwargs...)
@@ -22,7 +25,6 @@ function process_PLF_adaptive(dim, systems, flows_init,
     coeffs_cube = (ϵ/2).*hypercube(dim)
     M0 = length(coeffs_cube)
     ζ = 4/ϵ
-    coeffs_ = Vector{VariableRef}[]
     coeffs = coeffs_cube
 
     while true
@@ -36,13 +38,12 @@ function process_PLF_adaptive(dim, systems, flows_init,
         M = length(flows)
         M1old = length(coeffs)
         M1 = M + M0
-        resize!(coeffs_, M)
         resize!(coeffs, M1)
         for i = M1old+1:M1
             coeffs[i] = _VT_(undef, dim)
         end
 
-        δ, G, r, flag = learn_PLF_adaptive!(M0, M, dim, coeffs_, coeffs,
+        δ, G, r, flag = learn_PLF_adaptive!(M0, M, dim, coeffs,
                                             flows, G, Gmax, r, rmin,
                                             ϵ, solver, output=learner_output)
 
@@ -87,6 +88,9 @@ function process_PLF_adaptive(dim, systems, flows_init,
     return coeffs, flows, obj_max, flag, trace
 end
 
+##------------------------------------------------------------------------------
+## Fixed
+
 function process_PLF_fixed(meth,
                            M, dim, systems, seeds_init,
                            ϵ, tol, δ_min, solver; kwargs...)
@@ -110,14 +114,9 @@ function process_PLF_fixed(meth,
     coeffs_cube = ϵ.*hypercube(dim)
     M0 = length(coeffs_cube)
     M1 = M + M0
-    coeffs_ = Vector{Vector{AffExpr}}(undef, M1)
-    coeffs = Vector{_VT_}(undef, M1)
+    coeffs = [zeros(dim) for i = 1:M1]
     for i = 1:M0
-        coeffs_[i] = coeffs_cube[i]
-        coeffs[i] = coeffs_cube[i]
-    end
-    for i = M0+1:M1
-        coeffs[i] = zeros(dim)
+        copyto!(coeffs[i], coeffs_cube[i])
     end
     ζ = 2/ϵ
     
@@ -132,7 +131,7 @@ function process_PLF_fixed(meth,
         end
         depth_rec = max(depth_rec, depth)
 
-        δ, flag = learn_PLF_fixed!(meth, M0, M, dim, coeffs_, coeffs,
+        δ, flag = learn_PLF_fixed!(meth, M0, M, dim, coeffs,
                                    nodes, solver, output=learner_output)
 
         !flag && break
@@ -181,5 +180,5 @@ function process_PLF_fixed(meth,
     @printf("\nTerminated (flag: %s): max depth: %d, deriv_max: %f\n",
         flag, depth_rec, obj_max)
 
-    return coeffs, nodes, obj_max, flag
+    return coeffs, collect(Node, nodes), obj_max, flag
 end

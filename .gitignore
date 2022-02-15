@@ -24,5 +24,6 @@ docs/site/
 Manifest.toml
 
 /_OLD_/
+examples/_TESTS_/
 examples/figures/
 Highs.log

@@ -21,15 +21,13 @@ meth = CPL.Chebyshev()
 nodes = CPL.Node[]
 M0 = length(coeffs_cube)
 M1 = M + M0
-coeffs_ = Vector{Vector{AffExpr}}(undef, M1)
-for i = 1:M0
-    coeffs_[i] = coeffs_cube[i]
-end
 coeffs = [Vector{Float64}(undef, D) for i = 1:M1]
-coeffs_tmp = copy(coeffs)
-δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs_, coeffs, nodes, solver)
+for i = 1:M0
+    copyto!(coeffs[i], coeffs_cube[i])
+end
+δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs, nodes, solver)
 
-@testset "Learner Fixed: empty flows" begin
+@testset "Learner Fixed Chebyshev: empty flows" begin
     @test isinf(δ)
     @test flag
 end
@@ -50,9 +48,9 @@ for flow in (flow1, flow2)
         end
     end
 end
-δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs_, coeffs, nodes, solver)
+δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs, nodes, solver)
 
-@testset "Learner Fixed: LTI infeasible" begin
+@testset "Learner Fixed Chebyshev: LTI infeasible" begin
     @test δ < 0
     @test flag
 end
@@ -62,10 +60,10 @@ witness2 = CPL.Witness(flow2, M0 + 2)
 node1 = CPL.Node(witness1, M0 + 1)
 node2 = CPL.Node(witness2, M0 + 2)
 nodes = (node1, node2)
-δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs_, coeffs, nodes, solver)
+δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs, nodes, solver)
 
-@testset "Learner Fixed: LTI feasible" begin
-    @test abs(δ - 1.0) < 1e-6
+@testset "Learner Fixed Chebyshev: LTI feasible" begin
+    @test abs(δ - 0.5) < 10*eps(0.5)
     @test flag
 end
 
@@ -83,10 +81,10 @@ for k = 1:M0
     local node = CPL.Node(witness, M0 + 1)
     push!(nodes, node)
 end
-δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs_, coeffs, nodes, solver)
+δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs, nodes, solver)
 
-@testset "Learner Fixed: SLS infeasible" begin
-    @test δ < 0
+@testset "Learner Fixed Chebyshev: SLS infeasible" begin
+    @test abs(δ + ϵ/2) < 10*eps(ϵ/2)
     @test flag
 end
 
@@ -102,11 +100,11 @@ witness2 = CPL.Witness(flow2, M0 + 2)
 node1 = CPL.Node(witness1, M0 + 1)
 node2 = CPL.Node(witness2, M0 + 2)
 nodes = (node1, node2)
-δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs_, coeffs, nodes, solver)
+δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs, nodes, solver)
 
-@testset "Learner Fixed: SLS feasible" begin
+@testset "Learner Fixed Chebyshev: SLS feasible" begin
     @test flag
-    @test abs(δ - 1.0) < 1e-6
+    @test abs(δ - 0.5) < 10*eps(0.5)
 end
 
 println("\nfinished-----------------------------------------------------------")

@@ -13,7 +13,6 @@ solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 ## Parameters
 ϵ = 1e-5
 D = 2
-coeffs_ = Vector{VariableRef}[]
 coeffs = Vector{Float64}[]
 
 ## Tests
@@ -21,7 +20,7 @@ flows = CPL.Flow[]
 M = length(flows)
 G0 = Gmax = 1.0
 r0 = rmin = 1.0
-δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs_, coeffs,
+δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs,
                                         flows, G0, Gmax, r0, rmin,
                                         ϵ, solver)
 
@@ -40,11 +39,10 @@ systems = (sys,)
 points = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 flows = map(x -> CPL.make_flow(systems, x), points)
 M = length(flows)
-resize!(coeffs_, M)
 coeffs = [Vector{Float64}(undef, D) for i = 1:M]
 G0 = Gmax = 1.0
 r0 = rmin = 1.0 + 1e-5
-δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs_, coeffs,
+δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs,
                                         flows, G0, Gmax, r0, rmin,
                                         ϵ, solver)
 
@@ -58,7 +56,7 @@ G0 = 0.25
 Gmax = 1.0 + 1e-5
 r0 = 4.0 - 1e-5
 rmin = 0.0
-δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs_, coeffs,
+δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs,
                                         flows, G0, Gmax, r0, rmin,
                                         ϵ, solver)
 
@@ -66,7 +64,7 @@ rmin = 0.0
     @test G == 1.0
     @test r == r0/4
     @test flag
-    @test abs(δ - 1.0) < 1e-6
+    @test abs(δ - 1.0) < 10*eps(1.0)
 end
 
 domain = zeros(1, D)
@@ -78,12 +76,11 @@ systems = (sys,)
 points = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 flows = map(x -> CPL.make_flow(systems, x), points)
 M = length(flows)
-resize!(coeffs_, M)
 coeffs = [Vector{Float64}(undef, D) for i = 1:M]
 
 G0 = Gmax = 1.0
 r0 = rmin = 0.0 + 1e-5
-δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs_, coeffs,
+δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs,
                                         flows, G0, Gmax, r0, rmin,
                                         ϵ, solver)
 
@@ -97,7 +94,7 @@ G0 = 0.25
 Gmax = 2.0 + 1e-5
 r0 = 8.0 - 1e-5
 rmin = 0.0
-δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs_, coeffs,
+δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs,
                                         flows, G0, Gmax, r0, rmin,
                                         ϵ, solver)
 
@@ -105,7 +102,7 @@ rmin = 0.0
     @test G == 2.0
     @test r == r0/8
     @test flag
-    @test abs(δ - 1.0) < 1e-6
+    @test abs(δ - 1.0) < 10*eps(1.0)
 end
 
 println("\nfinished-----------------------------------------------------------")

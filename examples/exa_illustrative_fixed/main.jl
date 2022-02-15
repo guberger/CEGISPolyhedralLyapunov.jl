@@ -36,7 +36,7 @@ coeffs, nodes, obj_max, flag =
                           output_depth=1000,
                           learner_output=false)
 
-fig = figure(0, figsize=(8, 10))
+fig = figure(0, figsize=(8, 8))
 ax = fig.add_subplot(aspect="equal")
 
 xlims = (-2, 2)

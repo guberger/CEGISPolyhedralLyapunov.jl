@@ -1,6 +1,7 @@
 include("test_structs.jl")
 include("test_learner_adaptive.jl")
-include("test_learner_fixed.jl")
+include("test_learner_fixed_chebyshev.jl")
+include("test_learner_fixed_mve.jl")
 include("test_verifier.jl")
 include("test_process_adaptive.jl")
 include("test_process_fixed.jl")
