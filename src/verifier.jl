@@ -5,7 +5,7 @@ function verify_PLF!(M, dim, x_opt, systems, coeffs, ζ, solver)
     q_opt = 0
     σ_opt = 0
     flag = false
-    flag_prob = false 
+    flag_prob = false
     
     for i = 1:M
         flag_prob && break

@@ -8,7 +8,7 @@ else
 end
 CPL = CEGPolyhedralLyapunov
 
-solver = optimizer_with_attributes(CSDP.Optimizer, "printlevel"=>1)
+solver = optimizer_with_attributes(CSDP.Optimizer, "printlevel"=>0)
 
 ## Parameters
 ϵ = 1e-2

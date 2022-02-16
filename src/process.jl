@@ -93,10 +93,12 @@ end
 
 function process_PLF_fixed(meth,
                            M, dim, systems, seeds_init,
-                           ϵ, tol, δ_min, solver; kwargs...)
+                           ϵ, tol, δ_min, solvers...; kwargs...)
     output_depth = get(kwargs, :output_depth, 1)
     learner_output = get(kwargs, :learner_output, true)
     depth_max = get(kwargs, :depth_max, -1)
+    solverLP = solvers[1]
+    solverM = get(solvers, 2, solverLP)
 
     depth_rec = 0 # record of max reached depth
     flag = false
@@ -119,6 +121,7 @@ function process_PLF_fixed(meth,
         copyto!(coeffs[i], coeffs_cube[i])
     end
     ζ = 2/ϵ
+    meth_cheby = Chebyshev()
     
     while !isempty(nodes_queue)
         nodes = dequeue!(nodes_queue)
@@ -131,30 +134,39 @@ function process_PLF_fixed(meth,
         end
         depth_rec = max(depth_rec, depth)
 
-        δ, flag = learn_PLF_fixed!(meth, M0, M, dim, coeffs,
-                                   nodes, solver, output=learner_output)
+        δ0, flag = learn_PLF_fixed!(meth_cheby, M0, M, dim, coeffs,
+                                    nodes, solverLP, output=learner_output)
 
         !flag && break
-
-        if output_depth ≥ 0 && mod(depth, output_depth) == 0
-            @printf("Depth: %d, δ: %f\n", depth, δ)
-        end
         
-        if δ < 0
+        if δ0 < 0
             if output_depth ≥ 0
-                @printf("Infeasible branch: depth: %d, δ: %f\n", depth, δ)
+                @printf("Infeasible branch: depth: %d, δ0: %f\n", depth, δ0)
             end
             continue
         end
 
+        if meth != meth_cheby
+            δ, flag = learn_PLF_fixed!(meth, M0, M, dim, coeffs,
+                                       nodes, solverM, output=learner_output)
+            flag = flag && δ ≥ 0
+            !flag && break
+        else
+            δ = δ0
+        end
+
+        if output_depth ≥ 0 && mod(depth, output_depth) == 0
+            @printf("Depth: %d, δ: %f (δ0: %f)\n", depth, δ, δ0)
+        end
+
         x = _VT_(undef, dim)
         obj_max, flag, i, q, σ = verify_PLF!(M1, dim, x, systems, coeffs,
-                                             ζ, solver)
+                                             ζ, solverLP)
 
         !flag && break
 
         if output_depth ≥ 0 && mod(depth, output_depth) == 0
-            @printf("|---- obj_max: %f\n", obj_max)
+            @printf("|----- obj_max: %f\n", obj_max)
         end
 
         obj_max < tol && break

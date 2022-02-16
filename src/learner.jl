@@ -220,8 +220,6 @@ function learn_PLF_fixed!(::MVE,
 
     optimize!(model)
 
-    display(solution_summary(model))
-
     if has_values(model)
         δ_opt = value(δ)
         for i = 1:M

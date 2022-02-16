@@ -34,7 +34,7 @@ coeffs, nodes, obj_max, flag =
                           output_depth=10,
                           learner_output=false)
 
-@testset "process_PLF_fixed: infeasible" begin
+@testset "process_PLF_fixed Chebyshev: infeasible" begin
     @test flag
     @test obj_max > tol
 end
@@ -51,7 +51,7 @@ coeffs, nodes, obj_max, flag =
                           learner_output=false)
 coeffs_normalized = map(c -> c/norm(c, Inf), coeffs)
 
-@testset "process_PLF_fixed: feasible" begin
+@testset "process_PLF_fixed Chebyshev: feasible" begin
     @test flag
     @test obj_max < -eps(1.0)
     for s1 in (-1, +1), s2 in (-1, +1)
