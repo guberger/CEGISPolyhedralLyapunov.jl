@@ -32,7 +32,7 @@ function _learn_PLF_adaptive!(Deb, M, dim, coeffs_opt,
     model = Model(solver)
     coeffs = [@variable(model, [1:dim], lower_bound=-1, upper_bound=+1)
               for i = 1:M]
-    δ = @variable(model, lower_bound=0)
+    δ = @variable(model)
 
     for (i, flow) in enumerate(flows)
         _make_constraints_adaptive(model, M, coeffs, δ, G, ϵ, i, flow)
@@ -42,13 +42,9 @@ function _learn_PLF_adaptive!(Deb, M, dim, coeffs_opt,
 
     optimize!(model)
 
-    if has_values(model)
-        δ_opt = value(δ)
-        for i = 1:M
-            map!(c -> value(c), coeffs_opt[Deb + i], coeffs[i])
-        end
-    else
-        δ_opt = -1.0
+    δ_opt = value(δ)
+    for i = 1:M
+        map!(c -> value(c), coeffs_opt[Deb + i], coeffs[i])
     end
 
     return δ_opt, get_status(model)
@@ -56,9 +52,10 @@ end
 
 function learn_PLF_adaptive!(Deb, M, dim, coeffs_opt,
                              flows, G0, Gmax, r0, rmin,
-                             ϵ, solver; output=true)
+                             ϵ, solver; output_pad=0)
     G = G0
     r = r0
+    padstr = output_pad ≥ 1 ? string("|", repeat(" ", output_pad - 1)) : ""
 
     if iszero(M)
         return Inf, G, r, true # δ, G, r, flag
@@ -71,13 +68,13 @@ function learn_PLF_adaptive!(Deb, M, dim, coeffs_opt,
 
     while G ≤ Gmax && r ≥ rmin
         iter += 1
-        if output
-            @printf("iter: %d. G: %f, r: %f\n", iter, G, r)
+        if output_pad ≥ 0
+            @printf("%sIter: %d. G: %f, r: %f\n", padstr, iter, G, r)
         end
         δ, status = _learn_PLF_adaptive!(Deb, M, dim, coeffs_opt,
                                          flows, G, ϵ, solver)
-        if output
-            @printf("|---- status: %s, %s, %s; δ: %f\n", status..., δ)
+        if output_pad ≥ 0
+            @printf("%s|--- status: %s, %s, %s; δ: %f\n", padstr, status..., δ)
         end
         flag = status[2] == _RSC_(1) && δ ≥ r
         (flag || 2*G > Gmax || r/2 < rmin) && break
@@ -86,9 +83,9 @@ function learn_PLF_adaptive!(Deb, M, dim, coeffs_opt,
     end
 
     if !flag
-        println("Problem in learning PLF")
-        @printf("|--- iter: %d. G: %f, r: %f\n", iter, G, r)
-        @printf("|--- status: %s, %s, %s; δ: %f\n", status..., δ)
+        @printf("%sProblem in learning PLF\n", padstr)
+        @printf("%s|--- iter: %d. G: %f, r: %f\n", padstr, iter, G, r)
+        @printf("%s|--- status: %s, %s, %s; δ: %f\n", padstr, status..., δ)
     end
 
     return δ, G, r, flag
@@ -123,7 +120,13 @@ end
 
 function learn_PLF_fixed!(::Chebyshev,
                           Deb, M, dim, coeffs_opt,
-                          nodes, solver; output=true)
+                          nodes, solver; output_pad=true)
+    padstr = output_pad ≥ 1 ? string("|", repeat(" ", output_pad - 1)) : ""
+
+    if output_pad ≥ 0
+        @printf("%sLearning PLF (Chebyshev)\n", padstr)
+    end
+
     if isempty(nodes)
         return Inf, true # δ, flag
     end
@@ -151,8 +154,9 @@ function learn_PLF_fixed!(::Chebyshev,
         map!(cv -> value(cv), coeffs_opt[Deb + i], coeffs[i])
     end
 
-    if output
-        @printf("status: %s, %s, %s; δ: %f\n", get_status(model)..., δ_opt)
+    if output_pad ≥ 0
+        @printf("%s|--- status: %s, %s, %s; δ: %f\n",
+                padstr, get_status(model)..., δ_opt)
     end
 
     flag = primal_status(model) == _RSC_(1)
@@ -188,7 +192,13 @@ end
 
 function learn_PLF_fixed!(::MVE,
                           Deb, M, dim, coeffs_opt,
-                          nodes, solver; output=true)
+                          nodes, solver; output_pad=true)
+    padstr = output_pad ≥ 1 ? string("|", repeat(" ", output_pad - 1)) : ""
+
+    if output_pad ≥ 0
+        @printf("%sLearning PLF (MVE)\n", padstr)
+    end
+
     if isempty(nodes)
         return Inf, true # δ, flag
     end
@@ -229,8 +239,9 @@ function learn_PLF_fixed!(::MVE,
         δ_opt = -1.0
     end
 
-    if output
-        @printf("status: %s, %s, %s; δ: %f\n", get_status(model)..., δ_opt)
+    if output_pad ≥ 0
+        @printf("%s|--- status: %s, %s, %s; δ: %f\n",
+                padstr, get_status(model)..., δ_opt)
     end
 
     flag = primal_status(model) == _RSC_(1)

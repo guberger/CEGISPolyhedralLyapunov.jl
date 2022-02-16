@@ -31,8 +31,8 @@ coeffs, nodes, obj_max, flag =
     CPL.process_PLF_fixed(meth, M, D, systems, seeds_init,
                           ϵ, tol, δ_min, solver,
                           depth_max=5,
-                          output_depth=10,
-                          learner_output=false)
+                          output_period=10,
+                          level_output=1)
 
 @testset "process_PLF_fixed Chebyshev: infeasible" begin
     @test flag
@@ -47,8 +47,7 @@ coeffs, nodes, obj_max, flag =
     CPL.process_PLF_fixed(meth, M, D, systems, seeds_init,
                           ϵ, tol, δ_min, solver,
                           depth_max=5,
-                          output_depth=1,
-                          learner_output=false)
+                          level_output=2)
 coeffs_normalized = map(c -> c/norm(c, Inf), coeffs)
 
 @testset "process_PLF_fixed Chebyshev: feasible" begin

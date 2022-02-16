@@ -40,7 +40,8 @@ r0 = rmin = 0.0
 coeffs, flows, deriv, flag, trace =
     CPL.process_PLF_adaptive(D, systems, flows_init,
                              G0, Gmax, r0, rmin, ϵ, tol,
-                             solver, trace=false, iter_max=1)
+                             solver,
+                             trace=false, iter_max=1, full_output=true)
 
 @testset "Process Adaptive: infeasible iter_max" begin
     @test norm(coeffs[5] - [-1, 0]) < eps(100.0)
@@ -57,7 +58,7 @@ end
 coeffs, flows, deriv, flag, trace =
     CPL.process_PLF_adaptive(D, systems, flows_init,
                     G0, Gmax, r0, rmin, ϵ, tol,
-                    solver, iter_max=100, learner_output=false)
+                    solver, iter_max=100, full_output=true)
 
 @testset "Process Adaptive: feasible" begin
     @test norm(coeffs[5] - [-1, 0]) < eps(100.0)

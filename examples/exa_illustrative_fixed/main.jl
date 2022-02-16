@@ -12,12 +12,33 @@ const GUROBI_ENV = Gurobi.Env()
 solver = optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV),
     "OutputFlag"=>false)
+
 ## Parameters
-ϵ = 1e-1
-tol = -eps(1.0)
+domain1 = [0.0 -1.0]
+fields1 = [[-0.5 +1.0; -1.0 -0.5]]
+domain2 = [0.0 +1.0]
+fields2 = [[0.01 +1.0; -1.0 0.01]]
+sys1 = CPL.LinearSystem(domain1, fields1)
+sys2 = CPL.LinearSystem(domain2, fields2)
+systems = (sys1, sys2)
 D = 2
-M = 5
+
+ϵ = 1e-1
+tol = -1e-5
+M = 8
 meth = CPL.Chebyshev()
+
+seeds_init = (CPL.Node[],)
+
+δ_min = 0.005
+coeffs, nodes, obj_max, flag =
+    CPL.process_PLF_fixed(meth, M, D, systems, seeds_init,
+                          ϵ, tol, δ_min, solver,
+                          depth_max=15,
+                          output_depth=1,
+                          learner_output=false)
+
+                          error()
 
 ## Tests
 domain = zeros(1, D)

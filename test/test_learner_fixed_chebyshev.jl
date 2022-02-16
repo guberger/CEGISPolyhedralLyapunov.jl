@@ -25,7 +25,8 @@ coeffs = [Vector{Float64}(undef, D) for i = 1:M1]
 for i = 1:M0
     copyto!(coeffs[i], coeffs_cube[i])
 end
-δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs, nodes, solver)
+δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs,
+                               nodes, solver, output_pad=4)
 
 @testset "Learner Fixed Chebyshev: empty flows" begin
     @test isinf(δ)
@@ -48,7 +49,8 @@ for flow in (flow1, flow2)
         end
     end
 end
-δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs, nodes, solver)
+δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs,
+                               nodes, solver, output_pad=4)
 
 @testset "Learner Fixed Chebyshev: LTI infeasible" begin
     @test δ < 0
@@ -60,7 +62,8 @@ witness2 = CPL.Witness(flow2, M0 + 2)
 node1 = CPL.Node(witness1, M0 + 1)
 node2 = CPL.Node(witness2, M0 + 2)
 nodes = (node1, node2)
-δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs, nodes, solver)
+δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs,
+                               nodes, solver, output_pad=4)
 
 @testset "Learner Fixed Chebyshev: LTI feasible" begin
     @test abs(δ - 0.5) < 10*eps(0.5)
@@ -81,7 +84,8 @@ for k = 1:M0
     local node = CPL.Node(witness, M0 + 1)
     push!(nodes, node)
 end
-δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs, nodes, solver)
+δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs,
+                               nodes, solver, output_pad=4)
 
 @testset "Learner Fixed Chebyshev: SLS infeasible" begin
     @test abs(δ + ϵ/2) < 10*eps(ϵ/2)
@@ -100,7 +104,8 @@ witness2 = CPL.Witness(flow2, M0 + 2)
 node1 = CPL.Node(witness1, M0 + 1)
 node2 = CPL.Node(witness2, M0 + 2)
 nodes = (node1, node2)
-δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs, nodes, solver)
+δ, flag = CPL.learn_PLF_fixed!(meth, M0, M, D, coeffs,
+                               nodes, solver, output_pad=4)
 
 @testset "Learner Fixed Chebyshev: SLS feasible" begin
     @test flag

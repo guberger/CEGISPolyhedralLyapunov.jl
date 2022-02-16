@@ -5,7 +5,11 @@ function process_PLF_adaptive(dim, systems, flows_init,
                               G0, Gmax, r0, rmin, ϵ, tol,
                               solver; kwargs...)
     output_period = get(kwargs, :output_period, 1)
-    learner_output = get(kwargs, :learner_output, true)
+    full_output = get(kwargs, :full_output, true)
+    output_pad = full_output ? 4 : -1
+    if full_output
+        output_period = 1
+    end
     iter_max = get(kwargs, :iter_max, -1)
     do_trace = get(kwargs, :trace, true)
 
@@ -20,6 +24,7 @@ function process_PLF_adaptive(dim, systems, flows_init,
     G = G0
     r = r0
     flag = false
+    δ = 1.0
     obj_max = Inf
     flows = collect(Flow, flows_init)
     coeffs_cube = (ϵ/2).*hypercube(dim)
@@ -34,6 +39,10 @@ function process_PLF_adaptive(dim, systems, flows_init,
             break
         end
         iter += 1
+        if output_period ≥ 0 && mod(iter, output_period) == 0
+            @printf("Iter: %d, G: %f, r: %f, δ: %f, deriv_max: %f\n",
+                    iter, G, r, δ, obj_max)
+        end
 
         M = length(flows)
         M1old = length(coeffs)
@@ -45,7 +54,7 @@ function process_PLF_adaptive(dim, systems, flows_init,
 
         δ, G, r, flag = learn_PLF_adaptive!(M0, M, dim, coeffs,
                                             flows, G, Gmax, r, rmin,
-                                            ϵ, solver, output=learner_output)
+                                            ϵ, solver, output_pad=output_pad)
 
         if do_trace
             push!(trace.flows_list, copy(flows))
@@ -55,8 +64,8 @@ function process_PLF_adaptive(dim, systems, flows_init,
 
         !flag && break
 
-        if output_period ≥ 0 && mod(iter, output_period) == 0
-            @printf("Iter: %d, G: %f, r: %f\n", iter, G, r)
+        if full_output
+            @printf("|--- G: %f, r: %f, δ: %f\n", G, r, δ)
         end
 
         x = _VT_(undef, dim)
@@ -69,8 +78,8 @@ function process_PLF_adaptive(dim, systems, flows_init,
 
         !flag && break
         
-        if output_period ≥ 0 && mod(iter, output_period) == 0
-            @printf("|---- obj_max: %f\n", obj_max)
+        if full_output
+            @printf("|--- deriv_max: %f\n", obj_max)
         end
         
         obj_max < tol && break
@@ -82,8 +91,8 @@ function process_PLF_adaptive(dim, systems, flows_init,
         push!(flows, flow)
     end
 
-    @printf("\nTerminated (flag: %s): Iter: %d, deriv_max: %f\n",
-        flag, iter, obj_max)
+    @printf("\nTerminated (flag: %s): Iter: %d, δ: %f, deriv_max: %f\n",
+        flag, iter, δ, obj_max)
 
     return coeffs, flows, obj_max, flag, trace
 end
@@ -94,15 +103,19 @@ end
 function process_PLF_fixed(meth,
                            M, dim, systems, seeds_init,
                            ϵ, tol, δ_min, solvers...; kwargs...)
-    output_depth = get(kwargs, :output_depth, 1)
-    learner_output = get(kwargs, :learner_output, true)
+    output_period = get(kwargs, :output_period, 1)
+    level_output = get(kwargs, :level_output, 2)
+    output_pad = level_output ≥ 2 ? 4 : -1
+    if level_output ≥ 2
+        output_period = 1
+    end
     depth_max = get(kwargs, :depth_max, -1)
     solverLP = solvers[1]
     solverM = get(solvers, 2, solverLP)
 
+    iter = 0
     depth_rec = 0 # record of max reached depth
     flag = false
-    iter = 0
     obj_max = Inf
     nodes_queue = PriorityQueue{Tree,Float64}(Base.Order.Reverse)
     nodes = Root()
@@ -124,39 +137,51 @@ function process_PLF_fixed(meth,
     meth_cheby = Chebyshev()
     
     while !isempty(nodes_queue)
+        iter += 1
+        if output_period ≥ 0 && mod(iter, output_period) == 0
+            @printf("Iter: %d, front: %d, depth_max: %d\n",
+                    iter, length(nodes_queue), depth_rec)
+        end
         nodes = dequeue!(nodes_queue)
         depth = length(nodes)
+
+        if level_output ≥ 2
+            @printf("|--- depth: %d\n", depth)
+        end
+
         if depth_max ≥ 0 && depth > depth_max
-            if output_depth ≥ 0
-                @printf("Abort branch: max depth (%d) exceeded\n", depth_max)
+            if level_output ≥ 1
+                @printf("|--- Abort branch: max depth (%d) exceeded\n",
+                        depth_max)
             end
             continue
         end
         depth_rec = max(depth_rec, depth)
 
         δ0, flag = learn_PLF_fixed!(meth_cheby, M0, M, dim, coeffs,
-                                    nodes, solverLP, output=learner_output)
+                                    nodes, solverLP, output_pad=output_pad)
 
         !flag && break
         
         if δ0 < 0
-            if output_depth ≥ 0
-                @printf("Infeasible branch: depth: %d, δ0: %f\n", depth, δ0)
+            if level_output ≥ 1
+                @printf("|--- Infeasible branch: δ0: %f (depth: %d)\n",
+                        δ0, depth)
             end
             continue
         end
 
         if meth != meth_cheby
             δ, flag = learn_PLF_fixed!(meth, M0, M, dim, coeffs,
-                                       nodes, solverM, output=learner_output)
+                                       nodes, solverM, output_pad=output_pad)
             flag = flag && δ ≥ 0
             !flag && break
         else
             δ = δ0
         end
 
-        if output_depth ≥ 0 && mod(depth, output_depth) == 0
-            @printf("Depth: %d, δ: %f (δ0: %f)\n", depth, δ, δ0)
+        if level_output ≥ 2
+            @printf("|--- δ: %f (δ0: %f)\n", δ, δ0)
         end
 
         x = _VT_(undef, dim)
@@ -165,8 +190,8 @@ function process_PLF_fixed(meth,
 
         !flag && break
 
-        if output_depth ≥ 0 && mod(depth, output_depth) == 0
-            @printf("|----- obj_max: %f\n", obj_max)
+        if level_output ≥ 2
+            @printf("|--- deriv_max: %f\n", obj_max)
         end
 
         obj_max < tol && break
@@ -182,8 +207,8 @@ function process_PLF_fixed(meth,
                 # iter += 1
             end
         else
-            if output_depth ≥ 0
-                @printf("Abort branch: δ too small: %f < %f, depth: %d\n",
+            if level_output ≥ 1
+                @printf("|--- Abort branch: δ: %f (< %f) (depth: %d)\n",
                     δ, δ_min, depth)
             end
         end

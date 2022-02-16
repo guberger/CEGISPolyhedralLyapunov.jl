@@ -22,7 +22,7 @@ G0 = Gmax = 1.0
 r0 = rmin = 1.0
 δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs,
                                         flows, G0, Gmax, r0, rmin,
-                                        ϵ, solver)
+                                        ϵ, solver, output_pad=4)
 
 @testset "Learner Adaptive: empty flows" begin
     @test isinf(δ)
@@ -44,7 +44,7 @@ G0 = Gmax = 1.0
 r0 = rmin = 1.0 + 1e-5
 δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs,
                                         flows, G0, Gmax, r0, rmin,
-                                        ϵ, solver)
+                                        ϵ, solver, output_pad=4)
 
 @testset "Learner Adaptive: LTI infeasible" begin
     @test G == G0
@@ -58,7 +58,7 @@ r0 = 4.0 - 1e-5
 rmin = 0.0
 δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs,
                                         flows, G0, Gmax, r0, rmin,
-                                        ϵ, solver)
+                                        ϵ, solver, output_pad=4)
 
 @testset "Learner Adaptive: LTI feasible" begin
     @test G == 1.0
@@ -82,7 +82,7 @@ G0 = Gmax = 1.0
 r0 = rmin = 0.0 + 1e-5
 δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs,
                                         flows, G0, Gmax, r0, rmin,
-                                        ϵ, solver)
+                                        ϵ, solver, output_pad=4)
 
 @testset "Learner Adaptive: SLS infeasible" begin
     @test G == G0
@@ -96,7 +96,7 @@ r0 = 8.0 - 1e-5
 rmin = 0.0
 δ, G, r, flag = CPL.learn_PLF_adaptive!(0, M, D, coeffs,
                                         flows, G0, Gmax, r0, rmin,
-                                        ϵ, solver)
+                                        ϵ, solver, output_pad=4)
 
 @testset "Learner Adaptive: SLS feasible" begin
     @test G == 2.0
