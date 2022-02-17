@@ -1,14 +1,17 @@
+using LinearAlgebra
 using LazySets
 using CDDLib
 using PyCall
 const spatial = pyimport_conda("scipy.spatial", "scipy")
 
 function retrieve_vertices_2d(c_list)
-    M = length(c_list)
+    ncmax = maximum(c -> norm(c), c_list)
+    idx = findall(c -> norm(c) > 100*eps(ncmax), c_list)
+    M = length(idx)
     Ahrep = zeros(M, 2)
     bhrep = ones(M)
-    for j = 1:M
-        Ahrep[j, :] = c_list[j]
+    for (i, j) in enumerate(idx)
+        Ahrep[i, :] = c_list[j]
     end
     poly = HPolytope(Ahrep, bhrep)
     points = vertices_list(poly, backend=CDDLib.Library())

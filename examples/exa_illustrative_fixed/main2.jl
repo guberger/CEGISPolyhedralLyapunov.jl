@@ -15,30 +15,39 @@ solver = optimizer_with_attributes(
 
 ## Parameters
 domain1 = [0.0 -1.0]
-fields1 = [[-1.5 +1.0; -1.0 -1.5]]
-domain2 = [0.0 +1.0; -1.0 0.0]
+fields1 = [[-0.75 +1.0; -1.0 -0.75]]
+domain2 = [0.0 +1.0]
+fields2 = [[-0.75 +1.0; -1.0 -0.75]]
+
+# domain1 = [0.0 -1.0; -1.0 0.0] # O1
+# fields1 = [[1.0-α 1.0; -1.0 -1.0-α]]
+domain2 = [0.0 +1.0; -1.0 0.0] # O2
 fields2 = [[-1.0 1.0; -1.0 1.0]]
-domain3 = [0.0 +1.0; +1.0 0.0]
+domain3 = [0.0 +1.0; +1.0 0.0] # O3
 fields3 = [[1.0 1.0; -1.0 -1.0]]
+domain4 = [0.0 -1.0; +1.0 0.0] # O4
+fields4 = [[-1.0 1.0; -1.0 1.0]]
 sys1 = CPL.LinearSystem(domain1, fields1)
 sys2 = CPL.LinearSystem(domain2, fields2)
 sys3 = CPL.LinearSystem(domain3, fields3)
+sys4 = CPL.LinearSystem(domain4, fields4)
+systems = (sys1, sys2)
 systems = (sys1, sys2, sys3)
 D = 2
 
 ϵ = 1e-2
-tol = -1e-7
-M = 8
+tol = -1e-9
+M = 5
 meth = CPL.Chebyshev()
 
 seeds_init = (CPL.Node[],)
 
-δ_min = 1e-9
+δ_min = 1e-7
 coeffs, nodes, obj_max, flag =
     CPL.process_PLF_fixed(meth, M, D, systems, seeds_init,
                           ϵ, tol, δ_min, solver,
-                          depth_max=100,
-                          output_period=100, level_output=1)
+                          depth_max=20,
+                          output_period=200, level_output=0)
 
 fig = figure(0, figsize=(8, 8))
 ax = fig.add_subplot(aspect="equal")
@@ -53,14 +62,13 @@ ax.tick_params(axis="both", labelsize=15)
 
 ngrid = 20
 x1_grid = range(xlims..., length=ngrid)
-x2_grid_list = (range(0, ylims[2], length=(ngrid ÷ 2) + 1),
-                range(ylims[1], 0, length=(ngrid ÷ 2) + 1))
-for q = 1:2
-    x2_grid = x2_grid_list[q]
+x2_grid = range(ylims..., length=ngrid)
+
+for sys in systems
     X = map(x -> [x...], Iterators.product(x1_grid, x2_grid))
     X1 = map(x -> x[1], X)
     X2 = map(x -> x[2], X)
-    F = [map(x -> (systems[q].fields[1]*x)[i], X) for i = 1:2]
+    F = [map(x -> (sys.fields[1]*x)[i], X) for i = 1:2]
     ax.quiver(X1, X2, F..., color="gray")
 end
 
@@ -107,8 +115,8 @@ x = x0*scaling/norm_poly(x0, coeffs)
 
 ax.plot(x..., marker=".", ms=7.5, c="purple")
 
-nstep = 100
-dt = 4π/nstep
+nstep = 400
+dt = 2π/nstep
 xplot_seq = [Vector{Float64}(undef, nstep) for i = 1:2]
 
 for t = 1:nstep

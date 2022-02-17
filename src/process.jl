@@ -5,9 +5,9 @@ function process_PLF_adaptive(dim, systems, flows_init,
                               G0, Gmax, r0, rmin, ϵ, tol,
                               solver; kwargs...)
     output_period = get(kwargs, :output_period, 1)
-    full_output = get(kwargs, :full_output, true)
-    output_pad = full_output ? 4 : -1
-    if full_output
+    level_output = get(kwargs, :level_output, 1)
+    output_pad = level_output ≥ 1 ? 4 : -1
+    if level_output ≥ 1
         output_period = 1
     end
     iter_max = get(kwargs, :iter_max, -1)
@@ -64,7 +64,7 @@ function process_PLF_adaptive(dim, systems, flows_init,
 
         !flag && break
 
-        if full_output
+        if level_output ≥ 1
             @printf("|--- G: %f, r: %f, δ: %f\n", G, r, δ)
         end
 
@@ -78,7 +78,7 @@ function process_PLF_adaptive(dim, systems, flows_init,
 
         !flag && break
         
-        if full_output
+        if level_output ≥ 1
             @printf("|--- deriv_max: %f\n", obj_max)
         end
         
@@ -115,6 +115,8 @@ function process_PLF_fixed(meth,
 
     iter = 0
     depth_rec = 0 # record of max reached depth
+    n_aborted = 0
+    n_infeasible = 0
     flag = false
     obj_max = Inf
     # nodes_queue = PriorityQueue{Tree,Float64}(Base.Order.Reverse)
@@ -138,8 +140,10 @@ function process_PLF_fixed(meth,
     while !isempty(nodes_queue)
         iter += 1
         if output_period ≥ 0 && mod(iter, output_period) == 0
-            @printf("Iter: %d, front: %d, depth_max: %d\n",
+            @printf("Iter: %d, front: %d, depth_max: %d, ",
                     iter, length(nodes_queue), depth_rec)
+            @printf("infeasible: %d, aborted: %d\n",
+                    n_infeasible, n_aborted)
         end
         nodes = dequeue!(nodes_queue)
         depth = length(nodes)
@@ -153,6 +157,7 @@ function process_PLF_fixed(meth,
                 @printf("|--- Abort branch: max depth (%d) exceeded\n",
                         depth_max)
             end
+            n_aborted += 1
             continue
         end
         depth_rec = max(depth_rec, depth)
@@ -162,11 +167,12 @@ function process_PLF_fixed(meth,
 
         !flag && break
         
-        if δ0 < 0
+        if δ0 < eps(1.0)
             if level_output ≥ 1
                 @printf("|--- Infeasible branch: δ0: %f (depth: %d)\n",
                         δ0, depth)
             end
+            n_infeasible += 1
             continue
         end
 
@@ -183,6 +189,15 @@ function process_PLF_fixed(meth,
             @printf("|--- δ: %f (δ0: %f)\n", δ, δ0)
         end
 
+        if δ < δ_min
+            if level_output ≥ 1
+                @printf("|--- Abort branch: δ: %f (< %f) (depth: %d)\n",
+                    δ, δ_min, depth)
+            end
+            n_aborted += 1
+            continue
+        end
+
         x = _VT_(undef, dim)
         obj_max, flag, i, q, σ = verify_PLF!(M1, dim, x, systems, coeffs,
                                              ζ, solverLP)
@@ -195,20 +210,13 @@ function process_PLF_fixed(meth,
 
         obj_max < tol && break
 
-        if δ ≥ δ_min
-            flow = make_flow(systems, x)
-            witness = Witness(flow, i)
-            for j = M0+1:M1
-                node = Node(witness, j)
-                child = grow(nodes, node)
-                # enqueue!(nodes_queue, child, δ)
-                enqueue!(nodes_queue, child, obj_max) # seems much faster!
-            end
-        else
-            if level_output ≥ 1
-                @printf("|--- Abort branch: δ: %f (< %f) (depth: %d)\n",
-                    δ, δ_min, depth)
-            end
+        flow = make_flow(systems, x)
+        witness = Witness(flow, i)
+        for j = M0+1:M1
+            node = Node(witness, j)
+            child = grow(nodes, node)
+            # enqueue!(nodes_queue, child, δ)
+            enqueue!(nodes_queue, child, obj_max) # seems much faster!
         end
     end
 
