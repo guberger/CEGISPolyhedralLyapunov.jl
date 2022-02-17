@@ -117,13 +117,12 @@ function process_PLF_fixed(meth,
     depth_rec = 0 # record of max reached depth
     flag = false
     obj_max = Inf
-    nodes_queue = PriorityQueue{Tree,Float64}(Base.Order.Reverse)
+    # nodes_queue = PriorityQueue{Tree,Float64}(Base.Order.Reverse)
+    nodes_queue = PriorityQueue{Tree,Float64}()
     nodes = Root()
     for seed_init in seeds_init
         nodes = seed(seed_init)
         enqueue!(nodes_queue, nodes, Inf)
-        # enqueue!(nodes_queue, nodes, iter)
-        # iter += 1
     end
 
     coeffs_cube = ϵ.*hypercube(dim)
@@ -202,9 +201,8 @@ function process_PLF_fixed(meth,
             for j = M0+1:M1
                 node = Node(witness, j)
                 child = grow(nodes, node)
-                enqueue!(nodes_queue, child, δ)
-                # enqueue!(nodes_queue, child, iter)
-                # iter += 1
+                # enqueue!(nodes_queue, child, δ)
+                enqueue!(nodes_queue, child, obj_max) # seems much faster!
             end
         else
             if level_output ≥ 1

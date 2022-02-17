@@ -15,47 +15,30 @@ solver = optimizer_with_attributes(
 
 ## Parameters
 domain1 = [0.0 -1.0]
-fields1 = [[-0.5 +1.0; -1.0 -0.5]]
-domain2 = [0.0 +1.0]
-fields2 = [[0.01 +1.0; -1.0 0.01]]
+fields1 = [[-1.5 +1.0; -1.0 -1.5]]
+domain2 = [0.0 +1.0; -1.0 0.0]
+fields2 = [[-1.0 1.0; -1.0 1.0]]
+domain3 = [0.0 +1.0; +1.0 0.0]
+fields3 = [[1.0 1.0; -1.0 -1.0]]
 sys1 = CPL.LinearSystem(domain1, fields1)
 sys2 = CPL.LinearSystem(domain2, fields2)
-systems = (sys1, sys2)
+sys3 = CPL.LinearSystem(domain3, fields3)
+systems = (sys1, sys2, sys3)
 D = 2
 
-ϵ = 1e-1
-tol = -1e-5
+ϵ = 1e-2
+tol = -1e-7
 M = 8
 meth = CPL.Chebyshev()
 
 seeds_init = (CPL.Node[],)
 
-δ_min = 0.005
+δ_min = 1e-9
 coeffs, nodes, obj_max, flag =
     CPL.process_PLF_fixed(meth, M, D, systems, seeds_init,
                           ϵ, tol, δ_min, solver,
-                          depth_max=15,
-                          output_depth=1,
-                          learner_output=false)
-
-                          error()
-
-## Tests
-domain = zeros(1, D)
-α = 1.0
-fields = [[-α +1.0; -1.0 -α]]
-sys = CPL.LinearSystem(domain, fields)
-systems = (sys,)
-
-seeds_init = (CPL.Node[],)
-
-δ_min = 0.00005
-coeffs, nodes, obj_max, flag =
-    CPL.process_PLF_fixed(meth, M, D, systems, seeds_init,
-                          ϵ, tol, δ_min, solver,
-                          depth_max=15,
-                          output_depth=1000,
-                          learner_output=false)
+                          depth_max=100,
+                          output_period=100, level_output=1)
 
 fig = figure(0, figsize=(8, 8))
 ax = fig.add_subplot(aspect="equal")
@@ -70,12 +53,16 @@ ax.tick_params(axis="both", labelsize=15)
 
 ngrid = 20
 x1_grid = range(xlims..., length=ngrid)
-x2_grid = range(ylims..., length=ngrid)
-X = map(x -> [x...], Iterators.product(x1_grid, x2_grid))
-X1 = map(x -> x[1], X)
-X2 = map(x -> x[2], X)
-F = [map(x -> (sys.fields[1]*x)[i], X) for i = 1:2]
-ax.quiver(X1, X2, F..., color="gray")
+x2_grid_list = (range(0, ylims[2], length=(ngrid ÷ 2) + 1),
+                range(ylims[1], 0, length=(ngrid ÷ 2) + 1))
+for q = 1:2
+    x2_grid = x2_grid_list[q]
+    X = map(x -> [x...], Iterators.product(x1_grid, x2_grid))
+    X1 = map(x -> x[1], X)
+    X2 = map(x -> x[2], X)
+    F = [map(x -> (systems[q].fields[1]*x)[i], X) for i = 1:2]
+    ax.quiver(X1, X2, F..., color="gray")
+end
 
 verts = retrieve_vertices_2d(coeffs)
 nv = maximum(x -> norm(x, Inf), verts)
@@ -114,5 +101,30 @@ for node in nodes
         ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="green", lw=2.5)
     end
 end
+
+x0 = [1.0, -1e-6]
+x = x0*scaling/norm_poly(x0, coeffs)
+
+ax.plot(x..., marker=".", ms=7.5, c="purple")
+
+nstep = 100
+dt = 4π/nstep
+xplot_seq = [Vector{Float64}(undef, nstep) for i = 1:2]
+
+for t = 1:nstep
+    global x
+    for i = 1:2
+        xplot_seq[i][t] = x[i]
+    end
+    for sys in systems
+        if all(sys.domain * x .≤ 0)
+            A = sys.fields[1]
+            x = exp(A*dt)*x
+            break
+        end
+    end   
+end
+
+ax.plot(xplot_seq[1], xplot_seq[2], lw=1.5, c="purple")
 
 end # module
