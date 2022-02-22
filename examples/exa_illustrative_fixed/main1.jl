@@ -13,6 +13,14 @@ solver = optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV),
     "OutputFlag"=>false)
 
+#=
+System with four pieces. Trajectories are moving in square, except in the 1st
+orthant where it gets attracted toward the center. The whole system is stable
+but does not admit a polynomial Lyapunov function.
+
+With α = 0.5 & M = 4: time ≈ 238 sec [DELL CU] (#iter ≈ 21_000)
+=#
+
 ## Parameters
 α = 0.5
 domain1 = [0.0 -1.0; -1.0 0.0] # O1
@@ -38,7 +46,7 @@ meth = CPL.Chebyshev()
 seeds_init = (CPL.Node[],)
 
 δ_min = 1e-7
-coeffs, nodes, obj_max, flag =
+@time coeffs, nodes, obj_max, flag =
     CPL.process_PLF_fixed(meth, M, D, systems, seeds_init,
                           ϵ, tol, δ_min, solver,
                           depth_max=20,
@@ -58,12 +66,19 @@ ax.tick_params(axis="both", labelsize=15)
 ngrid = 20
 x1_grid = range(xlims..., length=ngrid)
 x2_grid = range(ylims..., length=ngrid)
+X = map(x -> [x...], Iterators.product(x1_grid, x2_grid))
+X1 = map(x -> x[1], X)
+X2 = map(x -> x[2], X)
 
-for q = 1:1
-    X = map(x -> [x...], Iterators.product(x1_grid, x2_grid))
-    X1 = map(x -> x[1], X)
-    X2 = map(x -> x[2], X)
-    F = [map(x -> (systems[q].fields[1]*x)[i], X) for i = 1:2]
+for sys in systems
+    F = [map(x -> NaN, X) for k = 1:2]
+    for (i, x) in enumerate(X)
+        if all(sys.domain * x .≤ 0)
+            for k = 1:2
+                F[k][i] = (sys.fields[1]*x)[k]
+            end
+        end
+    end
     ax.quiver(X1, X2, F..., color="gray")
 end
 
@@ -129,5 +144,8 @@ for t = 1:nstep
 end
 
 ax.plot(xplot_seq[1], xplot_seq[2], lw=1.5, c="purple")
+
+fig.savefig("./examples/figures/fig_exa_illustrative_fixed_square.png",
+            dpi=200, transparent=false, bbox_inches="tight")
 
 end # module

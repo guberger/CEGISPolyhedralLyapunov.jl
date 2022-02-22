@@ -13,37 +13,34 @@ solver = optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV),
     "OutputFlag"=>false)
 
-## Parameters
-domain1 = [0.0 -1.0]
-fields1 = [[-0.75 +1.0; -1.0 -0.75]]
-domain2 = [0.0 +1.0]
-fields2 = [[-0.75 +1.0; -1.0 -0.75]]
+#=
+Simple rotation + attraction system with different levels of attrachtions
+depeding on the region of the state space.
 
-# domain1 = [0.0 -1.0; -1.0 0.0] # O1
-# fields1 = [[1.0-α 1.0; -1.0 -1.0-α]]
-domain2 = [0.0 +1.0; -1.0 0.0] # O2
-fields2 = [[-1.0 1.0; -1.0 1.0]]
-domain3 = [0.0 +1.0; +1.0 0.0] # O3
-fields3 = [[1.0 1.0; -1.0 -1.0]]
-domain4 = [0.0 -1.0; +1.0 0.0] # O4
-fields4 = [[-1.0 1.0; -1.0 1.0]]
+With α1 = 0.5 & α2 = 0.5 & M = 8: time ≈ 154 sec [DELL CU] (#iter ≈ 22_000)
+=#
+
+## Parameters
+α1 = 0.5
+domain1 = [0.0 -1.0]
+fields1 = [[-α1 +1.0; -1.0 -α1]]
+α2 = 0.75
+domain2 = [0.0 +1.0]
+fields2 = [[-α2 +1.0; -1.0 -α2]]
 sys1 = CPL.LinearSystem(domain1, fields1)
 sys2 = CPL.LinearSystem(domain2, fields2)
-sys3 = CPL.LinearSystem(domain3, fields3)
-sys4 = CPL.LinearSystem(domain4, fields4)
 systems = (sys1, sys2)
-systems = (sys1, sys2, sys3)
 D = 2
 
 ϵ = 1e-2
 tol = -1e-9
-M = 5
+M = 8
 meth = CPL.Chebyshev()
 
 seeds_init = (CPL.Node[],)
 
 δ_min = 1e-7
-coeffs, nodes, obj_max, flag =
+@time coeffs, nodes, obj_max, flag =
     CPL.process_PLF_fixed(meth, M, D, systems, seeds_init,
                           ϵ, tol, δ_min, solver,
                           depth_max=20,
@@ -63,12 +60,19 @@ ax.tick_params(axis="both", labelsize=15)
 ngrid = 20
 x1_grid = range(xlims..., length=ngrid)
 x2_grid = range(ylims..., length=ngrid)
+X = map(x -> [x...], Iterators.product(x1_grid, x2_grid))
+X1 = map(x -> x[1], X)
+X2 = map(x -> x[2], X)
 
 for sys in systems
-    X = map(x -> [x...], Iterators.product(x1_grid, x2_grid))
-    X1 = map(x -> x[1], X)
-    X2 = map(x -> x[2], X)
-    F = [map(x -> (sys.fields[1]*x)[i], X) for i = 1:2]
+    F = [map(x -> NaN, X) for k = 1:2]
+    for (i, x) in enumerate(X)
+        if all(sys.domain * x .≤ 0)
+            for k = 1:2
+                F[k][i] = (sys.fields[1]*x)[k]
+            end
+        end
+    end
     ax.quiver(X1, X2, F..., color="gray")
 end
 
@@ -134,5 +138,8 @@ for t = 1:nstep
 end
 
 ax.plot(xplot_seq[1], xplot_seq[2], lw=1.5, c="purple")
+
+fig.savefig("./examples/figures/fig_exa_illustrative_fixed_rotate.png",
+            dpi=200, transparent=false, bbox_inches="tight")
 
 end # module
