@@ -218,7 +218,6 @@ for (k, ax) in enumerate(ax_)
     ax.set_xticks(())
     ax.set_yticks(())
     if k in (1, 2, 3, 4)
-        ax.set_xticks
         ax.set_yticks(-2:1:2)
     end
     if k in (4, 8, 12)
