@@ -115,8 +115,6 @@ ax.text(-1.5, +1.6, L"\mathcal{Q}(x)=4",
 fig.savefig("./examples/figures/fig_exa_illustrative_fixed_field.png",
             dpi=200, transparent=false, bbox_inches="tight")
 
-## Verifier
-
 ## -----------------------------------------------------------------------------
 ## Verifier illustration
 coeffs = [[0.75, 0], [0.75, 0.75], [0, -0.75], [-0.01, 0], [0, 0.75]]
@@ -140,7 +138,7 @@ ax.tick_params(axis="both", labelsize=15)
 ax.plot(xlims, (0, 0), ls="--", c="black", lw=1.0)
 ax.plot((0, 0), ylims, ls="--", c="black", lw=1.0)
 ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
-ax.plot((1, 1, -1, -1, 1), (1, -1, -1, 1, 1), ls="-", c="purple", lw=1.0)
+ax.plot((1, 1, -1, -1, 1), (1, -1, -1, 1, 1), ls="--", c="purple", lw=5.0)
 
 verts = retrieve_vertices_2d(coeffs)
 scaling = 1.0
@@ -155,7 +153,7 @@ polylist.set_edgecolor("gold")
 polylist.set_linewidth(2.0)
 ax.add_collection(polylist)
 
-ax.plot(x..., marker=".", ms=15, c="red")
+ax.plot(x..., marker=".", ms=25, c="red")
 
 ax.text(+1.5, +1.6, L"\mathcal{Q}(x)=1",
         horizontalalignment="center", verticalalignment="center",
@@ -171,8 +169,10 @@ ax.text(-1.5, +1.6, L"\mathcal{Q}(x)=4",
         fontsize=20, backgroundcolor="white")
 
 LH = (matplotlib.patches.Patch(fc="gold", ec="gold", lw=2.5, alpha=0.5,
-        label=L"V(x)\leq1"),)
-ax.legend(handles=LH, fontsize=20, loc="upper center",
+        label=L"V(x)\leq1"),
+      matplotlib.patches.Patch(fc="none", ec="purple", lw=2.5, alpha=1.0,
+        label=L"\Vert x\Vert=1"),)
+ax.legend(handles=LH, ncol=2, fontsize=20, loc="upper center",
           bbox_to_anchor=(0.5, 1.15), facecolor="white", framealpha=1.0)
 
 np = 10
@@ -232,7 +232,7 @@ ax.add_collection(polylist)
 α_dx = 0.6
 nx = norm_poly(x, coeffs)
 xs = x*scaling/nx
-ax.plot(xs..., marker=".", ms=15, c="red")
+ax.plot(xs..., marker=".", ms=25, c="red")
 dx = systems[q].fields[σ]*x
 dxs = dx/norm(dx)
 ys = xs + α_dx*dxs
@@ -259,8 +259,8 @@ ax.legend(handles=LH, fontsize=20, loc="upper center",
 fig.savefig("./examples/figures/fig_exa_illustrative_fixed_verifier.png",
             dpi=200, transparent=false, bbox_inches="tight")
 
-error()
-
+## -----------------------------------------------------------------------------
+## Process illustration
 ϵ = 1e-2
 tol = -1e-9
 M = 4
@@ -269,13 +269,13 @@ meth = CPL.Chebyshev()
 seeds_init = (CPL.Node[],)
 
 δ_min = 1e-7
-@time coeffs, nodes, obj_max, flag =
+coeffs, nodes, obj_max, flag =
     CPL.process_PLF_fixed(meth, M, D, systems, seeds_init,
                           ϵ, tol, δ_min, solver,
                           depth_max=20,
                           output_period=200, level_output=0)
 
-fig = figure(0, figsize=(8, 8))
+fig = figure(2, figsize=(8, 8))
 ax = fig.add_subplot(aspect="equal")
 
 xlims = (-2, 2)
@@ -285,6 +285,10 @@ ax.set_ylim(ylims...)
 ax.set_xticks(-2:1:2)
 ax.set_yticks(-2:1:2)
 ax.tick_params(axis="both", labelsize=15)
+
+ax.plot(xlims, (0, 0), ls="--", c="black", lw=1.0)
+ax.plot((0, 0), ylims, ls="--", c="black", lw=1.0)
+ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
 
 ngrid = 20
 x1_grid = range(xlims..., length=ngrid)
@@ -336,11 +340,11 @@ for node in nodes
     nx = norm_poly(x, coeffs)
     xs = x*scaling/nx
     ax.plot(xs..., marker=".", ms=15, c="blue")
-    for dx in flow.grads
-        dxs = dx/(nx*norm_dx_max)
-        ys = xs + α_dx*dxs
-        ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="green", lw=2.5)
-    end
+    # for dx in flow.grads
+    #     dxs = dx/(nx*norm_dx_max)
+    #     ys = xs + α_dx*dxs
+    #     ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="green", lw=2.5)
+    # end
 end
 
 x0 = [1.0, -1e-6]
@@ -368,7 +372,25 @@ end
 
 ax.plot(xplot_seq[1], xplot_seq[2], lw=1.5, c="purple")
 
-fig.savefig("./examples/figures/fig_exa_illustrative_fixed_square.png",
+ax.text(+1.5, +1.6, L"\mathcal{Q}(x)=1",
+        horizontalalignment="center", verticalalignment="center",
+        fontsize=20, backgroundcolor="white")
+ax.text(+1.5, -1.6, L"\mathcal{Q}(x)=2",
+        horizontalalignment="center", verticalalignment="center",
+        fontsize=20, backgroundcolor="white")
+ax.text(-1.5, -1.6, L"\mathcal{Q}(x)=3",
+        horizontalalignment="center", verticalalignment="center",
+        fontsize=20, backgroundcolor="white")
+ax.text(-1.5, +1.6, L"\mathcal{Q}(x)=4",
+        horizontalalignment="center", verticalalignment="center",
+        fontsize=20, backgroundcolor="white")
+
+LH = (matplotlib.patches.Patch(fc="gold", ec="gold", lw=2.5, alpha=0.5,
+        label=L"V(x)\leq1"),)
+ax.legend(handles=LH, fontsize=20, loc="upper center",
+          bbox_to_anchor=(1.2, 1.02), facecolor="white", framealpha=1.0)
+
+fig.savefig("./examples/figures/fig_exa_illustrative_fixed_process.png",
             dpi=200, transparent=false, bbox_inches="tight")
 
 end # module

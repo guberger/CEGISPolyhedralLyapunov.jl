@@ -32,6 +32,102 @@ sys2 = CPL.LinearSystem(domain2, fields2)
 systems = (sys1, sys2)
 D = 2
 
+## -----------------------------------------------------------------------------
+## Field and trajectory
+
+fig = figure(0, figsize=(8, 8))
+ax = fig.add_subplot(aspect="equal")
+
+xlims = (-2, 2)
+ylims = (-2, 2)
+ax.set_xlim(xlims...)
+ax.set_ylim(ylims...)
+ax.set_xticks(-2:1:2)
+ax.set_yticks(-2:1:2)
+ax.tick_params(axis="both", labelsize=15)
+
+ax.plot(xlims, (0, 0), ls="--", c="black", lw=1.0)
+ax.plot((0, 0), ylims, ls="--", c="black", lw=1.0)
+ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
+
+ngrid = 20
+x1_grid = range(xlims..., length=ngrid)
+x2_grid = range(ylims..., length=ngrid)
+X = map(x -> [x...], Iterators.product(x1_grid, x2_grid))
+X1 = map(x -> x[1], X)
+X2 = map(x -> x[2], X)
+
+for sys in systems
+    F = [map(x -> NaN, X) for k = 1:2]
+    for (i, x) in enumerate(X)
+        if all(sys.domain * x .≤ 0)
+            for k = 1:2
+                F[k][i] = (sys.fields[1]*x)[k]
+            end
+        end
+    end
+    ax.quiver(X1, X2, F..., color="gray")
+end
+
+np = 50
+α_list = range(0, 2π, length=np + 1)[1:np]
+coeffs = map(α -> [cos(α), sin(α)], α_list)
+verts = retrieve_vertices_2d(coeffs)
+scaling = 1.5
+
+ax.plot(xlims, (0, 0), ls="--", c="black", lw=1.0)
+ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
+verts_scaled = map(x -> x*scaling, verts)
+polylist = matplotlib.collections.PolyCollection([verts_scaled])
+fca = matplotlib.colors.colorConverter.to_rgba("gold", alpha=0.5)
+polylist.set_facecolor(fca)
+polylist.set_edgecolor("gold")
+polylist.set_linewidth(2.0)
+ax.add_collection(polylist)
+
+x0 = [1.0, -1e-6]
+x = x0*scaling/norm_poly(x0, coeffs)
+
+ax.plot(x..., marker=".", ms=15, c="purple")
+
+nstep = 1000
+dt = 8π/nstep
+xplot_seq = [Vector{Float64}(undef, nstep) for i = 1:2]
+
+for t = 1:nstep
+    global x
+    for i = 1:2
+        xplot_seq[i][t] = x[i]
+    end
+    for sys in systems
+        if all(sys.domain * x .≤ 0)
+            A = sys.fields[1]
+            x = exp(A*dt)*x
+            break
+        end
+    end   
+end
+
+ax.plot(xplot_seq[1], xplot_seq[2], lw=1.5, c="purple")
+
+ax.text(+1.5, +1.6, L"\mathcal{Q}(x)=1",
+        horizontalalignment="center", verticalalignment="center",
+        fontsize=20, backgroundcolor="white")
+ax.text(+1.5, -1.6, L"\mathcal{Q}(x)=2",
+        horizontalalignment="center", verticalalignment="center",
+        fontsize=20, backgroundcolor="white")
+ax.text(-1.5, -1.6, L"\mathcal{Q}(x)=3",
+        horizontalalignment="center", verticalalignment="center",
+        fontsize=20, backgroundcolor="white")
+ax.text(-1.5, +1.6, L"\mathcal{Q}(x)=4",
+        horizontalalignment="center", verticalalignment="center",
+        fontsize=20, backgroundcolor="white")
+
+fig.savefig("./examples/figures/fig_exa_rotation_fixed_field.png",
+            dpi=200, transparent=false, bbox_inches="tight")
+
+error()
+
 ϵ = 1e-2
 tol = -1e-9
 M = 8
