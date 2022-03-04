@@ -21,23 +21,31 @@ With α1 = 0.5 & α2 = 0.5 & M = 8: time ≈ 154 sec [DELL CU] (#iter ≈ 22_000
 =#
 
 ## Parameters
-α1 = 0.5
+α1 = 0.75
 domain1 = [0.0 -1.0]
 fields1 = [[-α1 +1.0; -1.0 -α1]]
-α2 = 0.75
+# fields1 = [[0 (1/α1 + α1); -α1 -2*α1]]
+α2 = 0.5
 domain2 = [0.0 +1.0]
 fields2 = [[-α2 +1.0; -1.0 -α2]]
+# fields2 = [[0 (1/α2 + α2); -α2 -2*α2]]
 sys1 = CPL.LinearSystem(domain1, fields1)
 sys2 = CPL.LinearSystem(domain2, fields2)
 systems = (sys1, sys2)
 D = 2
 
+# display(eigen(fields1[1]))
+# display(eigen(fields2[1]))
+
 ## -----------------------------------------------------------------------------
 ## Field and trajectory
 
-fig = figure(0, figsize=(8, 8))
-ax = fig.add_subplot(aspect="equal")
+fig = figure(0, figsize=(14, 10))
+ax_ = fig.subplots(nrows=1, ncols=2,
+    gridspec_kw=Dict("wspace"=>0.05, "hspace"=>0.1),
+    subplot_kw=Dict("aspect"=>"equal"))
 
+ax = ax_[1]
 xlims = (-2, 2)
 ylims = (-2, 2)
 ax.set_xlim(xlims...)
@@ -47,7 +55,6 @@ ax.set_yticks(-2:1:2)
 ax.tick_params(axis="both", labelsize=15)
 
 ax.plot(xlims, (0, 0), ls="--", c="black", lw=1.0)
-ax.plot((0, 0), ylims, ls="--", c="black", lw=1.0)
 ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
 
 ngrid = 20
@@ -116,18 +123,12 @@ ax.text(+1.5, +1.6, L"\mathcal{Q}(x)=1",
 ax.text(+1.5, -1.6, L"\mathcal{Q}(x)=2",
         horizontalalignment="center", verticalalignment="center",
         fontsize=20, backgroundcolor="white")
-ax.text(-1.5, -1.6, L"\mathcal{Q}(x)=3",
-        horizontalalignment="center", verticalalignment="center",
-        fontsize=20, backgroundcolor="white")
-ax.text(-1.5, +1.6, L"\mathcal{Q}(x)=4",
-        horizontalalignment="center", verticalalignment="center",
-        fontsize=20, backgroundcolor="white")
 
-fig.savefig("./examples/figures/fig_exa_rotation_fixed_field.png",
-            dpi=200, transparent=false, bbox_inches="tight")
-
-error()
-
+LH = (matplotlib.patches.Patch(fc="gold", ec="gold", lw=2.5, alpha=0.5,
+        label=L"V_{\mathrm{quad}}(x)\leq1.5"),)
+ax.legend(handles=LH, fontsize=20, loc="upper center",
+          bbox_to_anchor=(0.5, 1.15), facecolor="white", framealpha=1.0)
+          
 ϵ = 1e-2
 tol = -1e-9
 M = 8
@@ -142,16 +143,20 @@ seeds_init = (CPL.Node[],)
                           depth_max=20,
                           output_period=200, level_output=0)
 
-fig = figure(0, figsize=(8, 8))
-ax = fig.add_subplot(aspect="equal")
+# coeffs = [randn(2) for i = 1:M]
+# nodes = CPL.Node[]
 
+ax = ax_[2]
 xlims = (-2, 2)
 ylims = (-2, 2)
 ax.set_xlim(xlims...)
 ax.set_ylim(ylims...)
 ax.set_xticks(-2:1:2)
-ax.set_yticks(-2:1:2)
+ax.set_yticks(())
 ax.tick_params(axis="both", labelsize=15)
+
+ax.plot(xlims, (0, 0), ls="--", c="black", lw=1.0)
+ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
 
 ngrid = 20
 x1_grid = range(xlims..., length=ngrid)
@@ -203,11 +208,11 @@ for node in nodes
     nx = norm_poly(x, coeffs)
     xs = x*scaling/nx
     ax.plot(xs..., marker=".", ms=15, c="blue")
-    for dx in flow.grads
-        dxs = dx/(nx*norm_dx_max)
-        ys = xs + α_dx*dxs
-        ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="green", lw=2.5)
-    end
+    # for dx in flow.grads
+    #     dxs = dx/(nx*norm_dx_max)
+    #     ys = xs + α_dx*dxs
+    #     ax.plot((xs[1], ys[1]), (xs[2], ys[2]), c="green", lw=2.5)
+    # end
 end
 
 x0 = [1.0, -1e-6]
@@ -235,7 +240,19 @@ end
 
 ax.plot(xplot_seq[1], xplot_seq[2], lw=1.5, c="purple")
 
-fig.savefig("./examples/figures/fig_exa_illustrative_fixed_rotate.png",
+ax.text(+1.5, +1.6, L"\mathcal{Q}(x)=1",
+        horizontalalignment="center", verticalalignment="center",
+        fontsize=20, backgroundcolor="white")
+ax.text(+1.5, -1.6, L"\mathcal{Q}(x)=2",
+        horizontalalignment="center", verticalalignment="center",
+        fontsize=20, backgroundcolor="white")
+
+LH = (matplotlib.patches.Patch(fc="gold", ec="gold", lw=2.5, alpha=0.5,
+        label=L"V(x)\leq1"),)
+ax.legend(handles=LH, fontsize=20, loc="upper center",
+          bbox_to_anchor=(0.5, 1.15), facecolor="white", framealpha=1.0)
+
+fig.savefig("./examples/figures/fig_exa_rotation_fixed.png",
             dpi=200, transparent=false, bbox_inches="tight")
 
 end # module

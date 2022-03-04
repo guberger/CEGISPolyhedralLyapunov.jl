@@ -183,7 +183,6 @@ x = Vector{Float64}(undef, D)
 obj_max, flag, i, q, σ = CPL.verify_PLF!(np, D, x, systems, coeffs, ζ, solver)
 
 ax = ax_[2]
-
 xlims = (-2, 2)
 ylims = (-2, 2)
 ax.set_xlim(xlims...)
