@@ -3,103 +3,111 @@ using JuMP
 using HiGHS
 using Test
 @static if isdefined(Main, :TestLocal)
-    include("../src/CEGPolyhedralLyapunov.jl")
+    include("../src/CEGISPolyhedralLyapunov.jl")
 else
-    using CEGPolyhedralLyapunov
+    using CEGISPolyhedralLyapunov
 end
-CPL = CEGPolyhedralLyapunov
+CPL = CEGISPolyhedralLyapunov
+CPLS = CPL.Polyhedra
 
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
 ## Parameters
-D = 2
+nvar = 2
+domain = CPLS.Cone()
+CPLS.add_supp!(domain, CPLS.Supp([1.0, 1.0]))
+verif = CPL.VerifierPos(nvar, domain)
 
-## Tests
-domain = zeros(1, D)
-fields = [[0 1; 0 0]]
-sys = CPL.LinearSystem(domain, fields)
-systems = (sys,)
+vecs = [[-0.5, 0.5], [1.0, 0.0]]
 
-x = Vector{Float64}(undef, D)
-coeffs = [[-1, 0], [1, 0]]
-M = length(coeffs)
-obj_max, flag, i, q, σ = CPL.verify_PLF!(M, D, x, systems, coeffs, Inf, solver)
+x, r = CPL.verify(verif, vecs, solver)
 
-@testset "Verifier: unbounded" begin
-    @test !flag
+@testset "verify pos" begin
+    @test r ≈ -1/3
+    @test norm(x, Inf) ≈ 1
+    @test x ∈ domain
 end
 
-ζ = 100
-obj_max, flag, i, q, σ = CPL.verify_PLF!(M, D, x, systems, coeffs, ζ, solver)
+nvar = 2
+domain = CPLS.Cone()
+CPLS.add_supp!(domain, CPLS.Supp([-1.0, -1.0]))
+verif = CPL.VerifierPos(nvar, domain)
 
-@testset "Verifier: reach bound" begin
-    @test abs(obj_max - ζ/norm([1, ζ])) < 1e-7
-    @test flag
+vecs = [[-0.5, 0.5], [1.0, 0.0]]
+
+x, r = CPL.verify(verif, vecs, solver)
+
+@testset "verify pos" begin
+    @test r ≈ 1/3
+    @test norm(x, Inf) ≈ 1
+    @test x ∈ domain
 end
 
-domain1 = [+1 0]
-fields1 = [[-1 0; 0 0], [-1 0.1; 0 -1]]
-domain2 = [-1 0]
-fields2 = [[+1 0.1; 0 0], [0.5 0; 0 0.5]]
-sys1 = CPL.LinearSystem(domain1, fields1)
-sys2 = CPL.LinearSystem(domain2, fields2)
-systems = (sys1, sys2)
+domain = CPLS.Cone()
+A = [0.0 1.0; 0.0 0.0]
+verif = CPL.VerifierLie(nvar, domain, A)
 
-coeffs = [[-1, 0], [1, 0], [0, -1], [0, 1]]
-M = length(coeffs)
-obj_max, flag, i, q, σ = CPL.verify_PLF!(M, D, x, systems, coeffs, Inf, solver)
+vecs = [[-1.0, 0.0], [1.0, 0.0]]
 
-@testset "Verifier: #1" begin
-    @test abs(obj_max - 1.1/sqrt(2)) < 1e-9
-    @test norm(x - [1, 1]) < 1e-9
-    @test flag
-    @test i == 2
-    @test q == 2
-    @test σ == 1
+x, r = CPL.verify(verif, vecs, solver)
+
+@testset "verify lie" begin
+    @test r ≈ 1
+    @test norm(x, Inf) ≈ 1
+    @test x ∈ domain
+    @test x[2] ≈ -1.0
 end
 
-fields2 = [zeros(2, 2), zeros(2, 2), [0 0; 1 0]]
-sys2 = CPL.LinearSystem(domain2, fields2)
-systems = (sys1, sys2)
+domain = CPLS.Cone()
+CPLS.add_supp!(domain, CPLS.Supp([-1.0, 0.0]))
+A = [1.0 0.1; 0.0 0.0]
+verif = CPL.VerifierLie(nvar, domain, A)
 
-obj_max, flag, i, q, σ = CPL.verify_PLF!(M, D, x, systems, coeffs, Inf, solver)
+vecs = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 
-@testset "Verifier: #2" begin
-    @test abs(obj_max - 1/sqrt(2)) < 1e-9
-    @test norm(x - [1, 1]) < 1e-9
-    @test flag
-    @test i == 4
-    @test q == 2
-    @test σ == 3
+x, r = CPL.verify(verif, vecs, solver)
+
+@testset "verify lie" begin
+    @test r ≈ 1.1
+    @test norm(x, Inf) ≈ 1
+    @test x ∈ domain
+    @test x ≈ [1, 1]
 end
 
-fields1 = [[-1.0 0.1; 0.0 -1.0]]
-fields2 = [[-3.0 0.0; 0.0 -3.0]]
-sys1 = CPL.LinearSystem(domain1, fields1)
-sys2 = CPL.LinearSystem(domain2, fields2)
-systems = (sys1, sys2)
+domain = CPLS.Cone()
+CPLS.add_supp!(domain, CPLS.Supp([1.0, 0.0]))
+A = [-1.0 0.1; 0.0 -1.0]
+verif = CPL.VerifierLie(nvar, domain, A)
 
-obj_max, flag, i, q, σ = CPL.verify_PLF!(M, D, x, systems, coeffs, Inf, solver)
+x, r = CPL.verify(verif, vecs, solver)
 
-@testset "Verifier: #3" begin
-    @test abs(obj_max + 0.9/sqrt(2)) < 1e-9
-    @test norm(x - [-1, -1]) < 1e-9
+@testset "verify lie" begin
+    @test r ≈ -0.9
+    @test norm(x, Inf) ≈ 1
+    @test x ∈ domain
 end
 
-domain = zeros(1, D)
-fields = [[-101.1 99; 101 -99.1], [-101.1 -99; -101 -99.1]]
-sys = CPL.LinearSystem(domain, fields)
-systems = (sys,)
+domain = CPLS.Cone()
+A = [-101.1 99; 101 -99.1]
+verif = CPL.VerifierLie(nvar, domain, A)
 
-coeffs1 = [[-1, 0], [1, 0], [0, -1], [0, 1]]
-coeffs2 = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
-M = length(coeffs)
-obj_max1 = CPL.verify_PLF!(M, D, x, systems, coeffs1, Inf, solver)[1]
-obj_max2 = CPL.verify_PLF!(M, D, x, systems, coeffs2, Inf, solver)[1]
+x, r = CPL.verify(verif, vecs, solver)
 
-@testset "Verifier: #4" begin
-    @test abs(obj_max1 - 1.9/sqrt(2)) < 1e-7
-    @test abs(obj_max2 + 0.1) < 1e-7
+@testset "verify lie" begin
+    @test r ≈ 1.9
+    @test norm(x, Inf) ≈ 1
+    @test x ∈ domain
+    @test x ≈ [-1, -1]
 end
 
-println("\nfinished-----------------------------------------------------------")
+vecs = [[-1.0, -1.0], [1.0, -1.0], [-1.0, 1.0], [1.0, 1.0]]
+
+x, r = CPL.verify(verif, vecs, solver)
+
+@testset "verify lie" begin
+    @test r ≈ -0.1
+    @test norm(x, Inf) ≈ 1
+    @test x ∈ domain
+end
+
+nothing

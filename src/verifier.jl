@@ -1,61 +1,151 @@
-function verify_PLF!(M, dim, x_opt, systems, coeffs, ζ, solver)
-    obj_max = -Inf
-    x_tmp = _VT_(undef, dim)
-    i_opt = 0
-    q_opt = 0
-    σ_opt = 0
-    flag = false
-    flag_prob = false
-    
-    for i = 1:M
-        flag_prob && break
-        c = coeffs[i]
+using LinearAlgebra
+using JuMP
+const _RSC_ = JuMP.MathOptInterface.ResultStatusCode
+const _TSC_ = JuMP.MathOptInterface.TerminationStatusCode
+using .Polyhedra: Cone
 
-        for (q, sys) in enumerate(systems)
-            model = Model(solver)
-            x = @variable(model, [1:dim], lower_bound=-ζ, upper_bound=+ζ)
+_VT_ = Vector{Float64}
+_MT_ = Matrix{Float64}
 
-            @constraint(model, dot(c, x) == 1)
+struct VerifierPos
+    nvar::Int
+    domain::Cone
+end
 
-            for j = 1:M
-                j == i && continue
-                d = coeffs[j]
-                @constraint(model, dot(d, x) ≤ 1)
-            end
+function _verify_pos_comp(nvar, domain, vecs, k, s, solver)
+    model = Model(solver)
+    x = @variable(model, [1:nvar], lower_bound=-1, upper_bound=1)
+    fix(x[k], s, force=true)
+    r = @variable(model, lower_bound=-2)
 
-            @constraint(model, sys.domain*x .≤ 0)
-
-            for (σ, A) in enumerate(sys.fields)
-                @objective(model, Max, dot(c, A*x))
-
-                optimize!(model)
-
-                TS = Int(termination_status(model))
-                PS = Int(primal_status(model))
-
-                if isone(PS)
-                    flag = true
-                    map!(xv -> value(xv), x_tmp, x)
-                    obj_val = objective_value(model)/norm(x_tmp)
-                    if obj_val > obj_max
-                        obj_max = obj_val
-                        copyto!(x_opt, x_tmp)
-                        i_opt, q_opt, σ_opt = i, q, σ
-                    end
-                elseif TS == 2 && iszero(PS)
-                    # nothing
-                else
-                    println("Problem in verifying PLF")
-                    @printf("status: %s, %s, %s\n", get_status(model)...)
-                    @printf("i: %d, q: %d, σ: %d\n", i, q, σ)
-                    flag_prob = true
-                    break
-                end
-            end
-        end
+    for s in domain.supps
+        @constraint(model, dot(s.a, x) ≤ 0)
     end
 
-    flag = !flag_prob && flag
+    for vec in vecs
+        @constraint(model, r ≥ dot(vec, x))
+    end
 
-    return obj_max, flag, i_opt, q_opt, σ_opt
+    @objective(model, Min, r)
+
+    optimize!(model)
+
+    if primal_status(model) == _RSC_(1) && termination_status(model) == _TSC_(1)
+        return value.(x), value(r)
+    elseif primal_status(model) == _RSC_(0) && termination_status(model) == _TSC_(2)
+        return Float64[], Inf
+    else
+        error(string(
+            "Verifier pos: neither feasible or infeasible: ",
+            primal_status(model), " ",
+            dual_status(model), " ",
+            termination_status(model)
+        ))
+    end
+end
+
+function verify(verif::VerifierPos, vecs::Vector{_VT_}, solver)
+    xopt = Float64[]
+    ropt = Inf
+    for (k, s) in Iterators.product(1:verif.nvar, (-1, 1))
+        x, r = _verify_pos_comp(verif.nvar, verif.domain, vecs, k, s, solver)
+        if r < ropt
+            ropt = r
+            xopt = x
+        end
+    end
+    if isinf(ropt)
+        error(string("Verifier pos: infeasible: ", ropt))
+    end
+    return xopt, ropt
+end
+
+function verify(verifs::Vector{VerifierPos}, vecs, solver)
+    xopt = Float64[]
+    ropt = Inf
+    qopt = 0
+    for (q, verif) in enumerate(verifs)
+        x, r = verify(verif, vecs, solver)
+        if r < ropt
+            ropt = r
+            xopt = x
+            qopt = q
+        end
+    end
+    return xopt, ropt, qopt
+end
+
+struct VerifierLie
+    nvar::Int
+    domain::Cone
+    A::_MT_
+end
+
+function _verify_lie_comp(nvar, domain, A, vecs, k, s, i, solver)
+    model = Model(solver)
+    x = @variable(model, [1:nvar], lower_bound=-1, upper_bound=1)
+    fix(x[k], s, force=true)
+    vec = vecs[i]
+
+    for s in domain.supps
+        @constraint(model, dot(s.a, x) ≤ 0)
+    end
+
+    for j = 1:length(vecs)
+        j == i && continue
+        vec2 = vecs[j]
+        @constraint(model, dot(vec - vec2, x) ≥ 0)
+    end
+
+    @objective(model, Max, dot(vec, A, x))
+
+    optimize!(model)
+
+    if primal_status(model) == _RSC_(1) && termination_status(model) == _TSC_(1)
+        return value.(x), objective_value(model)
+    elseif primal_status(model) == _RSC_(0) && termination_status(model) == _TSC_(2)
+        return Float64, -Inf
+    else
+        error(string(
+            "Verifier lie: neither feasible or infeasible: ",
+            primal_status(model), " ",
+            dual_status(model), " ",
+            termination_status(model)
+        ))
+    end
+
+    return value.(x), objective_value(model)
+end
+
+function verify(verif::VerifierLie, vecs, solver)
+    xopt = Float64[]
+    ropt = -Inf
+    for (i, k, s) in Iterators.product(1:length(vecs), 1:verif.nvar, (-1, 1))
+        x, r = _verify_lie_comp(
+            verif.nvar, verif.domain, verif.A, vecs, k, s, i, solver
+        )
+        if r > ropt
+            ropt = r
+            xopt = x
+        end
+    end
+    if isinf(ropt)
+        error(string("Verifier lie: infeasible: ", ropt))
+    end
+    return xopt, ropt
+end
+
+function verify(verifs::Vector{VerifierLie}, vecs, solver)
+    xopt = Float64[]
+    ropt = -Inf
+    qopt = 0
+    for (q, verif) in enumerate(verifs)
+        x, r = verify(verif, vecs, solver)
+        if r > ropt
+            ropt = r
+            xopt = x
+            qopt = q
+        end
+    end
+    return xopt, ropt, qopt
 end
