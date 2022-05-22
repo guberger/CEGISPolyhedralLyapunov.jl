@@ -10,6 +10,15 @@ struct System
     A::_MT_
 end
 
+@enum StatusCode begin
+    NOT_SOLVED = 0
+    LYAPUNOV_FOUND = 1
+    LYAPUNOV_INFEASIBLE = 2
+    RADIUS_TOO_SMALL = 3
+    MAX_ITER_REACHED = 4
+end
+
+
 mutable struct LearningProblem
     nvar::Int
     systems::Vector{System}
@@ -17,18 +26,27 @@ mutable struct LearningProblem
     θ::Float64
     δ::Float64
     Gs::Vector{Float64}
-    points::Vector{_VT_}
+    points_init::Vector{_VT_}
     tol_rad::Float64
     tol_pos::Float64
     tol_lie::Float64
     tol_norm::Float64
+    status::StatusCode
+    niter::Int
+    vecs_list::Vector{Vector{_VT_}}
+    rad_list::Vector{Float64}
+    val_pos_list::Vector{Float64}
+    val_lie_list::Vector{Float64}
+    witnesses_list::Vector{Vector{Witness}}
 end
 
 LearningProblem(
     nvar::Int, ϵ::Float64, θ::Float64, δ::Float64
 ) = LearningProblem(
     nvar, System[], ϵ, θ, δ, Float64[], _VT_[],
-    eps(1.0), eps(1.0), -eps(1.0), eps(1.0)
+    eps(1.0), eps(1.0), -eps(1.0), eps(1.0),
+    NOT_SOLVED, 0,
+    Vector{_VT_}[], Float64[], Float64[], Float64[], Vector{Witness}[]
 )
 
 set_tol_rad!(prob::LearningProblem, tol_rad::Float64) = (prob.tol_rad = tol_rad)
@@ -50,12 +68,12 @@ function add_system!(prob::LearningProblem, domain::Cone, A::_MT_)
     push!(prob.systems, System(domain, A))
 end
 
-function add_point!(prob::LearningProblem, point::_VT_)
+function add_point_init!(prob::LearningProblem, point::_VT_)
     np = norm(point, Inf)
     if np < prob.tol_norm*prob.nvar
         error(string("Point norm close to zero: ", np))
     end
-    push!(prob.points, point/np)
+    push!(prob.points_init, point/np)
 end
 
 function _add_vecs_point!(vecsgen, systems, point)
@@ -70,63 +88,58 @@ function _add_vecs_point!(vecsgen, systems, point)
     return wit
 end
 
-function _make_verifs(prob)
-    Q = length(prob.systems)
+function _make_verifs(nvar, systems)
+    Q = length(systems)
     verifs_pos = Vector{VerifierPos}(undef, Q)
     verifs_lie = Vector{VerifierLie}(undef, Q)
-    for (q, system) in enumerate(prob.systems)
-        verifs_pos[q] = VerifierPos(prob.nvar, system.domain)
-        verifs_lie[q] = VerifierLie(prob.nvar, system.domain, system.A)
+    for (q, system) in enumerate(systems)
+        verifs_pos[q] = VerifierPos(nvar, system.domain)
+        verifs_lie[q] = VerifierLie(nvar, system.domain, system.A)
     end
     return verifs_pos, verifs_lie
 end
 
-_init_trace() = (
-    vecs_list=Vector{_VT_}[],
-    witnesses_list=Vector{Witness}[]
-)
-
 function _verify(verifs_pos, verifs_lie, vecs, tol_pos, tol_lie, solver)
     print("Verify pos... ")
-    x, val, q = verify(verifs_pos, vecs, solver)
-    if val < tol_pos
-        println("CE found: ", x, ", ", val, ", ", q)
-        return x
+    x, val_pos, q = verify(verifs_pos, vecs, solver)
+    if val_pos < tol_pos
+        println("CE found: ", x, ", ", val_pos, ", ", q)
+        return x, val_pos, NaN
     else
-        println("No CE found: ", val)
+        println("No CE found: ", val_pos)
     end
     print("Verify lie... ")
-    x, val, q = verify(verifs_lie, vecs, solver)
-    if val > tol_lie
-        println("CE found: ", x, ", ", val, ", ", q)
-        return x
+    x, val_lie, q = verify(verifs_lie, vecs, solver)
+    if val_lie > tol_lie
+        println("CE found: ", x, ", ", val_lie, ", ", q)
+        return x, val_pos, val_lie
     else
-        println("No CE found: ", val)
+        println("No CE found: ", val_lie)
     end
-    return Float64[]
+    return Float64[], val_pos, val_lie
 end
 
-function learn_lyapunov(prob::LearningProblem, iter_max, solver)
+function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
     vecsgen = VecsGenerator(prob.nvar, prob.ϵ, prob.θ, prob.δ, prob.Gs)
 
-    trace_out = _init_trace()
-
     witnesses_init = Witness[]
-    for point in prob.points
+    for point in prob.points_init
         wit = _add_vecs_point!(vecsgen, prob.systems, point)
         push!(witnesses_init, wit)
     end
-    push!(trace_out.witnesses_list, witnesses_init)
+    push!(prob.witnesses_list, witnesses_init)
 
-    verifs_pos, verifs_lie = _make_verifs(prob)
+    verifs_pos, verifs_lie = _make_verifs(prob.nvar, prob.systems)
 
     iter = 0
 
     while true
         iter += 1
+        prob.niter = iter
         if iter > iter_max
             println(string("Max iter exceeded: ", iter))
-            return _VT_[], -Inf, trace_out
+            prob.status = MAX_ITER_REACHED
+            return false
         end
 
         flag = check_feasibility(vecsgen, solver)
@@ -135,27 +148,33 @@ function learn_lyapunov(prob::LearningProblem, iter_max, solver)
                 "System does not admit a Lyapunov function with parameters: ",
                 "ϵ: ", prob.ϵ, ", θ: ", prob.θ, ", δ: ", prob.δ
             ))
-            return _VT_[], -Inf, trace_out
+            prob.status = LYAPUNOV_INFEASIBLE
+            return false
         end
 
         vecs, r = compute_vecs(vecsgen, solver)
-        push!(trace_out.vecs_list, vecs)
+        push!(prob.vecs_list, vecs)
+        push!(prob.rad_list, r)
         if r < prob.tol_rad
             println(string("Satisfiability radius too small: ", r))
-            return _VT_[], -Inf, trace_out
+            prob.status = RADIUS_TOO_SMALL
+            return false
         end
 
-        x = _verify(
+        x, val_pos, val_lie = _verify(
             verifs_pos, verifs_lie, vecs, prob.tol_pos, prob.tol_lie, solver
         )
+        push!(prob.val_pos_list, val_pos)
+        push!(prob.val_lie_list, val_lie)
         if isempty(x)
             println("No CE found")
             println("Valid CLF: terminated")
-            return vecs, r, trace_out
+            prob.status = LYAPUNOV_FOUND
+            return true
         end
 
         point = x/norm(x, Inf)
         wit = _add_vecs_point!(vecsgen, prob.systems, point)
-        push!(trace_out.witnesses_list, [wit])
+        push!(prob.witnesses_list, [wit])
     end
 end
