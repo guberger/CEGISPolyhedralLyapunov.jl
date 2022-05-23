@@ -31,22 +31,13 @@ mutable struct LearningProblem
     tol_pos::Float64
     tol_lie::Float64
     tol_norm::Float64
-    status::StatusCode
-    niter::Int
-    vecs_list::Vector{Vector{_VT_}}
-    rad_list::Vector{Float64}
-    val_pos_list::Vector{Float64}
-    val_lie_list::Vector{Float64}
-    witnesses_list::Vector{Vector{Witness}}
 end
 
 LearningProblem(
     nvar::Int, ϵ::Float64, θ::Float64, δ::Float64
 ) = LearningProblem(
     nvar, System[], ϵ, θ, δ, Float64[], _VT_[],
-    eps(1.0), eps(1.0), -eps(1.0), eps(1.0),
-    NOT_SOLVED, 0,
-    Vector{_VT_}[], Float64[], Float64[], Float64[], Vector{Witness}[]
+    eps(1.0), eps(1.0), -eps(1.0), eps(1.0)
 )
 
 set_tol_rad!(prob::LearningProblem, tol_rad::Float64) = (prob.tol_rad = tol_rad)
@@ -119,15 +110,33 @@ function _verify(verifs_pos, verifs_lie, vecs, tol_pos, tol_lie, solver)
     return Float64[], val_pos, val_lie
 end
 
+mutable struct LearnerSolution
+    status::StatusCode
+    niter::Int
+    witnesses_list::Vector{Vector{Witness}}
+    vecs_list::Vector{Vector{_VT_}}
+    rad_list::Vector{Float64}
+    counterexample_list::Vector{Witness}
+    val_pos_list::Vector{Float64}
+    val_lie_list::Vector{Float64}
+end
+
+LearnerSolution() = LearnerSolution(
+    NOT_SOLVED, 0,
+    Vector{Witness}[], Vector{_VT_}[], Float64[],
+    Witness[], Float64[], Float64[]
+)
+
 function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
     vecsgen = VecsGenerator(prob.nvar, prob.ϵ, prob.θ, prob.δ, prob.Gs)
+    sol = LearnerSolution()
 
-    witnesses_init = Witness[]
+    witnesses = Witness[]
     for point in prob.points_init
         wit = _add_vecs_point!(vecsgen, prob.systems, point)
-        push!(witnesses_init, wit)
+        push!(witnesses, wit)
     end
-    push!(prob.witnesses_list, witnesses_init)
+    push!(sol.witnesses_list, copy(witnesses))
 
     verifs_pos, verifs_lie = _make_verifs(prob.nvar, prob.systems)
 
@@ -135,11 +144,12 @@ function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
 
     while true
         iter += 1
-        prob.niter = iter
+        print("Iter: ", iter)
+        sol.niter = iter
         if iter > iter_max
             println(string("Max iter exceeded: ", iter))
-            prob.status = MAX_ITER_REACHED
-            return false
+            sol.status = MAX_ITER_REACHED
+            return sol
         end
 
         flag = check_feasibility(vecsgen, solver)
@@ -148,33 +158,36 @@ function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
                 "System does not admit a Lyapunov function with parameters: ",
                 "ϵ: ", prob.ϵ, ", θ: ", prob.θ, ", δ: ", prob.δ
             ))
-            prob.status = LYAPUNOV_INFEASIBLE
-            return false
+            sol.status = LYAPUNOV_INFEASIBLE
+            return sol
         end
 
         vecs, r = compute_vecs(vecsgen, solver)
-        push!(prob.vecs_list, vecs)
-        push!(prob.rad_list, r)
+        println(" - radius: ", r)
+        push!(sol.vecs_list, vecs)
+        push!(sol.rad_list, r)
         if r < prob.tol_rad
             println(string("Satisfiability radius too small: ", r))
-            prob.status = RADIUS_TOO_SMALL
-            return false
+            sol.status = RADIUS_TOO_SMALL
+            return sol
         end
 
         x, val_pos, val_lie = _verify(
             verifs_pos, verifs_lie, vecs, prob.tol_pos, prob.tol_lie, solver
         )
-        push!(prob.val_pos_list, val_pos)
-        push!(prob.val_lie_list, val_lie)
+        push!(sol.val_pos_list, val_pos)
+        push!(sol.val_lie_list, val_lie)
         if isempty(x)
             println("No CE found")
             println("Valid CLF: terminated")
-            prob.status = LYAPUNOV_FOUND
-            return true
+            sol.status = LYAPUNOV_FOUND
+            return sol
         end
 
         point = x/norm(x, Inf)
         wit = _add_vecs_point!(vecsgen, prob.systems, point)
-        push!(prob.witnesses_list, [wit])
+        push!(sol.counterexample_list, wit)
+        push!(witnesses, wit)
+        push!(sol.witnesses_list, copy(witnesses))
     end
 end

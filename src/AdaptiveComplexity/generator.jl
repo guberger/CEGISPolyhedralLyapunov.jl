@@ -114,15 +114,18 @@ function _compute_vecs(vecsgen::VecsGenerator, G, solver)
     model = Model(solver)
     vecs = _add_vars!(model, vecsgen.nvar, vecsgen.nvec)
     r = @variable(model, upper_bound=2)
+    βpos = 1/vecsgen.ϵ
 
     for (i, wit) in vecsgen.witnesses_map
         vec = vecs[i]
-        _add_constr_pos!(model, vec, wit, r)
+        # _add_constr_pos!(model, vec, wit, r)
+        _add_constr_pos!(model, vec, wit, βpos)
         _add_constr_lie!(model, vec, vec, wit, r, 0)
         for j = 1:vecsgen.nvec
             j == i && continue
             vec2 = vecs[j]
             _add_constr_lie!(model, vec, vec2, wit, (2*G + 1)*r, G)
+            # _add_constr_lie!(model, vec, vec2, wit, r, G)
         end
     end
 
@@ -145,6 +148,7 @@ end
 function compute_vecs(vecsgen::VecsGenerator, solver)
     vecsopt = Vector{Float64}[]
     ropt = -Inf
+    print(vecsgen.rs)
     for (k, G) in enumerate(vecsgen.Gs)
         r = vecsgen.rs[k]
         r < ropt && continue

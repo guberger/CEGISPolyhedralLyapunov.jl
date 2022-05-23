@@ -4,7 +4,7 @@ using LinearAlgebra
 using PyPlot
 using PyCall
 art3d = PyObject(PyPlot.art3D)
-include("../utils/polyhedra.jl")
+include("../../utils/geometry.jl")
 
 datafile = "data_set_3"
 include(string("./", datafile, ".jl"))

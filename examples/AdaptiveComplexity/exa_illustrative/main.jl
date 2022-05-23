@@ -17,9 +17,9 @@ solver = optimizer_with_attributes(
 )
 
 ## Parameters
-ϵ = 1e1
+ϵ = 10.0
 θ = 0.1
-δ = 1e-6
+δ = 0.1
 nvar = 2
 prob = CPLA.LearningProblem(nvar, ϵ, θ, δ)
 CPLA.set_tol_rad!(prob, 1e-3)
@@ -212,15 +212,15 @@ fig.savefig(
     "./examples/figures/AdaptiveComplexity/fig_exa_illustrative_verifier.png",
     dpi=200, transparent=false, bbox_inches="tight")
 
-## Learner illustration
+## Learner feasible illustration
 points_init = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 for point in points_init
     CPLA.add_point_init!(prob, point)
 end
 
-flag = CPLA.learn_lyapunov!(prob, 100, solver)
+sol = CPLA.learn_lyapunov!(prob, 100, solver)
 
-@assert flag
+@assert sol.status == CPLA.LYAPUNOV_FOUND
 
 fig = figure(2, figsize=(8, 8))
 ax_ = fig.subplots(
@@ -228,24 +228,26 @@ ax_ = fig.subplots(
     gridspec_kw=Dict("wspace"=>0.1, "hspace"=>0.1),
     subplot_kw=Dict("aspect"=>"equal")
 )
-nvecs = length(prob.vecs_list)
+nvecs = length(sol.vecs_list)
 indexes = unique(round.(Int, range(1, nvecs, length=length(ax_))))
 nplot = length(indexes)
 
 xlims = (-2, 2)
 ylims = (-2, 2)
 
-for (k, ax) in enumerate(ax_)
+for ax in ax_
     ax.set_xlim(xlims...)
     ax.set_ylim(ylims...)
     ax.set_xticks(())
     ax.set_yticks(())
-    if k in (1, 2, 3)
-        ax.set_yticks(-2:1:2)
-    end
-    if k in (3, 6, 9)
-        ax.set_xticks(-2:1:2)
-    end
+end
+
+for ax in ax_[:, 1]
+    ax.set_yticks(-2:1:2)
+end
+
+for ax in ax_[size(ax_)[1], :]
+    ax.set_xticks(-2:1:2)
 end
 
 verts_radius = -Inf
@@ -254,7 +256,7 @@ verts_list = Vector{Vector{Vector{Float64}}}(undef, nplot)
 for k = 1:nplot
     global verts_radius
     idx = indexes[k]
-    vecs = prob.vecs_list[idx]
+    vecs = sol.vecs_list[idx]
     local p = CPLP.Polyhedron()
     for vec in vecs
         CPLP.add_halfspace!(p, CPLP.Halfspace(vec, -1.0))
@@ -268,10 +270,10 @@ end
 
 derivs_norm = -Inf
 
-for idx = 1:min(maximum(indexes) + 1, nvecs)
+for idx in indexes
     global derivs_norm
-    for wit in prob.witnesses_list[idx]
-        point_norm = maximum(vec -> dot(vec, wit.point), prob.vecs_list[idx])
+    for wit in sol.witnesses_list[idx]
+        point_norm = maximum(vec -> dot(vec, wit.point), sol.vecs_list[idx])
         for deriv in wit.derivs
             derivs_norm = max(derivs_norm, norm(deriv)/point_norm)
         end
@@ -280,14 +282,13 @@ end
 
 scaling = 1.8/verts_radius
 deriv_length = 0.6
-kplot_map = [1, 4, 7, 2, 5, 8, 3, 6, 9]
 
 for k = 1:nplot
-    ax = ax_[kplot_map[k]]
+    ax = ax_[LinearIndices(ax_)'[k]]
     idx = indexes[k]
     ax.plot(xlims, (0, 0), ls="--", c="black", lw=0.5)
     ax.plot(0, 0, marker="x", ms=5, c="black", mew=1.5)
-    vecs = prob.vecs_list[idx]
+    vecs = sol.vecs_list[idx]
     verts_scaled = map(vert -> vert*scaling, verts_list[k])
     polylist = matplotlib.collections.PolyCollection([verts_scaled])
     fca = matplotlib.colors.colorConverter.to_rgba("gold", alpha=0.5)
@@ -295,36 +296,33 @@ for k = 1:nplot
     polylist.set_edgecolor("gold")
     polylist.set_linewidth(1.0)
     ax.add_collection(polylist)
-    for idx_sub in 1:idx
-        for wit in prob.witnesses_list[idx_sub]
-            point_norm = maximum(vec -> dot(vec, wit.point), vecs)
-            point_scaled = wit.point*scaling/point_norm
-            ax.plot(point_scaled..., marker=".", ms=7.5, c="blue")
-            for deriv in wit.derivs
-                deriv_scaled = deriv/(point_norm*derivs_norm)
-                point2_scaled = point_scaled + deriv_length*deriv_scaled
-                ax.plot(
-                    (point_scaled[1], point2_scaled[1]),
-                    (point_scaled[2], point2_scaled[2]),
-                    c="green", lw=1.5
-                )
-            end
+    for wit in sol.witnesses_list[idx]
+        point_norm = maximum(vec -> dot(vec, wit.point), vecs)
+        point_scaled = wit.point*scaling/point_norm
+        ax.plot(point_scaled..., marker=".", ms=7.5, c="blue")
+        for deriv in wit.derivs
+            deriv_scaled = deriv/(point_norm*derivs_norm)
+            point2_scaled = point_scaled + deriv_length*deriv_scaled
+            ax.plot(
+                (point_scaled[1], point2_scaled[1]),
+                (point_scaled[2], point2_scaled[2]),
+                c="green", lw=1.5
+            )
         end
     end
-    if idx < nvecs
-        for wit in prob.witnesses_list[idx + 1]
-            point_norm = maximum(vec -> dot(vec, wit.point), vecs)
-            point_scaled = wit.point*scaling/point_norm
-            ax.plot(point_scaled..., marker=".", ms=7.5, c="black")
-            for deriv in wit.derivs
-                deriv_scaled = deriv/(point_norm*derivs_norm)
-                point2_scaled = point_scaled + deriv_length*deriv_scaled
-                ax.plot(
-                    (point_scaled[1], point2_scaled[1]),
-                    (point_scaled[2], point2_scaled[2]),
-                    c="red", lw=1.5
-                )
-            end
+    if idx ≤ length(sol.counterexample_list)
+        wit = sol.counterexample_list[idx]
+        point_norm = maximum(vec -> dot(vec, wit.point), vecs)
+        point_scaled = wit.point*scaling/point_norm
+        ax.plot(point_scaled..., marker=".", ms=7.5, c="black")
+        for deriv in wit.derivs
+            deriv_scaled = deriv/(point_norm*derivs_norm)
+            point2_scaled = point_scaled + deriv_length*deriv_scaled
+            ax.plot(
+                (point_scaled[1], point2_scaled[1]),
+                (point_scaled[2], point2_scaled[2]),
+                c="red", lw=1.5
+            )
         end
     end
     ax.text(
@@ -335,7 +333,7 @@ end
 
 x0 = [1.0, -1e-6]
 idx = indexes[nplot]
-x = x0*scaling/maximum(vec -> dot(vec, x0), prob.vecs_list[idx])
+x = x0*scaling/maximum(vec -> dot(vec, x0), sol.vecs_list[idx])
 ax = ax_[nplot]
 
 ax.plot(x..., marker=".", ms=7.5, c="purple")
@@ -362,5 +360,11 @@ fig.savefig(
     "./examples/figures/AdaptiveComplexity/fig_exa_illustrative_learner.png",
     dpi=200, transparent=false, bbox_inches="tight"
 )
+
+## Learner infeasible illustration
+prob.δ = 0.2
+sol = CPLA.learn_lyapunov!(prob, 100, solver)
+display(sol.status)
+display(sol.niter)
 
 end # module
