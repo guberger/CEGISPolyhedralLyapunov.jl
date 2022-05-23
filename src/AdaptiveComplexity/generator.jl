@@ -5,9 +5,21 @@ const _TSC_ = JuMP.MathOptInterface.TerminationStatusCode
 
 _VT_ = Vector{Float64}
 
-struct Witness
+struct PosConstraint
     point::_VT_
-    derivs::Vector{_VT_}
+    weight_point::Float64
+end
+
+struct LieConstraint
+    point::_VT_
+    deriv::_VT_
+    weight_point::Float64
+    weight_deriv::Float64
+end
+
+struct Witness
+    pos_constrs::Vector{PosConstraint}
+    lie_constrs::Vector{LieConstraint}
 end
 
 Witness(point::_VT_) = Witness(point, _VT_[])
@@ -23,10 +35,6 @@ end
 
 VecsGenerator(nvar::Int, ϵ::Float64, Gs::Vector{Float64}) =
     VecsGenerator(nvar, 0, Tuple{Int,Witness}[], ϵ, Gs, fill(Inf, length(Gs)))
-
-function add_deriv!(wit::Witness, deriv::_VT_)
-    push!(wit.derivs, deriv)
-end
 
 function add_vec!(vecsgen::VecsGenerator)
     vecsgen.nvec += 1
@@ -54,47 +62,29 @@ function _add_vars!(model, nvar, nvec)
 end
 
 function _add_constrs_witness!(model, vecs, r, i, wit, ϵ, G, H)
-    point = wit.point
-    npoint = norm(wit.point, Inf)
-    @constraint(model, dot(point, vecs[i]) ≥ npoint/ϵ) # new
-    # @constraint(model, dot(point, vecs[i]) ≥ r*npoint) # not needed
-    # @constraint(model, dot(point, vecs[i]) ≥ norm(point)/ϵ) # old
-    for deriv in wit.derivs
-        nderiv = norm(deriv, Inf) # new test
-        nderiv = norm(deriv) # old
-        # α = r*npoint # new
-        α = r*nderiv # new test
-        # α = r*nderiv # old
-        @constraint(model, dot(deriv, vecs[i]) + α ≤ 0)
-        # β = (H + 1)*r*npoint # new
-        β = (H*npoint + nderiv)*r # new test
-        # β = r*nderiv # old
+    for poscon in wit.pos_constrs
+        point = poscon.point
+        weight_point = poscon.weight_point
+        # @constraint(model, dot(point, vecs[i]) ≥ weight_point/ϵ) # new
+        # new Eccentricity V1:
+        @constraint(model, dot(point, vecs[i]) ≥ r*weight_point)
+    end
+    for liecon in wit.lie_constrs
+        point = liecon.point
+        deriv = liecon.deriv
+        weight_point = liecon.weight_point
+        weight_deriv = liecon.weight_deriv
+        @constraint(model, dot(deriv, vecs[i]) + weight_deriv*r ≤ 0)
+        α = H*weight_point*r + weight_deriv*r
         for j = 1:length(vecs)
             j == i && continue
             @constraint(
                 model,
-                dot(deriv, vecs[j]) - G*dot(point, vecs[i] - vecs[j]) + β ≤ 0
+                dot(deriv, vecs[j]) - G*dot(point, vecs[i] - vecs[j]) + α ≤ 0
             )
         end
     end
 end
-
-# function _add_constr_lie!(model, vec, vec2, wit, β, γ)
-#     for deriv in wit.derivs
-#         # @constraint(
-#         #     model,
-#         #     dot(deriv, vec2) -
-#         #         γ*dot(wit.point, vec - vec2) +
-#         #         β*norm(wit.point, Inf) ≤ 0
-#         # ) # new
-#         # @constraint(
-#         #     model,
-#         #     dot(deriv, vec2) -
-#         #         γ*dot(wit.point, vec - vec2) +
-#         #         β*norm(deriv) ≤ 0
-#         # ) # old
-#     end
-# end # old
 
 function compute_vecs(vecsgen::VecsGenerator, G::Float64, H::Float64, solver)
     if iszero(vecsgen.nvec)
@@ -132,7 +122,8 @@ function compute_vecs(vecsgen::VecsGenerator, solver)
     for (k, G) in enumerate(vecsgen.Gs)
         r = vecsgen.rs[k]
         r < ropt && continue
-        vecs, r = compute_vecs(vecsgen, G, 2*G, solver)
+        vecs, r = compute_vecs(vecsgen, G, 2*G, solver) # new
+        # vecs, r = compute_vecs(vecsgen, G, 0.0, solver) # old
         vecsgen.rs[k] = r
         if r > ropt
             ropt = r

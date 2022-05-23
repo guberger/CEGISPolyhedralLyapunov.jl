@@ -47,7 +47,7 @@ points = map(α -> [cos(α), sin(α)], α_list)
 
 witnesses = CPLA.Witness[]
 for point in points
-    wit = CPLA._add_vecs_point!(vecsgen, prob.systems, point)
+    wit = CPLA._add_witness_vec_point!(vecsgen, prob.systems, point)
     push!(witnesses, wit)
 end
 
@@ -86,20 +86,25 @@ derivs_norm = -Inf
 
 for wit in witnesses
     global derivs_norm
-    point_norm = maximum(vec -> dot(vec, wit.point), vecs)
-    for deriv in wit.derivs
-        derivs_norm = max(derivs_norm, norm(deriv)/point_norm)
+    for lie_con in wit.lie_constrs
+        point_norm = maximum(vec -> dot(vec, lie_con.point), vecs)
+        derivs_norm = max(derivs_norm, norm(lie_con.deriv)/point_norm)
     end
 end
 
 deriv_length = 0.06
 
 for wit in witnesses
-    point_norm = maximum(vec -> dot(vec, wit.point), vecs)
-    point_scaled = wit.point*scaling/point_norm
-    ax.plot(point_scaled..., marker=".", ms=15, c="blue")
-    for deriv in wit.derivs
-        deriv_scaled = deriv/(point_norm*derivs_norm)
+    for pos_con in wit.pos_constrs
+        point_norm = maximum(vec -> dot(vec, pos_con.point), vecs)
+        point_scaled = pos_con.point*scaling/point_norm
+        ax.plot(point_scaled..., marker=".", ms=15, c="blue")
+    end
+    for lie_con in wit.lie_constrs
+        point_norm = maximum(vec -> dot(vec, lie_con.point), vecs)
+        point_scaled = lie_con.point*scaling/point_norm
+        ax.plot(point_scaled..., marker=".", ms=15, c="blue")
+        deriv_scaled = lie_con.deriv/(point_norm*derivs_norm)
         point2_scaled = point_scaled + deriv_length*deriv_scaled
         ax.plot(
             (point_scaled[1], point2_scaled[1]),
@@ -279,18 +284,23 @@ for k = 1:nplot
     # compute derivs_norm
     derivs_norm = -Inf
     for wit in sol.witnesses_list[idx]
-        point_norm = maximum(vec -> dot(vec, wit.point), vecs)
-        for deriv in wit.derivs
-            derivs_norm = max(derivs_norm, norm(deriv)/point_norm)
+        for lie_con in wit.lie_constrs
+            point_norm = maximum(vec -> dot(vec, lie_con.point), vecs)
+            derivs_norm = max(derivs_norm, norm(lie_con.deriv)/point_norm)
         end
     end
     # plot derivs
     for wit in sol.witnesses_list[idx]
-        point_norm = maximum(vec -> dot(vec, wit.point), vecs)
-        point_scaled = wit.point*scaling/point_norm
-        ax.plot(point_scaled..., marker=".", ms=7.5, c="blue")
-        for deriv in wit.derivs
-            deriv_scaled = deriv/(point_norm*derivs_norm)
+        for pos_con in wit.pos_constrs
+            point_norm = maximum(vec -> dot(vec, pos_con.point), vecs)
+            point_scaled = pos_con.point*scaling/point_norm
+            ax.plot(point_scaled..., marker=".", ms=7.5, c="blue")
+        end
+        for lie_con in wit.lie_constrs
+            point_norm = maximum(vec -> dot(vec, lie_con.point), vecs)
+            point_scaled = lie_con.point*scaling/point_norm
+            ax.plot(point_scaled..., marker=".", ms=7.5, c="blue")
+            deriv_scaled = lie_con.deriv/(point_norm*derivs_norm)
             point2_scaled = point_scaled + deriv_length*deriv_scaled
             ax.plot(
                 (point_scaled[1], point2_scaled[1]),
@@ -302,11 +312,16 @@ for k = 1:nplot
     if idx ≤ length(sol.counterexample_list)
         # plot counterexample:
         wit = sol.counterexample_list[idx]
-        point_norm = maximum(vec -> dot(vec, wit.point), vecs)
-        point_scaled = wit.point*scaling/point_norm
-        ax.plot(point_scaled..., marker=".", ms=7.5, c="black")
-        for deriv in wit.derivs
-            deriv_scaled = deriv/(point_norm*derivs_norm)
+        for pos_con in wit.pos_constrs
+            point_norm = maximum(vec -> dot(vec, pos_con.point), vecs)
+            point_scaled = pos_con.point*scaling/point_norm
+            ax.plot(point_scaled..., marker=".", ms=7.5, c="black")
+        end
+        for lie_con in wit.lie_constrs
+            point_norm = maximum(vec -> dot(vec, lie_con.point), vecs)
+            point_scaled = lie_con.point*scaling/point_norm
+            ax.plot(point_scaled..., marker=".", ms=7.5, c="black")
+            deriv_scaled = lie_con.deriv/(point_norm*derivs_norm)
             point2_scaled = point_scaled + deriv_length*deriv_scaled
             ax.plot(
                 (point_scaled[1], point2_scaled[1]),

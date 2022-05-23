@@ -50,11 +50,6 @@ function set_Gs!(prob::LearningProblem, α::Float64)
 end
 
 function add_system!(prob::LearningProblem, domain::Cone, A::_MT_)
-    nA = opnorm(A, Inf)
-    if nA < prob.tol_norm*prob.nvar
-        error(string("Matrix norm close to zero: ", nA))
-    end
-    # A = A/nA # new
     push!(prob.systems, System(domain, A))
 end
 
@@ -66,14 +61,22 @@ function add_point_init!(prob::LearningProblem, point::_VT_)
     push!(prob.points_init, point/np)
 end
 
-function _add_vecs_point!(vecsgen, systems, point)
-    wit = Witness(point)
+function _add_witness_vec_point!(vecsgen, systems, point)
+    weight_point = norm(point, Inf) # new
+    # weight_point = norm(point) # old
+    pos_constrs = [PosConstraint(point, weight_point)]
+    lie_constrs = LieConstraint[]
     for system in systems
         point ∉ system.domain && continue
         deriv = system.A*point
-        add_deriv!(wit, deriv)
+        weight_deriv = norm(deriv, Inf) # new Deriv V1
+        # weight_deriv = opnorm(system.A, Inf)*weight_point # new Deriv V2
+        # weight_deriv = norm(deriv) # old
+        lie_con = LieConstraint(point, deriv, weight_point, weight_deriv)
+        push!(lie_constrs, lie_con)
     end
     i = add_vec!(vecsgen)
+    wit = Witness(pos_constrs, lie_constrs)
     add_witness!(vecsgen, i, wit)
     return wit
 end
@@ -90,16 +93,16 @@ function _make_verifs(nvar, systems)
 end
 
 function _verify(verifs_pos, verifs_lie, vecs, tol_pos, tol_lie, solver)
-    # new V1:
-    # print("Verify pos... ")
-    # x, val_pos, q = verify(verifs_pos, vecs, solver)
-    # if val_pos < tol_pos
-    #     println("CE found: ", x, ", ", val_pos, ", ", q)
-    #     return x, val_pos, NaN
-    # else
-    #     println("No CE found: ", val_pos)
-    # end # end new V1
-    val_pos = Inf # new V2
+    # new Eccentricity V1:
+    print("Verify pos... ")
+    x, val_pos, q = verify(verifs_pos, vecs, solver)
+    if val_pos < tol_pos
+        println("CE found: ", x, ", ", val_pos, ", ", q)
+        return x, val_pos, NaN
+    else
+        println("No CE found: ", val_pos)
+    end # end new Eccentricity V1
+    # val_pos = Inf # new Eccentricity V2
     print("Verify lie... ")
     x, val_lie, q = verify(verifs_lie, vecs, solver)
     if val_lie > tol_lie
@@ -134,7 +137,7 @@ function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
 
     witnesses = Witness[]
     for point in prob.points_init
-        wit = _add_vecs_point!(vecsgen, prob.systems, point)
+        wit = _add_witness_vec_point!(vecsgen, prob.systems, point)
         push!(witnesses, wit)
     end
     push!(sol.witnesses_list, copy(witnesses))
@@ -173,12 +176,12 @@ function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
             return sol
         end
 
-        # new V2:
-        for k = 1:prob.nvar
-            vec_side = [(k_ == k ? 1.0 : 0.0) for k_ = 1:prob.nvar]
-            push!(vecs, vec_side/(2*prob.ϵ))
-            push!(vecs, -vec_side/(2*prob.ϵ))
-        end # end new V2
+        # new Eccentricity V2:
+        # for k = 1:prob.nvar
+        #     vec_side = [(k_ == k ? 1.0 : 0.0) for k_ = 1:prob.nvar]
+        #     push!(vecs, vec_side/(2*prob.ϵ))
+        #     push!(vecs, -vec_side/(2*prob.ϵ))
+        # end # end new Eccentricity V2
 
         x, val_pos, val_lie = _verify(
             verifs_pos, verifs_lie, vecs, prob.tol_pos, prob.tol_lie, solver
@@ -193,7 +196,7 @@ function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
         end
 
         point = x/norm(x, Inf)
-        wit = _add_vecs_point!(vecsgen, prob.systems, point)
+        wit = _add_witness_vec_point!(vecsgen, prob.systems, point)
         push!(sol.counterexample_list, wit)
         push!(witnesses, wit)
         push!(sol.witnesses_list, copy(witnesses))

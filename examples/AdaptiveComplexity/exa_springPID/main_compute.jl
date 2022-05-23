@@ -17,11 +17,17 @@ solver = optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
 )
 
-# optimum: new test and new V2
+# Notes:
+# Performs well with: ϵ = 50.0, θ = 0.04 (G = 25.0),
+# New Deriv V1 (norm(deriv, Inf)) and
+# New Eccentricity V1 (pos witnesses and lie witnesses)
+# (requires 77 pieces)
+# Performs also ok with New Deriv V2 (opnorm(A, Inf))
+# (requires 155 pieces)
 
 ## Parameters
 ϵ = 50.0 # 50.0
-θ = 0.039 # 1e-2
+θ = 0.04 # 0.039 # 1e-2
 δ = 0.0001 # eps(1.0)
 nvar = 3
 prob = CPLA.LearningProblem(nvar, ϵ, θ, δ)
