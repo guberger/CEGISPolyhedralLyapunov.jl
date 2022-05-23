@@ -1,4 +1,4 @@
-module ExampleSpringPID_ComputeLyapunov
+module ExampleSpringPID_Compute
 
 using JuMP
 using Gurobi
@@ -17,10 +17,12 @@ solver = optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
 )
 
+# optimum: new test and new V2
+
 ## Parameters
-ϵ = 20.0 # 50.0
-θ = 1e-2 # 1e-3
-δ = 1e-5 # eps(1.0)
+ϵ = 50.0 # 50.0
+θ = 0.039 # 1e-2
+δ = 0.0001 # eps(1.0)
 nvar = 3
 prob = CPLA.LearningProblem(nvar, ϵ, θ, δ)
 CPLA.set_tol_rad!(prob, 1e-6) # -1e-5
@@ -40,7 +42,7 @@ A = [0.0 1.0 0.0; 0.0 0.0 1.0; -Ki -(a0 + Kp) -(a1 + Kd)]
 CPLA.add_system!(prob, domain, A)
 
 for k = 1:nvar
-    local point = [(n == k ? 1.0 : 0.0) for n = 1:nvar]
+    local point = [(k_ == k ? 1.0 : 0.0) for k_ = 1:nvar]
     CPLA.add_point_init!(prob, point)
     CPLA.add_point_init!(prob, -point)
 end

@@ -33,12 +33,11 @@ mutable struct LearningProblem
     tol_norm::Float64
 end
 
-LearningProblem(
-    nvar::Int, ϵ::Float64, θ::Float64, δ::Float64
-) = LearningProblem(
-    nvar, System[], ϵ, θ, δ, Float64[], _VT_[],
-    eps(1.0), eps(1.0), -eps(1.0), eps(1.0)
-)
+LearningProblem(nvar::Int, ϵ::Float64, θ::Float64, δ::Float64) =
+    LearningProblem(
+        nvar, System[], ϵ, θ, δ, Float64[], _VT_[],
+        eps(1.0), eps(1.0), -eps(1.0), eps(1.0)
+    )
 
 set_tol_rad!(prob::LearningProblem, tol_rad::Float64) = (prob.tol_rad = tol_rad)
 set_tol_pos!(prob::LearningProblem, tol_pos::Float64) = (prob.tol_pos = tol_pos)
@@ -55,7 +54,7 @@ function add_system!(prob::LearningProblem, domain::Cone, A::_MT_)
     if nA < prob.tol_norm*prob.nvar
         error(string("Matrix norm close to zero: ", nA))
     end
-    A = A/nA
+    # A = A/nA # new
     push!(prob.systems, System(domain, A))
 end
 
@@ -91,14 +90,16 @@ function _make_verifs(nvar, systems)
 end
 
 function _verify(verifs_pos, verifs_lie, vecs, tol_pos, tol_lie, solver)
-    print("Verify pos... ")
-    x, val_pos, q = verify(verifs_pos, vecs, solver)
-    if val_pos < tol_pos
-        println("CE found: ", x, ", ", val_pos, ", ", q)
-        return x, val_pos, NaN
-    else
-        println("No CE found: ", val_pos)
-    end
+    # new V1:
+    # print("Verify pos... ")
+    # x, val_pos, q = verify(verifs_pos, vecs, solver)
+    # if val_pos < tol_pos
+    #     println("CE found: ", x, ", ", val_pos, ", ", q)
+    #     return x, val_pos, NaN
+    # else
+    #     println("No CE found: ", val_pos)
+    # end # end new V1
+    val_pos = Inf # new V2
     print("Verify lie... ")
     x, val_lie, q = verify(verifs_lie, vecs, solver)
     if val_lie > tol_lie
@@ -128,7 +129,7 @@ LearnerSolution() = LearnerSolution(
 )
 
 function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
-    vecsgen = VecsGenerator(prob.nvar, prob.ϵ, prob.θ, prob.δ, prob.Gs)
+    vecsgen = VecsGenerator(prob.nvar, prob.ϵ, prob.Gs)
     sol = LearnerSolution()
 
     witnesses = Witness[]
@@ -152,11 +153,11 @@ function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
             return sol
         end
 
-        flag = check_feasibility(vecsgen, solver)
-        if !flag
+        vecs, r = compute_vecs(vecsgen, 1/prob.θ, 2/prob.θ, solver)
+        if r < prob.δ
             println(string(
                 "System does not admit a Lyapunov function with parameters: ",
-                "ϵ: ", prob.ϵ, ", θ: ", prob.θ, ", δ: ", prob.δ
+                "ϵ: ", prob.ϵ, ", θ: ", prob.θ, ", δ: ", prob.δ, " - ", r
             ))
             sol.status = LYAPUNOV_INFEASIBLE
             return sol
@@ -171,6 +172,13 @@ function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
             sol.status = RADIUS_TOO_SMALL
             return sol
         end
+
+        # new V2:
+        for k = 1:prob.nvar
+            vec_side = [(k_ == k ? 1.0 : 0.0) for k_ = 1:prob.nvar]
+            push!(vecs, vec_side/(2*prob.ϵ))
+            push!(vecs, -vec_side/(2*prob.ϵ))
+        end # end new V2
 
         x, val_pos, val_lie = _verify(
             verifs_pos, verifs_lie, vecs, prob.tol_pos, prob.tol_lie, solver

@@ -17,17 +17,12 @@ mutable struct VecsGenerator
     nvec::Int
     witnesses_map::Vector{Tuple{Int,Witness}}
     ϵ::Float64
-    θ::Float64
-    δ::Float64
     Gs::Vector{Float64}
     rs::Vector{Float64}
 end
 
-VecsGenerator(
-    nvar::Int, ϵ::Float64, θ::Float64, δ::Float64, Gs::Vector{Float64}
-) = VecsGenerator(
-    nvar, 0, Tuple{Int,Witness}[], ϵ, θ, δ, Gs, fill(Inf, length(Gs))
-)
+VecsGenerator(nvar::Int, ϵ::Float64, Gs::Vector{Float64}) =
+    VecsGenerator(nvar, 0, Tuple{Int,Witness}[], ϵ, Gs, fill(Inf, length(Gs)))
 
 function add_deriv!(wit::Witness, deriv::_VT_)
     push!(wit.derivs, deriv)
@@ -46,6 +41,7 @@ function _add_vars!(model, nvar, nvec)
     vecs = [
         @variable(model, [1:nvar], lower_bound=-1, upper_bound=1) for i = 1:nvec
     ]
+    # new:
     avecs = [
         @variable(model, [1:nvar], lower_bound=0, upper_bound=1) for i = 1:nvec
     ]
@@ -53,87 +49,72 @@ function _add_vars!(model, nvar, nvec)
         @constraint(model, -vecs[i] .≤ avecs[i])
         @constraint(model, +vecs[i] .≤ avecs[i])
         @constraint(model, sum(avecs[i]) ≤ 1)
-    end
+    end # end new
     return vecs
 end
 
-function _add_constr_pos!(model, vec, wit, β)
-    @constraint(model, dot(wit.point, vec) ≥ β*norm(wit.point, Inf))
-end
-
-function _add_constr_lie!(model, vec, vec2, wit, β, γ)
+function _add_constrs_witness!(model, vecs, r, i, wit, ϵ, G, H)
+    point = wit.point
+    npoint = norm(wit.point, Inf)
+    @constraint(model, dot(point, vecs[i]) ≥ npoint/ϵ) # new
+    # @constraint(model, dot(point, vecs[i]) ≥ r*npoint) # not needed
+    # @constraint(model, dot(point, vecs[i]) ≥ norm(point)/ϵ) # old
     for deriv in wit.derivs
-        @constraint(
-            model,
-            dot(deriv, vec2) -
-                γ*dot(wit.point, vec - vec2) +
-                β*norm(wit.point, Inf) ≤ 0
-        )
-    end
-end
-
-function check_feasibility(vecsgen::VecsGenerator, solver)
-    if iszero(vecsgen.nvec)
-        return true
-    end
-
-    model = Model(solver)
-    vecs = _add_vars!(model, vecsgen.nvar, vecsgen.nvec)
-    βpos = 1/vecsgen.ϵ
-    βlie = vecsgen.δ
-    γ = 1/vecsgen.θ
-
-    for (i, wit) in vecsgen.witnesses_map
-        vec = vecs[i]
-        _add_constr_pos!(model, vec, wit, βpos)
-        _add_constr_lie!(model, vec, vec, wit, βlie, 0)
-        for j = 1:vecsgen.nvec
+        nderiv = norm(deriv, Inf) # new test
+        nderiv = norm(deriv) # old
+        # α = r*npoint # new
+        α = r*nderiv # new test
+        # α = r*nderiv # old
+        @constraint(model, dot(deriv, vecs[i]) + α ≤ 0)
+        # β = (H + 1)*r*npoint # new
+        β = (H*npoint + nderiv)*r # new test
+        # β = r*nderiv # old
+        for j = 1:length(vecs)
             j == i && continue
-            vec2 = vecs[j]
-            _add_constr_lie!(model, vec, vec2, wit, βlie, γ)
+            @constraint(
+                model,
+                dot(deriv, vecs[j]) - G*dot(point, vecs[i] - vecs[j]) + β ≤ 0
+            )
         end
     end
-
-    optimize!(model)
-
-    if primal_status(model) == _RSC_(1) && termination_status(model) == _TSC_(1)
-        return true
-    elseif primal_status(model) == _RSC_(0) && termination_status(model) == _TSC_(2)
-        return false
-    else
-        error(string(
-            "Generator: neither feasible or infeasible: ",
-            primal_status(model), " ",
-            dual_status(model), " ",
-            termination_status(model)
-        ))
-    end
 end
 
-function _compute_vecs(vecsgen::VecsGenerator, G, solver)
+# function _add_constr_lie!(model, vec, vec2, wit, β, γ)
+#     for deriv in wit.derivs
+#         # @constraint(
+#         #     model,
+#         #     dot(deriv, vec2) -
+#         #         γ*dot(wit.point, vec - vec2) +
+#         #         β*norm(wit.point, Inf) ≤ 0
+#         # ) # new
+#         # @constraint(
+#         #     model,
+#         #     dot(deriv, vec2) -
+#         #         γ*dot(wit.point, vec - vec2) +
+#         #         β*norm(deriv) ≤ 0
+#         # ) # old
+#     end
+# end # old
+
+function compute_vecs(vecsgen::VecsGenerator, G::Float64, H::Float64, solver)
+    if iszero(vecsgen.nvec)
+        return Vector{Float64}[], Inf
+    end
+
     model = Model(solver)
     vecs = _add_vars!(model, vecsgen.nvar, vecsgen.nvec)
     r = @variable(model, upper_bound=2)
-    βpos = 1/vecsgen.ϵ
 
     for (i, wit) in vecsgen.witnesses_map
-        vec = vecs[i]
-        # _add_constr_pos!(model, vec, wit, r)
-        _add_constr_pos!(model, vec, wit, βpos)
-        _add_constr_lie!(model, vec, vec, wit, r, 0)
-        for j = 1:vecsgen.nvec
-            j == i && continue
-            vec2 = vecs[j]
-            _add_constr_lie!(model, vec, vec2, wit, (2*G + 1)*r, G)
-            # _add_constr_lie!(model, vec, vec2, wit, r, G)
-        end
+        _add_constrs_witness!(model, vecs, r, i, wit, vecsgen.ϵ, G, H)
     end
 
     @objective(model, Max, r)
 
     optimize!(model)
 
-    if !(primal_status(model) == _RSC_(1) && termination_status(model) == _TSC_(1))
+    if !(primal_status(model) == _RSC_(1) &&
+            termination_status(model) == _TSC_(1))
         error(string(
             "Generator: not optimal: ",
             primal_status(model), " ",
@@ -148,11 +129,10 @@ end
 function compute_vecs(vecsgen::VecsGenerator, solver)
     vecsopt = Vector{Float64}[]
     ropt = -Inf
-    print(vecsgen.rs)
     for (k, G) in enumerate(vecsgen.Gs)
         r = vecsgen.rs[k]
         r < ropt && continue
-        vecs, r = _compute_vecs(vecsgen, G, solver)
+        vecs, r = compute_vecs(vecsgen, G, 2*G, solver)
         vecsgen.rs[k] = r
         if r > ropt
             ropt = r

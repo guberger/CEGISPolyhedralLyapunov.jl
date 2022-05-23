@@ -18,14 +18,15 @@ solver = optimizer_with_attributes(
 
 ## Parameters
 ϵ = 10.0
-θ = 0.1
-δ = 0.1
+θ = 1/3.2 # 0.1
+δ = 0.003 # 0.1
 nvar = 2
 prob = CPLA.LearningProblem(nvar, ϵ, θ, δ)
 CPLA.set_tol_rad!(prob, 1e-3)
 
-α = 1.5
-CPLA.set_Gs!(prob, α)
+# α = 1.1
+# CPLA.set_Gs!(prob, α)
+prob.Gs = [3.2]
 
 domain = CPLP.Cone()
 CPLP.add_supp!(domain, CPLP.Supp([0.0, -1.0]))
@@ -38,7 +39,7 @@ A = [0.01 1.0; -1.0 0.01]
 CPLA.add_system!(prob, domain, A)
 
 ## Generator illustration
-vecsgen = CPLA.VecsGenerator(nvar, ϵ, θ, δ, prob.Gs)
+vecsgen = CPLA.VecsGenerator(nvar, ϵ, prob.Gs)
 
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
@@ -91,7 +92,7 @@ for wit in witnesses
     end
 end
 
-deriv_length = 0.6
+deriv_length = 0.06
 
 for wit in witnesses
     point_norm = maximum(vec -> dot(vec, wit.point), vecs)
@@ -250,52 +251,40 @@ for ax in ax_[size(ax_)[1], :]
     ax.set_xticks(-2:1:2)
 end
 
-verts_radius = -Inf
-verts_list = Vector{Vector{Vector{Float64}}}(undef, nplot)
-
-for k = 1:nplot
-    global verts_radius
-    idx = indexes[k]
-    vecs = sol.vecs_list[idx]
-    local p = CPLP.Polyhedron()
-    for vec in vecs
-        CPLP.add_halfspace!(p, CPLP.Halfspace(vec, -1.0))
-    end
-    verts = compute_vertices_2d(p)
-    verts_list[k] = verts
-    verts_radius = max(
-        verts_radius, maximum(vert -> norm(vert, Inf), verts)
-    )
-end
-
-derivs_norm = -Inf
-
-for idx in indexes
-    global derivs_norm
-    for wit in sol.witnesses_list[idx]
-        point_norm = maximum(vec -> dot(vec, wit.point), sol.vecs_list[idx])
-        for deriv in wit.derivs
-            derivs_norm = max(derivs_norm, norm(deriv)/point_norm)
-        end
-    end
-end
-
-scaling = 1.8/verts_radius
+levelset_radius = 1.7
 deriv_length = 0.6
 
 for k = 1:nplot
     ax = ax_[LinearIndices(ax_)'[k]]
-    idx = indexes[k]
     ax.plot(xlims, (0, 0), ls="--", c="black", lw=0.5)
     ax.plot(0, 0, marker="x", ms=5, c="black", mew=1.5)
+    idx = indexes[k]
     vecs = sol.vecs_list[idx]
-    verts_scaled = map(vert -> vert*scaling, verts_list[k])
+    # compute verts norm:
+    p = CPLP.Polyhedron()
+    for vec in vecs
+        CPLP.add_halfspace!(p, CPLP.Halfspace(vec, -1.0))
+    end
+    verts = compute_vertices_2d(p)
+    verts_radius = maximum(vert -> norm(vert, Inf), verts)
+    # plot verts:
+    scaling = levelset_radius/verts_radius
+    verts_scaled = map(vert -> vert*scaling, verts)
     polylist = matplotlib.collections.PolyCollection([verts_scaled])
     fca = matplotlib.colors.colorConverter.to_rgba("gold", alpha=0.5)
     polylist.set_facecolor(fca)
     polylist.set_edgecolor("gold")
     polylist.set_linewidth(1.0)
     ax.add_collection(polylist)
+    # compute derivs_norm
+    derivs_norm = -Inf
+    for wit in sol.witnesses_list[idx]
+        point_norm = maximum(vec -> dot(vec, wit.point), vecs)
+        for deriv in wit.derivs
+            derivs_norm = max(derivs_norm, norm(deriv)/point_norm)
+        end
+    end
+    # plot derivs
     for wit in sol.witnesses_list[idx]
         point_norm = maximum(vec -> dot(vec, wit.point), vecs)
         point_scaled = wit.point*scaling/point_norm
@@ -311,6 +300,7 @@ for k = 1:nplot
         end
     end
     if idx ≤ length(sol.counterexample_list)
+        # plot counterexample:
         wit = sol.counterexample_list[idx]
         point_norm = maximum(vec -> dot(vec, wit.point), vecs)
         point_scaled = wit.point*scaling/point_norm
@@ -324,37 +314,34 @@ for k = 1:nplot
                 c="red", lw=1.5
             )
         end
+    else
+        # plot trajectory on last plot:
+        x0 = [1.0, -1e-6]
+        x = x0*scaling/maximum(vec -> dot(vec, x0), vecs)
+        ax.plot(x..., marker=".", ms=7.5, c="purple")
+        nstep = 100
+        dt = 4π/nstep
+        xplot_seq = [x]
+        for t = 1:nstep-1
+            q = 0
+            for system in prob.systems
+                if x ∈ system.domain
+                    x = exp(system.A*dt)*x
+                    break
+                end
+            end
+            push!(xplot_seq, x)
+        end
+        ax.plot(
+            getindex.(xplot_seq, 1), getindex.(xplot_seq, 2),
+            lw=1.5, c="purple"
+        )
     end
     ax.text(
         0.0, 1.6, string("Step ", idx),
         horizontalalignment="center", fontsize=14
     )
 end
-
-x0 = [1.0, -1e-6]
-idx = indexes[nplot]
-x = x0*scaling/maximum(vec -> dot(vec, x0), sol.vecs_list[idx])
-ax = ax_[nplot]
-
-ax.plot(x..., marker=".", ms=7.5, c="purple")
-
-nstep = 100
-dt = 4π/nstep
-xplot_seq = [x]
-
-for t = 1:nstep-1
-    global x
-    q = 0
-    for system in prob.systems
-        if x ∈ system.domain
-            x = exp(system.A*dt)*x
-            break
-        end
-    end
-    push!(xplot_seq, x)
-end
-
-ax.plot(getindex.(xplot_seq, 1), getindex.(xplot_seq, 2), lw=1.5, c="purple")
 
 fig.savefig(
     "./examples/figures/AdaptiveComplexity/fig_exa_illustrative_learner.png",
