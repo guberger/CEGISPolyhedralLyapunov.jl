@@ -2,7 +2,7 @@ module CEGISPolyhedralLyapunov
 
 include("Polyhedra.jl")
 
-include("verifier.jl")
+include("Verifier.jl")
 
 include("AdaptiveComplexity/AdaptiveComplexity.jl")
 include("FixedComplexity/FixedComplexity.jl")

@@ -1,5 +1,5 @@
 using LinearAlgebra
-using ..CEGISPolyhedralLyapunov: VerifierPos, VerifierLie, verify
+using ..Verifier: VerifyingProblem, verify_pos, verify_lie
 using ..Polyhedra: Cone
 
 _VT_ = Vector{Float64}
@@ -82,37 +82,28 @@ function make_witness_from_point(systems, point)
     return Witness(pos_constrs, lie_constrs)
 end
 
-function make_verifs_pos_from_systems(nvar, systems)
+function make_verifs_from_systems(nvar, systems)
     Q = length(systems)
-    verifs_pos = Vector{VerifierPos}(undef, Q)
+    verifs = Vector{VerifyingProblem}(undef, Q)
     for (q, system) in enumerate(systems)
-        verifs_pos[q] = VerifierPos(nvar, system.domain)
+        verifs[q] = VerifyingProblem(nvar, system.domain, system.A)
     end
-    return verifs_pos
+    return verifs
 end
 
-function make_verifs_lie_from_systems(nvar, systems)
-    Q = length(systems)
-    verifs_lie = Vector{VerifierLie}(undef, Q)
-    for (q, system) in enumerate(systems)
-        verifs_lie[q] = VerifierLie(nvar, system.domain, system.A)
-    end
-    return verifs_lie
-end
-
-function _verify(verifs_pos, verifs_lie, vecs, tol_pos, tol_lie, solver)
+function _verify(verifs, vecs, tol_pos, tol_lie, solver)
     # new Eccentricity V1:
     print("Verify pos... ")
-    x, val_pos, q = verify(verifs_pos, vecs, solver)
+    x, val_pos, q = verify_pos(verifs, vecs, solver)
     if val_pos < tol_pos
         println("CE found: ", x, ", ", val_pos, ", ", q)
-        return x, val_pos, NaN
+        return x, val_pos, -Inf
     else
         println("No CE found: ", val_pos)
     end # end new Eccentricity V1
     # val_pos = Inf # new Eccentricity V2
     print("Verify lie... ")
-    x, val_lie, q = verify(verifs_lie, vecs, solver)
+    x, val_lie, q = verify_lie(verifs, vecs, solver)
     if val_lie > tol_lie
         println("CE found: ", x, ", ", val_lie, ", ", q)
         return x, val_pos, val_lie
@@ -151,8 +142,7 @@ function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
     end
     push!(sol.witnesses_list, copy(witnesses))
 
-    verifs_pos = make_verifs_pos_from_systems(prob.nvar, prob.systems)
-    verifs_lie = make_verifs_lie_from_systems(prob.nvar, prob.systems)
+    verifs = make_verifs_from_systems(prob.nvar, prob.systems)
 
     iter = 0
 
@@ -194,7 +184,7 @@ function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
         # end # end new Eccentricity V2
 
         x, val_pos, val_lie = _verify(
-            verifs_pos, verifs_lie, vecs, prob.tol_pos, prob.tol_lie, solver
+            verifs, vecs, prob.tol_pos, prob.tol_lie, solver
         )
         push!(sol.val_pos_list, val_pos)
         push!(sol.val_lie_list, val_lie)

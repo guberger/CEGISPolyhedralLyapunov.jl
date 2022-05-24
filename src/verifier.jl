@@ -1,15 +1,18 @@
+module Verifier
+
 using LinearAlgebra
 using JuMP
 const _RSC_ = JuMP.MathOptInterface.ResultStatusCode
 const _TSC_ = JuMP.MathOptInterface.TerminationStatusCode
-using .Polyhedra: Cone
+using ..Polyhedra: Cone
 
 _VT_ = Vector{Float64}
 _MT_ = Matrix{Float64}
 
-struct VerifierPos
+struct VerifyingProblem
     nvar::Int
     domain::Cone
+    A::_MT_
 end
 
 function _verify_pos_comp(nvar, domain, vecs, k, s, solver)
@@ -46,7 +49,7 @@ function _verify_pos_comp(nvar, domain, vecs, k, s, solver)
     end
 end
 
-function verify(verif::VerifierPos, vecs::Vector{_VT_}, solver)
+function verify_pos(verif::VerifyingProblem, vecs::Vector{_VT_}, solver)
     xopt = Float64[]
     ropt = Inf
     for (k, s) in Iterators.product(1:verif.nvar, (-1, 1))
@@ -62,12 +65,12 @@ function verify(verif::VerifierPos, vecs::Vector{_VT_}, solver)
     return xopt, ropt
 end
 
-function verify(verifs::Vector{VerifierPos}, vecs, solver)
+function verify_pos(verifs::Vector{VerifyingProblem}, vecs, solver)
     xopt = Float64[]
     ropt = Inf
     qopt = 0
     for (q, verif) in enumerate(verifs)
-        x, r = verify(verif, vecs, solver)
+        x, r = verify_pos(verif, vecs, solver)
         if r < ropt
             ropt = r
             xopt = x
@@ -75,12 +78,6 @@ function verify(verifs::Vector{VerifierPos}, vecs, solver)
         end
     end
     return xopt, ropt, qopt
-end
-
-struct VerifierLie
-    nvar::Int
-    domain::Cone
-    A::_MT_
 end
 
 function _verify_lie_comp(nvar, domain, A, vecs, k, s, i, solver)
@@ -125,7 +122,7 @@ function _verify_lie_comp(nvar, domain, A, vecs, k, s, i, solver)
     return value.(x), objective_value(model)
 end
 
-function verify(verif::VerifierLie, vecs, solver)
+function verify_lie(verif::VerifyingProblem, vecs, solver)
     xopt = Float64[]
     ropt = -Inf
     for (i, k, s) in Iterators.product(1:length(vecs), 1:verif.nvar, (-1, 1)) # new
@@ -144,12 +141,12 @@ function verify(verif::VerifierLie, vecs, solver)
     return xopt, ropt
 end
 
-function verify(verifs::Vector{VerifierLie}, vecs, solver)
+function verify_lie(verifs::Vector{VerifyingProblem}, vecs, solver)
     xopt = Float64[]
     ropt = -Inf
     qopt = 0
     for (q, verif) in enumerate(verifs)
-        x, r = verify(verif, vecs, solver)
+        x, r = verify_lie(verif, vecs, solver)
         # r = r/norm(x) # old
         if r > ropt
             ropt = r
@@ -159,3 +156,5 @@ function verify(verifs::Vector{VerifierLie}, vecs, solver)
     end
     return xopt, ropt, qopt
 end
+
+end # module

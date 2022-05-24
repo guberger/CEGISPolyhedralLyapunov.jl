@@ -9,6 +9,7 @@ include("../../../src/CEGISPolyhedralLyapunov.jl")
 CPL = CEGISPolyhedralLyapunov
 CPLA = CPL.AdaptiveComplexity
 CPLP = CPL.Polyhedra
+CPLV = CPL.Verifier
 include("../../utils/geometry.jl")
 
 const GUROBI_ENV = Gurobi.Env()
@@ -130,13 +131,13 @@ fig.savefig(
 )
 
 ## Verifier illustration
-verifs_lie = CPLA.make_verifs_lie_from_systems(prob.nvar, prob.systems)
+verifs_lie = CPLA.make_verifs_from_systems(prob.nvar, prob.systems)
 
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
 vecs = map(α -> [cos(α), sin(α)], α_list)
 
-x, val, q = CPL.verify(verifs_lie, vecs, solver)
+x, val, q = CPLV.verify_lie(verifs_lie, vecs, solver)
 point = x/norm(x, Inf)
 
 fig = figure(1, figsize=(8, 10))
