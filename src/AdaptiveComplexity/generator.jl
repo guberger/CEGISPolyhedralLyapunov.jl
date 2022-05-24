@@ -23,8 +23,6 @@ struct Witness
     lie_constrs::Vector{LieConstraint}
 end
 
-Witness(point::_VT_) = Witness(point, _VT_[])
-
 mutable struct VecsGenerator
     nvar::Int
     witnesses::Vector{Witness}
@@ -79,10 +77,6 @@ end
 function compute_feasibility(
         vecsgen::VecsGenerator, ϵ::Float64, θ::Float64, solver
     )
-    if isempty(vecsgen.witnesses)
-        return Vector{Float64}[], Inf
-    end
-
     model = Model(solver)
     vecs = _add_vars!(model, vecsgen.nvar, length(vecsgen.witnesses))
     r = @variable(model, upper_bound=2)
@@ -134,10 +128,6 @@ function _add_constrs_compute_vecs!(model, vecs, r, i, wit, ϵ, G)
 end
 
 function _compute_vecs(vecsgen::VecsGenerator, G::Float64, solver)
-    if isempty(vecsgen.witnesses)
-        return Vector{Float64}[], Inf
-    end
-
     model = Model(solver)
     vecs = _add_vars!(model, vecsgen.nvar, length(vecsgen.witnesses))
     r = @variable(model, upper_bound=2)

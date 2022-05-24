@@ -17,12 +17,12 @@ solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 δ = 1.0
 Gs = [1.0]
 nvar = 2
-vecsgen = CPLA.VecsGenerator(nvar, ϵ, θ, δ, Gs)
+vecsgen = CPLA.VecsGenerator(nvar, Gs)
 
-flag = CPLA.check_feasibility(vecsgen, solver)
+r = CPLA.compute_feasibility(vecsgen, ϵ, θ, solver)
 
-@testset "check feasibility" begin
-    @test flag
+@testset "compute feasibility" begin
+    @test r > δ
 end
 
 vecs, r = CPLA.compute_vecs(vecsgen, solver)
@@ -37,19 +37,19 @@ A = [-1.0 0.0; 0.0 -1.0]
 points = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 
 for point in points
-    wit = CPLA.Witness(point)
     deriv = A*point
-    CPLA.add_deriv!(wit, deriv)
-    local i = CPLA.add_vec!(vecsgen)
-    CPLA.add_witness!(vecsgen, i, wit)
+    pos_constrs = [CPLA.PosConstraint(point, norm(point, Inf))]
+    lie_constrs = [CPLA.LieConstraint(
+        point, deriv, norm(point, Inf), 1.0, 1.0
+    )]
+    CPLA.add_witness!(vecsgen, CPLA.Witness(pos_constrs, lie_constrs))
 end
 
-vecsgen.δ = 1.0 + 1e-5
+δ = 1.0 + 1e-5
+r = CPLA.compute_feasibility(vecsgen, ϵ, θ, solver)
 
-flag = CPLA.check_feasibility(vecsgen, solver)
-
-@testset "check feasibility" begin
-    @test !flag
+@testset "compute feasibility" begin
+    @test r < δ
 end
 
 Gs = [0.25, 0.5, 1.0]
@@ -68,7 +68,7 @@ end
 δ = 1e-5
 Gs = [1.0]
 nvar = 2
-vecsgen = CPLA.VecsGenerator(nvar, ϵ, θ, δ, Gs)
+vecsgen = CPLA.VecsGenerator(nvar, Gs)
 
 As = [
     [-1.0 0.0; 0.0 -2.0],
@@ -77,18 +77,19 @@ As = [
 
 for point in points
     for A in As
-        wit = CPLA.Witness(point)
         deriv = A*point
-        CPLA.add_deriv!(wit, deriv)
-        local i = CPLA.add_vec!(vecsgen)
-        CPLA.add_witness!(vecsgen, i, wit)
+        pos_constrs = [CPLA.PosConstraint(point, norm(point, Inf))]
+        lie_constrs = [CPLA.LieConstraint(
+            point, deriv, norm(point, Inf), norm(point, Inf), 1.0
+        )]
+        CPLA.add_witness!(vecsgen, CPLA.Witness(pos_constrs, lie_constrs))
     end
 end
 
-flag = CPLA.check_feasibility(vecsgen, solver)
+r = CPLA.compute_feasibility(vecsgen, ϵ, θ, solver)
 
-@testset "check feasibility" begin
-    @test !flag
+@testset "compute feasibility" begin
+    @test r < δ
 end
 
 Gs = [0.25, 0.5, 1.0, 2.0]

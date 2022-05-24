@@ -31,9 +31,14 @@ prob = CPLA.LearningProblem(nvar, ϵ, θ, δ)
 CPLA.set_tol_rad!(prob, 0.0)
 
 α = 1.5
-CPLA.set_Gs!(prob, α)
+G = (α - 1)/2
+while true
+    CPLA.add_G!(prob, G)
+    G > 1/prob.θ && break
+    global G = G*α
+end
 
-@testset "set Gs" begin
+@testset "add Gs" begin
     @test prob.Gs ≈ [0.25*1.5^k for k = 0:4]
 end
 
