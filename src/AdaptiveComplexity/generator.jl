@@ -7,14 +7,15 @@ _VT_ = Vector{Float64}
 
 struct PosConstraint
     point::_VT_
-    weight_point::Float64
+    npoint::Float64
 end
 
 struct LieConstraint
     point::_VT_
     deriv::_VT_
-    weight_point::Float64
-    weight_deriv::Float64
+    npoint::Float64
+    nderiv::Float64
+    nA::Float64
 end
 
 struct Witness
@@ -26,23 +27,16 @@ Witness(point::_VT_) = Witness(point, _VT_[])
 
 mutable struct VecsGenerator
     nvar::Int
-    nvec::Int
-    witnesses_map::Vector{Tuple{Int,Witness}}
-    ϵ::Float64
+    witnesses::Vector{Witness}
     Gs::Vector{Float64}
     rs::Vector{Float64}
 end
 
-VecsGenerator(nvar::Int, ϵ::Float64, Gs::Vector{Float64}) =
-    VecsGenerator(nvar, 0, Tuple{Int,Witness}[], ϵ, Gs, fill(Inf, length(Gs)))
+VecsGenerator(nvar::Int, Gs::Vector{Float64}) =
+    VecsGenerator(nvar, Witness[], Gs, fill(Inf, length(Gs)))
 
-function add_vec!(vecsgen::VecsGenerator)
-    vecsgen.nvec += 1
-    return vecsgen.nvec
-end
-
-function add_witness!(vecsgen::VecsGenerator, i::Int, wit::Witness)
-    push!(vecsgen.witnesses_map, (i, wit))
+function add_witness!(vecsgen::VecsGenerator, wit::Witness)
+    push!(vecsgen.witnesses, wit)
 end
 
 function _add_vars!(model, nvar, nvec)
@@ -61,21 +55,17 @@ function _add_vars!(model, nvar, nvec)
     return vecs
 end
 
-function _add_constrs_witness!(model, vecs, r, i, wit, ϵ, G, H)
+function _add_constrs_compute_feasibility!(model, vecs, r, i, wit, ϵ, θ)
     for poscon in wit.pos_constrs
         point = poscon.point
-        weight_point = poscon.weight_point
-        # @constraint(model, dot(point, vecs[i]) ≥ weight_point/ϵ) # new
-        # new Eccentricity V1:
-        @constraint(model, dot(point, vecs[i]) ≥ r*weight_point)
+        @constraint(model, dot(point, vecs[i]) ≥ poscon.npoint/ϵ)
     end
     for liecon in wit.lie_constrs
         point = liecon.point
         deriv = liecon.deriv
-        weight_point = liecon.weight_point
-        weight_deriv = liecon.weight_deriv
-        @constraint(model, dot(deriv, vecs[i]) + weight_deriv*r ≤ 0)
-        α = H*weight_point*r + weight_deriv*r
+        α = liecon.nA*liecon.npoint*r
+        @constraint(model, dot(deriv, vecs[i]) + α ≤ 0)
+        G = liecon.nA/θ
         for j = 1:length(vecs)
             j == i && continue
             @constraint(
@@ -86,17 +76,74 @@ function _add_constrs_witness!(model, vecs, r, i, wit, ϵ, G, H)
     end
 end
 
-function compute_vecs(vecsgen::VecsGenerator, G::Float64, H::Float64, solver)
-    if iszero(vecsgen.nvec)
+function compute_feasibility(
+        vecsgen::VecsGenerator, ϵ::Float64, θ::Float64, solver
+    )
+    if isempty(vecsgen.witnesses)
         return Vector{Float64}[], Inf
     end
 
     model = Model(solver)
-    vecs = _add_vars!(model, vecsgen.nvar, vecsgen.nvec)
+    vecs = _add_vars!(model, vecsgen.nvar, length(vecsgen.witnesses))
     r = @variable(model, upper_bound=2)
 
-    for (i, wit) in vecsgen.witnesses_map
-        _add_constrs_witness!(model, vecs, r, i, wit, vecsgen.ϵ, G, H)
+    for (i, wit) in enumerate(vecsgen.witnesses)
+        _add_constrs_compute_feasibility!(model, vecs, r, i, wit, ϵ, θ)
+    end
+
+    @objective(model, Max, r)
+
+    optimize!(model)
+
+    if !(primal_status(model) == _RSC_(1) &&
+            termination_status(model) == _TSC_(1))
+        error(string(
+            "Generator: not optimal: ",
+            primal_status(model), " ",
+            dual_status(model), " ",
+            termination_status(model)
+        ))
+    end
+
+    return value(r)
+end
+
+function _add_constrs_compute_vecs!(model, vecs, r, i, wit, ϵ, G)
+    for poscon in wit.pos_constrs
+        point = poscon.point
+        α = poscon.npoint*r # new Eccentricity V1
+        # α = poscon.npoint/ϵ # old and new Eccentricity V2
+        @constraint(model, dot(point, vecs[i]) ≥ α)
+    end
+    for liecon in wit.lie_constrs
+        point = liecon.point
+        deriv = liecon.deriv
+        α = liecon.nderiv*r # new Deriv V1
+        # α = liecon.nA*liecon.npoint*r # new Deriv V2
+        @constraint(model, dot(deriv, vecs[i]) + α ≤ 0)
+        β = α + 2*G*liecon.npoint*r # new
+        # β = α # old
+        for j = 1:length(vecs)
+            j == i && continue
+            @constraint(
+                model,
+                dot(deriv, vecs[j]) - G*dot(point, vecs[i] - vecs[j]) + β ≤ 0
+            )
+        end
+    end
+end
+
+function _compute_vecs(vecsgen::VecsGenerator, G::Float64, solver)
+    if isempty(vecsgen.witnesses)
+        return Vector{Float64}[], Inf
+    end
+
+    model = Model(solver)
+    vecs = _add_vars!(model, vecsgen.nvar, length(vecsgen.witnesses))
+    r = @variable(model, upper_bound=2)
+
+    for (i, wit) in enumerate(vecsgen.witnesses)
+        _add_constrs_compute_vecs!(model, vecs, r, i, wit, 0.0, G)
     end
 
     @objective(model, Max, r)
@@ -122,8 +169,7 @@ function compute_vecs(vecsgen::VecsGenerator, solver)
     for (k, G) in enumerate(vecsgen.Gs)
         r = vecsgen.rs[k]
         r < ropt && continue
-        vecs, r = compute_vecs(vecsgen, G, 2*G, solver) # new
-        # vecs, r = compute_vecs(vecsgen, G, 0.0, solver) # old
+        vecs, r = _compute_vecs(vecsgen, G, solver)
         vecsgen.rs[k] = r
         if r > ropt
             ropt = r

@@ -26,7 +26,7 @@ CPLA.set_tol_rad!(prob, 1e-3)
 
 # α = 1.1
 # CPLA.set_Gs!(prob, α)
-prob.Gs = [3.2]
+CPLA.add_G!(prob, 3.2)
 
 domain = CPLP.Cone()
 CPLP.add_supp!(domain, CPLP.Supp([0.0, -1.0]))
@@ -39,7 +39,7 @@ A = [0.01 1.0; -1.0 0.01]
 CPLA.add_system!(prob, domain, A)
 
 ## Generator illustration
-vecsgen = CPLA.VecsGenerator(nvar, ϵ, prob.Gs)
+vecsgen = CPLA.VecsGenerator(nvar, prob.Gs)
 
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
@@ -47,7 +47,8 @@ points = map(α -> [cos(α), sin(α)], α_list)
 
 witnesses = CPLA.Witness[]
 for point in points
-    wit = CPLA._add_witness_vec_point!(vecsgen, prob.systems, point)
+    wit = CPLA.make_witness_from_point(prob.systems, point)
+    CPLA.add_witness!(vecsgen, wit)
     push!(witnesses, wit)
 end
 
@@ -129,7 +130,7 @@ fig.savefig(
 )
 
 ## Verifier illustration
-verifs_lie = CPLA._make_verifs(prob.nvar, prob.systems)[2]
+verifs_lie = CPLA.make_verifs_lie_from_systems(prob.nvar, prob.systems)
 
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]

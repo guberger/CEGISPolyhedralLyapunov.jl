@@ -35,7 +35,7 @@ CPLA.set_tol_rad!(prob, 1e-6) # -1e-5
 
 # α = 1.5
 # CPLA.set_Gs!(prob, α)
-prob.Gs = [1/θ]
+CPLA.add_G!(prob, 1/θ)
 
 domain = CPLP.Cone()
 CPLP.add_supp!(domain, CPLP.Supp([Ki, Kp, Kd]))

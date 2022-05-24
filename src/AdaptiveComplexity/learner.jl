@@ -43,10 +43,14 @@ set_tol_rad!(prob::LearningProblem, tol_rad::Float64) = (prob.tol_rad = tol_rad)
 set_tol_pos!(prob::LearningProblem, tol_pos::Float64) = (prob.tol_pos = tol_pos)
 set_tol_lie!(prob::LearningProblem, tol_lie::Float64) = (prob.tol_lie = tol_lie)
 
-function set_Gs!(prob::LearningProblem, α::Float64)
-    G0 = (α - 1)/2
-    N = max(0, ceil(Int, -log(prob.θ*G0)/log(α)))
-    prob.Gs = [(α^k)*G0 for k = 0:N]
+# function set_Gs!(prob::LearningProblem, α::Float64)
+#     G0 = (α - 1)/2
+#     N = max(0, ceil(Int, -log(prob.θ*G0)/log(α)))
+#     prob.Gs = [(α^k)*G0 for k = 0:N]
+# end
+
+function add_G!(prob::LearningProblem, G::Float64)
+    push!(prob.Gs, G)
 end
 
 function add_system!(prob::LearningProblem, domain::Cone, A::_MT_)
@@ -61,35 +65,39 @@ function add_point_init!(prob::LearningProblem, point::_VT_)
     push!(prob.points_init, point/np)
 end
 
-function _add_witness_vec_point!(vecsgen, systems, point)
-    weight_point = norm(point, Inf) # new
-    # weight_point = norm(point) # old
-    pos_constrs = [PosConstraint(point, weight_point)]
+function make_witness_from_point(systems, point)
+    npoint = norm(point, Inf) # new
+    # npoint = norm(point) # old
+    pos_constrs = [PosConstraint(point, npoint)]
     lie_constrs = LieConstraint[]
     for system in systems
         point ∉ system.domain && continue
         deriv = system.A*point
-        weight_deriv = norm(deriv, Inf) # new Deriv V1
-        # weight_deriv = opnorm(system.A, Inf)*weight_point # new Deriv V2
-        # weight_deriv = norm(deriv) # old
-        lie_con = LieConstraint(point, deriv, weight_point, weight_deriv)
+        nderiv = norm(deriv, Inf) # new
+        # nderiv = norm(deriv) # old
+        nA = opnorm(system.A, Inf)
+        lie_con = LieConstraint(point, deriv, npoint, nderiv, nA)
         push!(lie_constrs, lie_con)
     end
-    i = add_vec!(vecsgen)
-    wit = Witness(pos_constrs, lie_constrs)
-    add_witness!(vecsgen, i, wit)
-    return wit
+    return Witness(pos_constrs, lie_constrs)
 end
 
-function _make_verifs(nvar, systems)
+function make_verifs_pos_from_systems(nvar, systems)
     Q = length(systems)
     verifs_pos = Vector{VerifierPos}(undef, Q)
-    verifs_lie = Vector{VerifierLie}(undef, Q)
     for (q, system) in enumerate(systems)
         verifs_pos[q] = VerifierPos(nvar, system.domain)
+    end
+    return verifs_pos
+end
+
+function make_verifs_lie_from_systems(nvar, systems)
+    Q = length(systems)
+    verifs_lie = Vector{VerifierLie}(undef, Q)
+    for (q, system) in enumerate(systems)
         verifs_lie[q] = VerifierLie(nvar, system.domain, system.A)
     end
-    return verifs_pos, verifs_lie
+    return verifs_lie
 end
 
 function _verify(verifs_pos, verifs_lie, vecs, tol_pos, tol_lie, solver)
@@ -132,17 +140,19 @@ LearnerSolution() = LearnerSolution(
 )
 
 function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
-    vecsgen = VecsGenerator(prob.nvar, prob.ϵ, prob.Gs)
+    vecsgen = VecsGenerator(prob.nvar, prob.Gs)
     sol = LearnerSolution()
 
     witnesses = Witness[]
     for point in prob.points_init
-        wit = _add_witness_vec_point!(vecsgen, prob.systems, point)
+        wit = make_witness_from_point(prob.systems, point)
+        add_witness!(vecsgen, wit)
         push!(witnesses, wit)
     end
     push!(sol.witnesses_list, copy(witnesses))
 
-    verifs_pos, verifs_lie = _make_verifs(prob.nvar, prob.systems)
+    verifs_pos = make_verifs_pos_from_systems(prob.nvar, prob.systems)
+    verifs_lie = make_verifs_lie_from_systems(prob.nvar, prob.systems)
 
     iter = 0
 
@@ -156,7 +166,7 @@ function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
             return sol
         end
 
-        vecs, r = compute_vecs(vecsgen, 1/prob.θ, 2/prob.θ, solver)
+        r = compute_feasibility(vecsgen, prob.ϵ, prob.θ, solver)
         if r < prob.δ
             println(string(
                 "System does not admit a Lyapunov function with parameters: ",
@@ -196,7 +206,8 @@ function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
         end
 
         point = x/norm(x, Inf)
-        wit = _add_witness_vec_point!(vecsgen, prob.systems, point)
+        wit = make_witness_from_point(prob.systems, point)
+        add_witness!(vecsgen, wit)
         push!(sol.counterexample_list, wit)
         push!(witnesses, wit)
         push!(sol.witnesses_list, copy(witnesses))
