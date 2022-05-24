@@ -58,15 +58,10 @@ sol = CPLA.learn_lyapunov!(prob, 1000, solver)
 
 display(sol.status)
 
-# coeffs, flows, deriv, flag, trace =
-#     CPL.process_PLF_adaptive(D, systems, flows_init,
-#                              G0, Gmax, r0, rmin, ϵ, tol,
-#                              solver, output_period=10, learner_output=false)
-
-# f = open(string(@__DIR__, "/lyapunov-", datafile, ".txt"), "w")
-# for c in coeffs
-#     println(f, c)
-# end
-# close(f)
+f = open(string(@__DIR__, "/results/", datafile, ".txt"), "w")
+for vec in sol.vecs_list[sol.niter]
+    println(f, vec)
+end
+close(f)
 
 end # module
