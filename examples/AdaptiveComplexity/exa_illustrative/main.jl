@@ -94,7 +94,7 @@ for wit in witnesses
     end
 end
 
-deriv_length = 0.06
+deriv_length = 0.6
 
 for wit in witnesses
     for pos_con in wit.pos_constrs
@@ -125,10 +125,11 @@ LH = (matplotlib.patches.Patch(fc="gold", ec="gold", lw=2.5, alpha=0.5,
         label=L"V(x)\leq1"),)
 ax.legend(handles=LH, fontsize=20, loc="upper left")
 
-fig.savefig(
-    "./examples/figures/AdaptiveComplexity/fig_exa_illustrative_generator.png",
-    dpi=200, transparent=false, bbox_inches="tight"
-)
+fig.savefig(string(
+        @__DIR__,
+        "/../../figures/AdaptiveComplexity/fig_exa_illustrative_generator.png"
+    ),
+    dpi=200, transparent=false, bbox_inches="tight")
 
 ## Verifier illustration
 verifs_lie = CPLA.make_verifs_from_systems(prob.nvar, prob.systems)
@@ -216,8 +217,10 @@ LH = (matplotlib.patches.Patch(fc="gold", ec="gold", lw=2.5, alpha=0.5,
 ax.legend(handles=LH, fontsize=20, loc="upper left",
           facecolor="white", framealpha=1.0)
 
-fig.savefig(
-    "./examples/figures/AdaptiveComplexity/fig_exa_illustrative_verifier.png",
+fig.savefig(string(
+        @__DIR__,
+        "/../../figures/AdaptiveComplexity/fig_exa_illustrative_verifier.png"
+    ),
     dpi=200, transparent=false, bbox_inches="tight")
 
 ## Learner feasible illustration
@@ -360,10 +363,11 @@ for k = 1:nplot
     )
 end
 
-fig.savefig(
-    "./examples/figures/AdaptiveComplexity/fig_exa_illustrative_learner.png",
-    dpi=200, transparent=false, bbox_inches="tight"
-)
+fig.savefig(string(
+        @__DIR__,
+        "/../../figures/AdaptiveComplexity/fig_exa_illustrative_learner.png"
+    ),
+    dpi=200, transparent=false, bbox_inches="tight")
 
 ## Learner infeasible illustration
 prob.δ = 0.2
