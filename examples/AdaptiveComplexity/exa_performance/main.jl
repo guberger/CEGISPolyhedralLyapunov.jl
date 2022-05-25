@@ -4,60 +4,62 @@ using LinearAlgebra
 using Printf
 using JuMP
 using Gurobi
-include("../../src/CEGPolyhedralLyapunov.jl")
-CPL = CEGPolyhedralLyapunov
+
+include("../../../src/CEGISPolyhedralLyapunov.jl")
+CPL = CEGISPolyhedralLyapunov
+CPLA = CPL.AdaptiveComplexity
+CPLP = CPL.Polyhedra
 
 const GUROBI_ENV = Gurobi.Env()
 solver = optimizer_with_attributes(
-    () -> Gurobi.Optimizer(GUROBI_ENV),
-    "OutputFlag"=>false)
+    () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
+)
 
 ## Parameters
-G0 = 0.1
-Gmax = 10.0
-r0 = 0.01
-rmin = 1e-6
-ϵ = 1e-2
-tol = -1e-5
-output_period = 10
+ϵ = 10.0
+θ = 0.1
+δ = 1e-6
 
-HP(D) = map(i -> i == 1 ? 1 : 0, reshape(1:D, 1, D))
+HP(nvar) = map(i -> i == 1 ? 1 : 0, reshape(1:nvar, 1, nvar))
 
 f = open(string(@__DIR__, "/measurements.txt"), "w")
 iter = 0
 max_iter = 50
 
-for D in (4, 5, 6, 7, 8, 9)
+for nvar in (4, 5, 6, 7, 8, 9)
     iter > max_iter && break
-    ONE_ = ones(D, D)
-    EYE_ = Matrix{Bool}(I, D, D)
-    U = qr(map(i -> (-1)^i, 1:D)).Q
-    domain1 = +HP(D)
-    domain2 = -HP(D)
-    str = @sprintf("D = %d\n", D)
+    ONE_ = ones(nvar, nvar)
+    EYE_ = Matrix{Float64}(I, nvar, nvar)
+    U = qr([float(iseven(i)) for i = 1:nvar]).Q
+
+    prob = CPLA.LearningProblem(nvar, ϵ, θ, δ)
+    CPLA.add_G!(prob, 1/θ)
+
+    a = [(k == 1 ? 1.0 : 0.0) for k = 1:nvar]
+    domain = CPLP.Cone()
+    CPLP.add_supp!(domain, CPLP.Supp(-a))
+    A = U \ (ONE_ - (nvar + 1)*EYE_) * U
+    CPLA.add_system!(prob, domain, A)
+    domain = CPLP.Cone()
+    CPLP.add_supp!(domain, CPLP.Supp(a))
+
+    str = @sprintf("nvar = %d\n", nvar)
     print(string("---> ", str))
     print(f, str)
+
     for γ in (1, 0.1, 0.01)
         global iter += 1
         iter > max_iter && break
-        fields1 = [U \ (ONE_ - (D + γ)*EYE_) * U]
-        fields2 = [U \ (ONE_ - (D + 1)*EYE_) * U]
-        sys1 = CPL.LinearSystem(domain1, fields1)
-        sys2 = CPL.LinearSystem(domain2, fields2)
-        systems = (sys1, sys2)
-        flows_init = CPL.Flow[]
-        coeffs, flows, deriv, flag, trace =
-            @time CPL.process_PLF_adaptive(D, systems, flows_init,
-                                           G0, Gmax, r0, rmin, ϵ, tol,
-                                           solver, output_period=10,
-                                           learner_output=false, trace=false)
-        time = 
-            @elapsed CPL.process_PLF_adaptive(D, systems, flows_init,
-                                              G0, Gmax, r0, rmin, ϵ, tol,
-                                              solver, output_period=10,
-                                              learner_output=false, trace=false)
-        complexity = length(coeffs)
-        σ = -maximum(real.(eigvals(Matrix(sys1.fields[1]))))
+        A = U \ (ONE_ - (nvar + γ)*EYE_) * U
+        CPLA.add_system!(prob, domain, A)
+
+        sol = @time CPLA.learn_lyapunov!(prob, 1000, solver)
+        time = @elapsed CPLA.learn_lyapunov!(prob, 1000, solver)
+        flag = sol.status == CPLA.LYAPUNOV_FOUND
+        deriv = sol.val_lie_list[sol.niter]
+        
+        complexity = length(sol.vecs_list[sol.niter])
+        σ = -maximum(real.(eigvals(A)))
         str = @sprintf("%s %f | %f & %e & %.2f & %d\n",
             flag, deriv, γ, σ, time, complexity)
         print(string("---> ", str))
