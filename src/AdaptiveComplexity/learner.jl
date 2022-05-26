@@ -82,24 +82,24 @@ function make_verif_from_system(nvar, sys)
     return verif
 end
 
-function _verify_with_exit(verif, vecs, tol_pos, tol_lie, solver)
+function _verify_with_exit(verif, vecs, tol_pos, tol_lie, solver, do_print)
     # new Eccentricity V1:
-    print("Verify pos... ")
+    do_print && print("|--- Verify pos... ")
     x, val_pos, q = verify_pos(verif, vecs, solver)
     if val_pos < tol_pos
-        println("CE found: ", x, ", ", val_pos, ", ", q)
+        do_print && println("CE found: ", x, ", ", val_pos, ", ", q)
         return x, val_pos, -Inf
     else
-        println("No CE found: ", val_pos)
+        do_print && println("No CE found: ", val_pos)
     end # end new Eccentricity V1
     # val_pos = Inf # new Eccentricity V2
-    print("Verify lie... ")
+    do_print && print("|--- Verify lie... ")
     x, val_lie, q = verify_lie(verif, vecs, solver)
     if val_lie > tol_lie
-        println("CE found: ", x, ", ", val_lie, ", ", q)
+        do_print && println("CE found: ", x, ", ", val_lie, ", ", q)
         return x, val_pos, val_lie
     else
-        println("No CE found: ", val_lie)
+        do_print && println("No CE found: ", val_lie)
     end
     return Float64[], val_pos, val_lie
 end
@@ -129,7 +129,7 @@ LearnerSolution() = LearnerSolution(
     Witness[], Float64[], Float64[]
 )
 
-function learn_lyapunov!(lear::Learner, iter_max, solver)
+function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
     gen = Generator(lear.nvar)
     sol = LearnerSolution()
 
@@ -147,7 +147,7 @@ function learn_lyapunov!(lear::Learner, iter_max, solver)
 
     while true
         iter += 1
-        print("Iter: ", iter)
+        do_print && println("Iter: ", iter)
         sol.niter = iter
         if iter > iter_max
             println(string("Max iter exceeded: ", iter))
@@ -166,8 +166,11 @@ function learn_lyapunov!(lear::Learner, iter_max, solver)
             return sol
         end
 
-        vecs, r = compute_vecs_heuristic(gen, 1/lear.θ, solver)
-        println(" - radius: ", r)
+        # vecs, r1 = compute_vecs_heuristic(gen, 1/lear.θ, solver)
+        vecs, r = compute_vecs_round(gen, 1/lear.θ, solver)
+        if do_print
+            println("|--- radius: ", r)
+        end
         push!(sol.vecs_list, vecs)
         push!(sol.r_list, r)
         if r < lear.tols[:rad]
@@ -184,7 +187,7 @@ function learn_lyapunov!(lear::Learner, iter_max, solver)
         # end # end new Eccentricity V2
 
         x, val_pos, val_lie = _verify_with_exit(
-            verif, vecs, lear.tols[:pos], lear.tols[:lie], solver
+            verif, vecs, lear.tols[:pos], lear.tols[:lie], solver, do_print
         )
         push!(sol.val_pos_list, val_pos)
         push!(sol.val_lie_list, val_lie)

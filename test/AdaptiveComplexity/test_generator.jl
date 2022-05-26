@@ -51,10 +51,31 @@ end
 
 # Gs = [0.25, 0.5, 1.0]
 
+vecs, r = CPLA.compute_vecs_init(gen, 1.0, solver)
+
+@testset "compute vecs init" begin
+    @test r ≈ 1/3
+    @test maximum(vec -> norm(vec, 1), vecs) ≈ 1
+end
+
 vecs, r = CPLA.compute_vecs_heuristic(gen, 1.0, solver)
 
-@testset "compute_vecs" begin
+@testset "compute vecs heuristic" begin
     @test r ≈ 1/3
+    @test maximum(vec -> norm(vec, 1), vecs) ≈ 1
+end
+
+vecs, r = CPLA.compute_vecs_slack(gen, vecs, solver)
+
+@testset "compute vecs slack" begin
+    @test r ≈ 0.5
+    @test maximum(vec -> norm(vec, 1), vecs) ≈ 1
+end
+
+vecs, r = CPLA.compute_vecs_round(gen, 1.0, solver)
+
+@testset "compute vecs round" begin
+    @test r ≈ 0.5
     @test maximum(vec -> norm(vec, 1), vecs) ≈ 1
 end
 
@@ -90,10 +111,31 @@ end
 
 # Gs = [0.25, 0.5, 1.0, 2.0]
 
+vecs, r = CPLA.compute_vecs_init(gen, 2.0, solver)
+
+@testset "compute vecs init" begin
+    @test r ≈ 0.8/3
+    @test maximum(vec -> norm(vec, 1), vecs) ≈ 1
+end
+
 vecs, r = CPLA.compute_vecs_heuristic(gen, 2.0, solver)
 
-@testset "compute_vecs" begin
+@testset "compute vecs heuristic" begin
     @test r ≈ 0.8/3
+    @test maximum(vec -> norm(vec, 1), vecs) ≈ 1
+end
+
+vecs, r = CPLA.compute_vecs_slack(gen, vecs, solver)
+
+@testset "compute vecs slack" begin
+    @test r ≈ 0.5
+    @test maximum(vec -> norm(vec, 1), vecs) ≈ 1
+end
+
+vecs, r = CPLA.compute_vecs_round(gen, 2.0, solver)
+
+@testset "compute vecs heuristic" begin
+    @test r ≈ 0.5
     @test maximum(vec -> norm(vec, 1), vecs) ≈ 1
 end
 

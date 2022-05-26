@@ -127,7 +127,7 @@ function _add_pos_constr_prob!(
     point = posevid.point
     off = posevid.npoint/prob.ϵ
     β = posevid.npoint
-    _add_pos_constr!(model, vecs, r, i, point, 1.0, β, off)
+    _add_pos_constr!(model, vecs, r, i, point, 1, β, off)
 end
 
 function _add_lie_constr_prob!(
@@ -156,11 +156,11 @@ struct GeneratorHeuristic <: GeneratorProblem
 end
 
 function _add_pos_constr_prob!(
-        prob::GeneratorHeuristic, model, vecs, r, i, posevid
+        ::GeneratorHeuristic, model, vecs, r, i, posevid
     )
     point = posevid.point
     β = posevid.npoint
-    _add_pos_constr!(model, vecs, r, i, point, 1.0, β, 0.0)
+    _add_pos_constr!(model, vecs, r, i, point, 1, β, 0)
 end
 
 function _add_lie_constr_prob!(
@@ -170,10 +170,85 @@ function _add_lie_constr_prob!(
     deriv = lieevid.deriv
     G::Float64 = i == j ? 0.0 : prob.G
     β = 2*lieevid.npoint*G + lieevid.nderiv
-    _add_lie_constr(model, vecs, r, i, j, point, deriv, 1.0, β, G, 0.0)
+    _add_lie_constr(model, vecs, r, i, j, point, deriv, 1, β, G, 0)
 end
 
 function compute_vecs_heuristic(gen::Generator, G::Float64, solver)
     prob = GeneratorHeuristic(G)
     return _compute_vecs(prob, gen.nvar, gen.witnesses, solver)
+end
+
+## Init
+
+struct GeneratorInit <: GeneratorProblem
+    G::Float64
+end
+
+function _add_pos_constr_prob!(
+        ::GeneratorInit, model, vecs, r, i, posevid
+    )
+    point = posevid.point
+    β = posevid.npoint
+    _add_pos_constr!(model, vecs, r, i, point, 1, β, 0)
+end
+
+function _add_lie_constr_prob!(
+        prob::GeneratorInit, model, vecs, r, i, j, lieevid
+    )
+    point = lieevid.point
+    deriv = lieevid.deriv
+    G::Float64 = i == j ? 0.0 : prob.G
+    α = 1/lieevid.nA
+    β = (2*G + 1)*lieevid.npoint
+    _add_lie_constr(model, vecs, r, i, j, point, deriv, α, β, G, 0)
+end
+
+function compute_vecs_init(gen::Generator, G::Float64, solver)
+    prob = GeneratorInit(G)
+    return _compute_vecs(prob, gen.nvar, gen.witnesses, solver)
+end
+
+## Slack
+
+struct GeneratorSlack <: GeneratorProblem
+    vecs::Vector{_VT_}
+end
+
+function _add_pos_constr_prob!(
+        ::GeneratorSlack, model, vecs, r, i, posevid
+    )
+    point = posevid.point
+    β = posevid.npoint
+    _add_pos_constr!(model, vecs, r, i, point, 1, β, 0)
+end
+
+function _add_lie_constr_prob!(
+        prob::GeneratorSlack, model, vecs, r, i, j, lieevid
+    )
+    point = lieevid.point
+    deriv = lieevid.deriv
+    a = -dot(prob.vecs[j], deriv)/lieevid.nA
+    b = dot(prob.vecs[i], point) - dot(prob.vecs[j], point)
+    if a ≥ b/2
+        α = 1/lieevid.nA
+        β = lieevid.npoint
+        _add_lie_constr(model, vecs, r, i, j, point, deriv, α, β, 0, 0)
+    else
+        β = 2*lieevid.npoint
+        _add_lie_constr(model, vecs, r, i, j, point, deriv, 0, β, 1, 0)
+    end
+end
+
+function compute_vecs_slack(gen::Generator, vecs::Vector{_VT_}, solver)
+    prob = GeneratorSlack(vecs)
+    return _compute_vecs(prob, gen.nvar, gen.witnesses, solver)
+end
+
+## Round
+
+function compute_vecs_round(gen::Generator, G::Float64, solver)
+    vecs, r1 = compute_vecs_init(gen, G, solver)
+    vecs, r2 = compute_vecs_slack(gen, vecs, solver)
+    @assert r2 ≥ r1
+    return vecs, r2
 end

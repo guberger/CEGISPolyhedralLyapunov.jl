@@ -47,7 +47,11 @@ for point in points
     push!(witnesses, wit)
 end
 
-vecs, r = CPLA.compute_vecs_heuristic(gen, 1/θ, solver)
+vecs, r1 = CPLA.compute_vecs_heuristic(gen, 1/θ, solver)
+vecs, r2 = CPLA.compute_vecs_round(gen, 1/θ, solver)
+display(r1)
+display(r2)
+r = r2
 
 fig = figure(0, figsize=(8, 10))
 ax = fig.add_subplot(aspect="equal")
