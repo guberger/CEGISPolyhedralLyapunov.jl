@@ -21,6 +21,10 @@ function add_supp!(c::Cone, s::Supp)
     push!(c.supps, s)
 end
 
+function add_supp!(c::Cone, a::_VT_)
+    add_supp!(c, Supp(a))
+end
+
 Base.in(x, c::Cone) = all(s -> x ∈ s, c.supps)
 
 struct Halfspace
@@ -38,6 +42,10 @@ Polyhedron() = Polyhedron(Halfspace[])
 
 function add_halfspace!(p::Polyhedron, h::Halfspace)
     push!(p.halfspaces, h)    
+end
+
+function add_halfspace!(p::Polyhedron, a::_VT_, β::Float64)
+    add_halfspace!(p, Halfspace(a, β))
 end
 
 Base.in(x, p::Polyhedron) = all(h -> x ∈ h, p.halfspaces)

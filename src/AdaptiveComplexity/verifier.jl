@@ -7,11 +7,41 @@ using ..Polyhedra: Cone
 _VT_ = Vector{Float64}
 _MT_ = Matrix{Float64}
 
-struct VerifyingProblem
+struct VerifyingPos
+    nvar::Int
+    domain::Cone
+end
+
+struct VerifyingLie
     nvar::Int
     domain::Cone
     A::_MT_
 end
+
+struct Verifier
+    pos_verifs::Vector{VerifyingPos}
+    lie_verifs::Vector{VerifyingLie}
+end
+
+Verifier() = Verifier(VerifyingPos[], VerifyingLie[])
+
+function add_verifying!(verif::Verifier, posverif::VerifyingPos)
+    push!(verif.pos_verifs, posverif)
+end
+
+function add_verifying!(verif::Verifier, lieverif::VerifyingLie)
+    push!(verif.lie_verifs, lieverif)
+end
+
+function add_verifying_pos!(verif::Verifier, nvar, domain)
+    add_verifying!(verif, VerifyingPos(nvar, domain))
+end
+
+function add_verifying_lie!(verif::Verifier, nvar, domain, A)
+    add_verifying!(verif, VerifyingLie(nvar, domain, A))
+end
+
+## Verif Pos
 
 function _verify_pos_comp(nvar, domain, vecs, k, s, solver)
     model = Model(solver)
@@ -47,11 +77,11 @@ function _verify_pos_comp(nvar, domain, vecs, k, s, solver)
     end
 end
 
-function verify_pos(verif::VerifyingProblem, vecs::Vector{_VT_}, solver)
+function _verify_pos_single(nvar, domain, vecs, solver)
     xopt = Float64[]
     ropt = Inf
-    for (k, s) in Iterators.product(1:verif.nvar, (-1, 1))
-        x, r = _verify_pos_comp(verif.nvar, verif.domain, vecs, k, s, solver)
+    for (k, s) in Iterators.product(1:nvar, (-1, 1))
+        x, r = _verify_pos_comp(nvar, domain, vecs, k, s, solver)
         if r < ropt
             ropt = r
             xopt = x
@@ -63,12 +93,12 @@ function verify_pos(verif::VerifyingProblem, vecs::Vector{_VT_}, solver)
     return xopt, ropt
 end
 
-function verify_pos(verifs::Vector{VerifyingProblem}, vecs, solver)
+function verify_pos(verif::Verifier, vecs::Vector{_VT_}, solver)
     xopt = Float64[]
     ropt = Inf
     qopt = 0
-    for (q, verif) in enumerate(verifs)
-        x, r = verify_pos(verif, vecs, solver)
+    for (q, posverif) in enumerate(verif.pos_verifs)
+        x, r = _verify_pos_single(posverif.nvar, posverif.domain, vecs, solver)
         if r < ropt
             ropt = r
             xopt = x
@@ -77,6 +107,8 @@ function verify_pos(verifs::Vector{VerifyingProblem}, vecs, solver)
     end
     return xopt, ropt, qopt
 end
+
+## Verify Lie
 
 function _verify_lie_comp(nvar, domain, A, vecs, k, s, i, solver)
     model = Model(solver)
@@ -120,14 +152,12 @@ function _verify_lie_comp(nvar, domain, A, vecs, k, s, i, solver)
     return value.(x), objective_value(model)
 end
 
-function verify_lie(verif::VerifyingProblem, vecs, solver)
+function _verify_lie_single(nvar, domain, A, vecs, solver)
     xopt = Float64[]
     ropt = -Inf
-    for (i, k, s) in Iterators.product(1:length(vecs), 1:verif.nvar, (-1, 1)) # new
+    for (i, k, s) in Iterators.product(1:length(vecs), 1:nvar, (-1, 1)) # new
     # for (i, k, s) in Iterators.product(1:length(vecs), 1:1, 1:1) # old
-        x, r = _verify_lie_comp(
-            verif.nvar, verif.domain, verif.A, vecs, k, s, i, solver
-        )
+        x, r = _verify_lie_comp(nvar, domain, A, vecs, k, s, i, solver)
         if r > ropt
             ropt = r
             xopt = x
@@ -139,12 +169,14 @@ function verify_lie(verif::VerifyingProblem, vecs, solver)
     return xopt, ropt
 end
 
-function verify_lie(verifs::Vector{VerifyingProblem}, vecs, solver)
+function verify_lie(verif::Verifier, vecs::Vector{_VT_}, solver)
     xopt = Float64[]
     ropt = -Inf
     qopt = 0
-    for (q, verif) in enumerate(verifs)
-        x, r = verify_lie(verif, vecs, solver)
+    for (q, lieverif) in enumerate(verif.lie_verifs)
+        x, r = _verify_lie_single(
+            lieverif.nvar, lieverif.domain, lieverif.A, vecs, solver
+        )
         # r = r/norm(x) # old
         if r > ropt
             ropt = r

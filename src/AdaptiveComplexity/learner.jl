@@ -1,13 +1,107 @@
 using LinearAlgebra
-using ..Verifier: VerifyingProblem, verify_pos, verify_lie
 using ..Polyhedra: Cone
 
 _VT_ = Vector{Float64}
 _MT_ = Matrix{Float64}
 
-struct System
+struct Piece
     domain::Cone
     A::_MT_
+end
+
+struct System
+    pieces::Vector{Piece}
+end
+
+System() = System(Piece[])
+
+function add_piece!(sys::System, piece::Piece)
+    push!(sys.pieces, piece)
+end
+
+function add_piece!(sys::System, domain, A)
+    add_piece!(sys, Piece(domain, A))
+end
+
+## Learner
+
+struct Learner
+    nvar::Int
+    system::System
+    ϵ::Float64
+    θ::Float64
+    δ::Float64
+    points_init::Vector{_VT_}
+    tols::Dict{Symbol,Float64}
+end
+
+function Learner(nvar::Int, sys::System, ϵ::Float64, θ::Float64, δ::Float64)
+    tols = Dict([
+        :rad => eps(1.0),
+        :pos => eps(1.0),
+        :lie => -eps(1.0),
+        :norm => eps(1.0)
+    ])
+    return Learner(nvar, sys, ϵ, θ, δ, _VT_[], tols)
+end
+
+set_tol!(lear::Learner, s::Symbol, tol::Float64) = (lear.tols[s] = tol)
+
+function add_point_init!(lear::Learner, point::_VT_)
+    np = norm(point, Inf)
+    if np < lear.tols[:norm]*lear.nvar
+        error(string("Point norm close to zero: ", np))
+    end
+    push!(lear.points_init, point/np)
+end
+
+## Learn Lyapunov
+
+function make_witness_from_point_system(sys, point)
+    wit = Witness()
+    npoint = norm(point, Inf) # new
+    # npoint = norm(point) # old
+    pos_constrs = add_evidence_pos!(wit, point, npoint)
+    for piece in sys.pieces
+        point ∉ piece.domain && continue
+        deriv = piece.A*point
+        nderiv = norm(deriv, Inf) # new
+        # nderiv = norm(deriv) # old
+        nA = opnorm(piece.A, Inf)
+        add_evidence_lie!(wit,point, deriv, npoint, nderiv, nA)
+    end
+    return wit
+end
+
+function make_verif_from_system(nvar, sys)
+    verif = Verifier()
+    for piece in sys.pieces
+        add_verifying_pos!(verif, nvar, piece.domain)
+        add_verifying_lie!(verif, nvar, piece.domain, piece.A)
+    end
+    return verif
+end
+
+function _verify_with_exit(verif, vecs, tol_pos, tol_lie, solver)
+    # new Eccentricity V1:
+    print("Verify pos... ")
+    x, val_pos, q = verify_pos(verif, vecs, solver)
+    if val_pos < tol_pos
+        println("CE found: ", x, ", ", val_pos, ", ", q)
+        return x, val_pos, -Inf
+    else
+        println("No CE found: ", val_pos)
+    end # end new Eccentricity V1
+    # val_pos = Inf # new Eccentricity V2
+    print("Verify lie... ")
+    x, val_lie, q = verify_lie(verif, vecs, solver)
+    if val_lie > tol_lie
+        println("CE found: ", x, ", ", val_lie, ", ", q)
+        return x, val_pos, val_lie
+    else
+        println("No CE found: ", val_lie)
+    end
+    return Float64[], val_pos, val_lie
 end
 
 @enum StatusCode begin
@@ -18,107 +112,12 @@ end
     MAX_ITER_REACHED = 4
 end
 
-
-mutable struct LearningProblem
-    nvar::Int
-    systems::Vector{System}
-    ϵ::Float64
-    θ::Float64
-    δ::Float64
-    Gs::Vector{Float64}
-    points_init::Vector{_VT_}
-    tol_rad::Float64
-    tol_pos::Float64
-    tol_lie::Float64
-    tol_norm::Float64
-end
-
-LearningProblem(nvar::Int, ϵ::Float64, θ::Float64, δ::Float64) =
-    LearningProblem(
-        nvar, System[], ϵ, θ, δ, Float64[], _VT_[],
-        eps(1.0), eps(1.0), -eps(1.0), eps(1.0)
-    )
-
-set_tol_rad!(prob::LearningProblem, tol_rad::Float64) = (prob.tol_rad = tol_rad)
-set_tol_pos!(prob::LearningProblem, tol_pos::Float64) = (prob.tol_pos = tol_pos)
-set_tol_lie!(prob::LearningProblem, tol_lie::Float64) = (prob.tol_lie = tol_lie)
-
-# function set_Gs!(prob::LearningProblem, α::Float64)
-#     G0 = (α - 1)/2
-#     N = max(0, ceil(Int, -log(prob.θ*G0)/log(α)))
-#     prob.Gs = [(α^k)*G0 for k = 0:N]
-# end
-
-function add_G!(prob::LearningProblem, G::Float64)
-    push!(prob.Gs, G)
-end
-
-function add_system!(prob::LearningProblem, domain::Cone, A::_MT_)
-    push!(prob.systems, System(domain, A))
-end
-
-function add_point_init!(prob::LearningProblem, point::_VT_)
-    np = norm(point, Inf)
-    if np < prob.tol_norm*prob.nvar
-        error(string("Point norm close to zero: ", np))
-    end
-    push!(prob.points_init, point/np)
-end
-
-function make_witness_from_point(systems, point)
-    npoint = norm(point, Inf) # new
-    # npoint = norm(point) # old
-    pos_constrs = [PosConstraint(point, npoint)]
-    lie_constrs = LieConstraint[]
-    for system in systems
-        point ∉ system.domain && continue
-        deriv = system.A*point
-        nderiv = norm(deriv, Inf) # new
-        # nderiv = norm(deriv) # old
-        nA = opnorm(system.A, Inf)
-        lie_con = LieConstraint(point, deriv, npoint, nderiv, nA)
-        push!(lie_constrs, lie_con)
-    end
-    return Witness(pos_constrs, lie_constrs)
-end
-
-function make_verifs_from_systems(nvar, systems)
-    Q = length(systems)
-    verifs = Vector{VerifyingProblem}(undef, Q)
-    for (q, system) in enumerate(systems)
-        verifs[q] = VerifyingProblem(nvar, system.domain, system.A)
-    end
-    return verifs
-end
-
-function _verify(verifs, vecs, tol_pos, tol_lie, solver)
-    # new Eccentricity V1:
-    print("Verify pos... ")
-    x, val_pos, q = verify_pos(verifs, vecs, solver)
-    if val_pos < tol_pos
-        println("CE found: ", x, ", ", val_pos, ", ", q)
-        return x, val_pos, -Inf
-    else
-        println("No CE found: ", val_pos)
-    end # end new Eccentricity V1
-    # val_pos = Inf # new Eccentricity V2
-    print("Verify lie... ")
-    x, val_lie, q = verify_lie(verifs, vecs, solver)
-    if val_lie > tol_lie
-        println("CE found: ", x, ", ", val_lie, ", ", q)
-        return x, val_pos, val_lie
-    else
-        println("No CE found: ", val_lie)
-    end
-    return Float64[], val_pos, val_lie
-end
-
 mutable struct LearnerSolution
     status::StatusCode
     niter::Int
     witnesses_list::Vector{Vector{Witness}}
     vecs_list::Vector{Vector{_VT_}}
-    rad_list::Vector{Float64}
+    r_list::Vector{Float64}
     counterexample_list::Vector{Witness}
     val_pos_list::Vector{Float64}
     val_lie_list::Vector{Float64}
@@ -130,19 +129,19 @@ LearnerSolution() = LearnerSolution(
     Witness[], Float64[], Float64[]
 )
 
-function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
-    vecsgen = VecsGenerator(prob.nvar, prob.Gs)
+function learn_lyapunov!(lear::Learner, iter_max, solver)
+    gen = Generator(lear.nvar)
     sol = LearnerSolution()
 
     witnesses = Witness[]
-    for point in prob.points_init
-        wit = make_witness_from_point(prob.systems, point)
-        add_witness!(vecsgen, wit)
+    for point in lear.points_init
+        wit = make_witness_from_point_system(lear.system, point)
+        add_witness!(gen, wit)
         push!(witnesses, wit)
     end
     push!(sol.witnesses_list, copy(witnesses))
 
-    verifs = make_verifs_from_systems(prob.nvar, prob.systems)
+    verif = make_verif_from_system(lear.nvar, lear.system)
 
     iter = 0
 
@@ -156,35 +155,36 @@ function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
             return sol
         end
 
-        r = compute_feasibility(vecsgen, prob.ϵ, prob.θ, solver)
-        if r < prob.δ
+        slack = compute_vecs_feasibility(gen, lear.ϵ, lear.θ, lear.δ, solver)[2]
+        if slack < 0
             println(string(
                 "System does not admit a Lyapunov function with parameters: ",
-                "ϵ: ", prob.ϵ, ", θ: ", prob.θ, ", δ: ", prob.δ, " - ", r
+                "ϵ: ", lear.ϵ, ", θ: ", lear.θ, ", δ: ", lear.δ,
+                ", slack ", slack
             ))
             sol.status = LYAPUNOV_INFEASIBLE
             return sol
         end
 
-        vecs, r = compute_vecs(vecsgen, solver)
+        vecs, r = compute_vecs_heuristic(gen, 1/lear.θ, solver)
         println(" - radius: ", r)
         push!(sol.vecs_list, vecs)
-        push!(sol.rad_list, r)
-        if r < prob.tol_rad
+        push!(sol.r_list, r)
+        if r < lear.tols[:rad]
             println(string("Satisfiability radius too small: ", r))
             sol.status = RADIUS_TOO_SMALL
             return sol
         end
 
         # new Eccentricity V2:
-        # for k = 1:prob.nvar
-        #     vec_side = [(k_ == k ? 1.0 : 0.0) for k_ = 1:prob.nvar]
-        #     push!(vecs, vec_side/(2*prob.ϵ))
-        #     push!(vecs, -vec_side/(2*prob.ϵ))
+        # for k = 1:lear.nvar
+        #     vec_side = [(k_ == k ? 1.0 : 0.0) for k_ = 1:lear.nvar]
+        #     push!(vecs, vec_side/(2*lear.ϵ))
+        #     push!(vecs, -vec_side/(2*lear.ϵ))
         # end # end new Eccentricity V2
 
-        x, val_pos, val_lie = _verify(
-            verifs, vecs, prob.tol_pos, prob.tol_lie, solver
+        x, val_pos, val_lie = _verify_with_exit(
+            verif, vecs, lear.tols[:pos], lear.tols[:lie], solver
         )
         push!(sol.val_pos_list, val_pos)
         push!(sol.val_lie_list, val_lie)
@@ -196,8 +196,8 @@ function learn_lyapunov!(prob::LearningProblem, iter_max, solver)
         end
 
         point = x/norm(x, Inf)
-        wit = make_witness_from_point(prob.systems, point)
-        add_witness!(vecsgen, wit)
+        wit = make_witness_from_point_system(lear.system, point)
+        add_witness!(gen, wit)
         push!(sol.counterexample_list, wit)
         push!(witnesses, wit)
         push!(sol.witnesses_list, copy(witnesses))

@@ -33,6 +33,14 @@ function add_evidence!(wit::Witness, lie_evid::LieEvidence)
     push!(wit.lie_evids, lie_evid)
 end
 
+function add_evidence_pos!(wit::Witness, point, npoint)
+    add_evidence!(wit, PosEvidence(point, npoint))
+end
+
+function add_evidence_lie!(wit::Witness, point, deriv, npoint, nderiv, nA)
+    add_evidence!(wit, LieEvidence(point, deriv, npoint, nderiv, nA))
+end
+
 struct Generator
     nvar::Int
     witnesses::Vector{Witness}

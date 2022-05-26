@@ -27,56 +27,51 @@ solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 θ = 1.0
 δ = 0.5
 nvar = 2
-prob = CPLA.LearningProblem(nvar, ϵ, θ, δ)
-CPLA.set_tol_rad!(prob, 0.0)
 
-α = 1.5
-G = (α - 1)/2
-while true
-    CPLA.add_G!(prob, G)
-    G > 1/prob.θ && break
-    global G = G*α
-end
-
-@testset "add Gs" begin
-    @test prob.Gs ≈ [0.25*1.5^k for k = 0:4]
-end
+sys = CPLA.System()
 
 domain = CPLP.Cone()
-CPLP.add_supp!(domain, CPLP.Supp([1.0, 0.0]))
+CPLP.add_supp!(domain, [1.0, 0.0])
 A = [-1.0 1.0; -1.0 -1.0]
-CPLA.add_system!(prob, domain, A)
+CPLA.add_piece!(sys, domain, A)
 
 domain = CPLP.Cone()
-CPLP.add_supp!(domain, CPLP.Supp([-1.0, 0.0]))
+CPLP.add_supp!(domain, [-1.0, 0.0])
 A = [-1.0 -1.0; 1.0 -1.0]
-CPLA.add_system!(prob, domain, A)
+CPLA.add_piece!(sys, domain, A)
 
+lear = CPLA.Learner(nvar, sys, ϵ, θ, δ)
+CPLA.set_tol!(lear, :rad, 0.0)
 point = [-1.0, 0.0]
-CPLA.add_point_init!(prob, point)
+CPLA.add_point_init!(lear, point)
 
-sol = CPLA.learn_lyapunov!(prob, 1, solver)
+sol = CPLA.learn_lyapunov!(lear, 1, solver)
 
 @testset "learn lyapunov: max iter" begin
     @test sol.status == CPLA.MAX_ITER_REACHED
 end
 
-sol = CPLA.learn_lyapunov!(prob, 100, solver)
+sol = CPLA.learn_lyapunov!(lear, 100, solver)
 
 @testset "learn lyapunov: infeasible" begin
     @test sol.status == CPLA.LYAPUNOV_INFEASIBLE
 end
 
-prob.δ = 0.1
+δ = 0.1
+lear = CPLA.Learner(nvar, sys, ϵ, θ, δ)
+CPLA.set_tol!(lear, :rad, 0.0)
+point = [-1.0, 0.0]
+CPLA.add_point_init!(lear, point)
 
-sol = CPLA.learn_lyapunov!(prob, 100, solver)
+sol = CPLA.learn_lyapunov!(lear, 100, solver)
 
 @testset "learn lyapunov: feasible" begin
     @test sol.status == CPLA.LYAPUNOV_FOUND
 end
 
-CPLA.set_tol_rad!(prob, 0.2)
-sol = CPLA.learn_lyapunov!(prob, 100, solver)
+CPLA.set_tol!(lear, :rad, 0.2)
+
+sol = CPLA.learn_lyapunov!(lear, 100, solver)
 
 @testset "learn lyapunov: radius too small" begin
     @test sol.status == CPLA.RADIUS_TOO_SMALL
