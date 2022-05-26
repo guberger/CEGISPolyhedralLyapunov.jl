@@ -168,10 +168,9 @@ function _add_lie_constr_prob!(
     )
     point = lieevid.point
     deriv = lieevid.deriv
-    H::Float64 = i == j ? 0.0 : prob.G
-    β = 2*lieevid.npoint*H + lieevid.nderiv
-    γ::Float64 = i == j ? 0.0 : prob.G
-    _add_lie_constr(model, vecs, r, i, j, point, deriv, 1.0, β, γ, 0.0)
+    G::Float64 = i == j ? 0.0 : prob.G
+    β = 2*lieevid.npoint*G + lieevid.nderiv
+    _add_lie_constr(model, vecs, r, i, j, point, deriv, 1.0, β, G, 0.0)
 end
 
 function compute_vecs_heuristic(gen::Generator, G::Float64, solver)

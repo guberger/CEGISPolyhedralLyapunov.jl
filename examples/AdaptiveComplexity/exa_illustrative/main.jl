@@ -6,10 +6,8 @@ using Gurobi
 using PyPlot
 
 include("../../../src/CEGISPolyhedralLyapunov.jl")
-CPL = CEGISPolyhedralLyapunov
-CPLA = CPL.AdaptiveComplexity
-CPLP = CPL.Polyhedra
-CPLV = CPL.Verifier
+CPLA = CEGISPolyhedralLyapunov.AdaptiveComplexity
+CPLP = CEGISPolyhedralLyapunov.Polyhedra
 include("../../utils/geometry.jl")
 
 const GUROBI_ENV = Gurobi.Env()
@@ -22,25 +20,21 @@ solver = optimizer_with_attributes(
 θ = 1/3.2 # 0.1
 δ = 0.003 # 0.1
 nvar = 2
-prob = CPLA.LearningProblem(nvar, ϵ, θ, δ)
-CPLA.set_tol_rad!(prob, 1e-3)
 
-# α = 1.1
-# CPLA.set_Gs!(prob, α)
-CPLA.add_G!(prob, 3.2)
+sys = CPLA.System()
 
 domain = CPLP.Cone()
-CPLP.add_supp!(domain, CPLP.Supp([0.0, -1.0]))
+CPLP.add_supp!(domain, [0.0, -1.0])
 A = [-0.5 1.0; -1.0 -0.5]
-CPLA.add_system!(prob, domain, A)
+CPLA.add_piece!(sys, domain, A)
 
 domain = CPLP.Cone()
-CPLP.add_supp!(domain, CPLP.Supp([0.0, 1.0]))
+CPLP.add_supp!(domain, [0.0, 1.0])
 A = [0.01 1.0; -1.0 0.01]
-CPLA.add_system!(prob, domain, A)
+CPLA.add_piece!(sys, domain, A)
 
 ## Generator illustration
-vecsgen = CPLA.VecsGenerator(nvar, prob.Gs)
+gen = CPLA.Generator(nvar)
 
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
@@ -48,12 +42,12 @@ points = map(α -> [cos(α), sin(α)], α_list)
 
 witnesses = CPLA.Witness[]
 for point in points
-    wit = CPLA.make_witness_from_point(prob.systems, point)
-    CPLA.add_witness!(vecsgen, wit)
+    wit = CPLA.make_witness_from_point_system(sys, point)
+    CPLA.add_witness!(gen, wit)
     push!(witnesses, wit)
 end
 
-vecs, r = CPLA.compute_vecs(vecsgen, solver)
+vecs, r = CPLA.compute_vecs_heuristic(gen, 1/θ, solver)
 
 fig = figure(0, figsize=(8, 10))
 ax = fig.add_subplot(aspect="equal")
@@ -68,7 +62,7 @@ ax.tick_params(axis="both", labelsize=15)
 
 p = CPLP.Polyhedron()
 for vec in vecs
-    CPLP.add_halfspace!(p, CPLP.Halfspace(vec, -1.0))
+    CPLP.add_halfspace!(p, vec, -1.0)
 end
 verts = compute_vertices_2d(p)
 verts_radius = maximum(vert -> norm(vert, Inf), verts)
@@ -88,25 +82,25 @@ derivs_norm = -Inf
 
 for wit in witnesses
     global derivs_norm
-    for lie_con in wit.lie_constrs
-        point_norm = maximum(vec -> dot(vec, lie_con.point), vecs)
-        derivs_norm = max(derivs_norm, norm(lie_con.deriv)/point_norm)
+    for lieevid in wit.lie_evids
+        point_norm = maximum(vec -> dot(vec, lieevid.point), vecs)
+        derivs_norm = max(derivs_norm, norm(lieevid.deriv)/point_norm)
     end
 end
 
 deriv_length = 0.6
 
 for wit in witnesses
-    for pos_con in wit.pos_constrs
-        point_norm = maximum(vec -> dot(vec, pos_con.point), vecs)
-        point_scaled = pos_con.point*scaling/point_norm
+    for posevid in wit.pos_evids
+        point_norm = maximum(vec -> dot(vec, posevid.point), vecs)
+        point_scaled = posevid.point*scaling/point_norm
         ax.plot(point_scaled..., marker=".", ms=15, c="blue")
     end
-    for lie_con in wit.lie_constrs
-        point_norm = maximum(vec -> dot(vec, lie_con.point), vecs)
-        point_scaled = lie_con.point*scaling/point_norm
+    for lieevid in wit.lie_evids
+        point_norm = maximum(vec -> dot(vec, lieevid.point), vecs)
+        point_scaled = lieevid.point*scaling/point_norm
         ax.plot(point_scaled..., marker=".", ms=15, c="blue")
-        deriv_scaled = lie_con.deriv/(point_norm*derivs_norm)
+        deriv_scaled = lieevid.deriv/(point_norm*derivs_norm)
         point2_scaled = point_scaled + deriv_length*deriv_scaled
         ax.plot(
             (point_scaled[1], point2_scaled[1]),
@@ -132,13 +126,13 @@ fig.savefig(string(
     dpi=200, transparent=false, bbox_inches="tight")
 
 ## Verifier illustration
-verifs_lie = CPLA.make_verifs_from_systems(prob.nvar, prob.systems)
+verif = CPLA.make_verif_from_system(nvar, sys)
 
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
 vecs = map(α -> [cos(α), sin(α)], α_list)
 
-x, val, q = CPLV.verify_lie(verifs_lie, vecs, solver)
+x, val, q = CPLA.verify_lie(verif, vecs, solver)
 point = x/norm(x, Inf)
 
 fig = figure(1, figsize=(8, 10))
@@ -154,7 +148,7 @@ ax.tick_params(axis="both", labelsize=15)
 
 p = CPLP.Polyhedron()
 for vec in vecs
-    CPLP.add_halfspace!(p, CPLP.Halfspace(vec, -1.0))
+    CPLP.add_halfspace!(p, vec, -1.0)
 end
 verts = compute_vertices_2d(p)
 verts_radius = maximum(vert -> norm(vert, Inf), verts)
@@ -177,11 +171,11 @@ X = map(x -> [x...], Iterators.product(x1_grid, x2_grid))
 X1 = getindex.(X, 1)
 X2 = getindex.(X, 2)
 
-for system in prob.systems
+for piece in sys.pieces
     D = Matrix{Vector{Float64}}(undef, ngrid, ngrid)
     for (k, x) in enumerate(X)
-        if x ∈ system.domain
-            D[k] = system.A*x
+        if x ∈ piece.domain
+            D[k] = piece.A*x
         else
             D[k] = [NaN, NaN]
         end
@@ -196,7 +190,7 @@ deriv_length = 0.6
 point_norm = maximum(vec -> dot(vec, point), vecs)
 point_scaled = point*scaling/point_norm
 ax.plot(point_scaled..., marker=".", ms=15, c="blue")
-deriv = prob.systems[q].A*point
+deriv = sys.pieces[q].A*point
 deriv_scaled = deriv/(point_norm*norm(deriv))
 point2_scaled = point_scaled + deriv_length*deriv_scaled
 ax.plot(
@@ -224,12 +218,15 @@ fig.savefig(string(
     dpi=200, transparent=false, bbox_inches="tight")
 
 ## Learner feasible illustration
+lear = CPLA.Learner(nvar, sys, ϵ, θ, δ)
+CPLA.set_tol!(lear, :rad, 1e-3)
+
 points_init = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 for point in points_init
-    CPLA.add_point_init!(prob, point)
+    CPLA.add_point_init!(lear, point)
 end
 
-sol = CPLA.learn_lyapunov!(prob, 100, solver)
+sol = CPLA.learn_lyapunov!(lear, 100, solver)
 
 @assert sol.status == CPLA.LYAPUNOV_FOUND
 
@@ -273,7 +270,7 @@ for k = 1:nplot
     # compute verts norm:
     p = CPLP.Polyhedron()
     for vec in vecs
-        CPLP.add_halfspace!(p, CPLP.Halfspace(vec, -1.0))
+        CPLP.add_halfspace!(p, vec, -1.0)
     end
     verts = compute_vertices_2d(p)
     verts_radius = maximum(vert -> norm(vert, Inf), verts)
@@ -289,23 +286,23 @@ for k = 1:nplot
     # compute derivs_norm
     derivs_norm = -Inf
     for wit in sol.witnesses_list[idx]
-        for lie_con in wit.lie_constrs
-            point_norm = maximum(vec -> dot(vec, lie_con.point), vecs)
-            derivs_norm = max(derivs_norm, norm(lie_con.deriv)/point_norm)
+        for lieevid in wit.lie_evids
+            point_norm = maximum(vec -> dot(vec, lieevid.point), vecs)
+            derivs_norm = max(derivs_norm, norm(lieevid.deriv)/point_norm)
         end
     end
     # plot derivs
     for wit in sol.witnesses_list[idx]
-        for pos_con in wit.pos_constrs
-            point_norm = maximum(vec -> dot(vec, pos_con.point), vecs)
-            point_scaled = pos_con.point*scaling/point_norm
+        for posevid in wit.pos_evids
+            point_norm = maximum(vec -> dot(vec, posevid.point), vecs)
+            point_scaled = posevid.point*scaling/point_norm
             ax.plot(point_scaled..., marker=".", ms=7.5, c="blue")
         end
-        for lie_con in wit.lie_constrs
-            point_norm = maximum(vec -> dot(vec, lie_con.point), vecs)
-            point_scaled = lie_con.point*scaling/point_norm
+        for lieevid in wit.lie_evids
+            point_norm = maximum(vec -> dot(vec, lieevid.point), vecs)
+            point_scaled = lieevid.point*scaling/point_norm
             ax.plot(point_scaled..., marker=".", ms=7.5, c="blue")
-            deriv_scaled = lie_con.deriv/(point_norm*derivs_norm)
+            deriv_scaled = lieevid.deriv/(point_norm*derivs_norm)
             point2_scaled = point_scaled + deriv_length*deriv_scaled
             ax.plot(
                 (point_scaled[1], point2_scaled[1]),
@@ -317,16 +314,16 @@ for k = 1:nplot
     if idx ≤ length(sol.counterexample_list)
         # plot counterexample:
         wit = sol.counterexample_list[idx]
-        for pos_con in wit.pos_constrs
-            point_norm = maximum(vec -> dot(vec, pos_con.point), vecs)
-            point_scaled = pos_con.point*scaling/point_norm
+        for posevid in wit.pos_evids
+            point_norm = maximum(vec -> dot(vec, posevid.point), vecs)
+            point_scaled = posevid.point*scaling/point_norm
             ax.plot(point_scaled..., marker=".", ms=7.5, c="black")
         end
-        for lie_con in wit.lie_constrs
-            point_norm = maximum(vec -> dot(vec, lie_con.point), vecs)
-            point_scaled = lie_con.point*scaling/point_norm
+        for lieevid in wit.lie_evids
+            point_norm = maximum(vec -> dot(vec, lieevid.point), vecs)
+            point_scaled = lieevid.point*scaling/point_norm
             ax.plot(point_scaled..., marker=".", ms=7.5, c="black")
-            deriv_scaled = lie_con.deriv/(point_norm*derivs_norm)
+            deriv_scaled = lieevid.deriv/(point_norm*derivs_norm)
             point2_scaled = point_scaled + deriv_length*deriv_scaled
             ax.plot(
                 (point_scaled[1], point2_scaled[1]),
@@ -344,7 +341,7 @@ for k = 1:nplot
         xplot_seq = [x]
         for t = 1:nstep-1
             q = 0
-            for system in prob.systems
+            for system in sys.pieces
                 if x ∈ system.domain
                     x = exp(system.A*dt)*x
                     break
@@ -370,8 +367,17 @@ fig.savefig(string(
     dpi=200, transparent=false, bbox_inches="tight")
 
 ## Learner infeasible illustration
-prob.δ = 0.2
-sol = CPLA.learn_lyapunov!(prob, 100, solver)
+δ = 0.2
+
+lear = CPLA.Learner(nvar, sys, ϵ, θ, δ)
+CPLA.set_tol!(lear, :rad, 1e-3)
+
+points_init = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
+for point in points_init
+    CPLA.add_point_init!(lear, point)
+end
+
+sol = CPLA.learn_lyapunov!(lear, 100, solver)
 display(sol.status)
 display(sol.niter)
 

@@ -24,7 +24,7 @@ end
 
 p = CPLP.Polyhedron()
 for vec in vecs
-    CPLP.add_halfspace!(p, CPLP.Halfspace(vec, -1.0))
+    CPLP.add_halfspace!(p, vec, -1.0)
 end
 simplices = compute_simplices_3d(p)
 

@@ -68,7 +68,7 @@ function make_witness_from_point_system(sys, point)
         nderiv = norm(deriv, Inf) # new
         # nderiv = norm(deriv) # old
         nA = opnorm(piece.A, Inf)
-        add_evidence_lie!(wit,point, deriv, npoint, nderiv, nA)
+        add_evidence_lie!(wit, point, deriv, npoint, nderiv, nA)
     end
     return wit
 end
