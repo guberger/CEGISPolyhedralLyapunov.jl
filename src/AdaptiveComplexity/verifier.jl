@@ -1,10 +1,8 @@
-module Verifier
-
 using LinearAlgebra
 using JuMP
 const _RSC_ = JuMP.MathOptInterface.ResultStatusCode
 const _TSC_ = JuMP.MathOptInterface.TerminationStatusCode
-using ..Polyhedra: Cone
+using ...Polyhedra: Cone
 
 _VT_ = Vector{Float64}
 _MT_ = Matrix{Float64}
@@ -156,5 +154,3 @@ function verify_lie(verifs::Vector{VerifyingProblem}, vecs, solver)
     end
     return xopt, ropt, qopt
 end
-
-end # module

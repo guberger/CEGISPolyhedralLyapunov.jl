@@ -3,13 +3,12 @@ using JuMP
 using HiGHS
 using Test
 @static if isdefined(Main, :TestLocal)
-    include("../src/CEGISPolyhedralLyapunov.jl")
+    include("../../src/CEGISPolyhedralLyapunov.jl")
 else
     using CEGISPolyhedralLyapunov
 end
-CPL = CEGISPolyhedralLyapunov
-CPLP = CPL.Polyhedra
-CPLV = CPL.Verifier
+CPLP = CEGISPolyhedralLyapunov.Polyhedra
+CPLV = CEGISPolyhedralLyapunov.AdaptiveComplexity.Verifier
 
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 

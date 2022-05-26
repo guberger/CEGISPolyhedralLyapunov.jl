@@ -24,7 +24,7 @@ HP(nvar) = map(i -> i == 1 ? 1 : 0, reshape(1:nvar, 1, nvar))
 
 f = open(string(@__DIR__, "/measurements.txt"), "w")
 iter = 0
-max_iter = 50
+max_iter = 5
 
 for nvar in (4, 5, 6, 7, 8, 9)
     iter > max_iter && break
@@ -64,6 +64,7 @@ for nvar in (4, 5, 6, 7, 8, 9)
             flag, deriv, γ, σ, time, complexity)
         print(string("---> ", str))
         print(f, str)
+        flush(f)
     end
 end
 
