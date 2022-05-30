@@ -23,7 +23,5 @@ docs/site/
 # environment.
 Manifest.toml
 
-/_OLD_/
-examples/_TESTS_/
-examples/figures/
+# examples/figures/
 Highs.log

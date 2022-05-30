@@ -18,7 +18,7 @@ solver = optimizer_with_attributes(
 ## Parameters
 ϵ = 10.0
 θ = 1/3.2 # 0.1
-δ = 0.003 # 0.1
+δ = 0.025 # 0.1
 nvar = 2
 
 sys = CPLA.System()
@@ -367,7 +367,7 @@ fig.savefig(string(
     dpi=200, transparent=false, bbox_inches="tight")
 
 ## Learner infeasible illustration
-δ = 0.2
+δ = 0.05
 
 lear = CPLA.Learner(nvar, sys, ϵ, θ, δ)
 CPLA.set_tol!(lear, :rad, 1e-3)
