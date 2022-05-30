@@ -166,8 +166,7 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
             return sol
         end
 
-        # vecs, r1 = compute_vecs_heuristic(gen, 1/lear.θ, solver)
-        vecs, r = compute_vecs_round(gen, 1/lear.θ, solver)
+        vecs, r = compute_vecs_chebyshev(gen, 1/lear.θ, solver)
         if do_print
             println("|--- radius: ", r)
         end

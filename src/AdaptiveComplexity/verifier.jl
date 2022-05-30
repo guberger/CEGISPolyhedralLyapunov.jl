@@ -1,9 +1,9 @@
 using LinearAlgebra
 using JuMP
-const _RSC_ = JuMP.MathOptInterface.ResultStatusCode
-const _TSC_ = JuMP.MathOptInterface.TerminationStatusCode
 using ..Polyhedra: Cone
 
+_RSC_ = JuMP.MathOptInterface.ResultStatusCode
+_TSC_ = JuMP.MathOptInterface.TerminationStatusCode
 _VT_ = Vector{Float64}
 _MT_ = Matrix{Float64}
 

@@ -63,7 +63,7 @@ CPLA.set_tol!(lear, :rad, 0.0)
 point = [-1.0, 0.0]
 CPLA.add_point_init!(lear, point)
 
-sol = CPLA.learn_lyapunov!(lear, 100, solver)
+sol = CPLA.learn_lyapunov!(lear, 100, solver, do_print=false)
 
 @testset "learn lyapunov: feasible" begin
     @test sol.status == CPLA.LYAPUNOV_FOUND
@@ -71,7 +71,7 @@ end
 
 CPLA.set_tol!(lear, :rad, 0.2)
 
-sol = CPLA.learn_lyapunov!(lear, 100, solver)
+sol = CPLA.learn_lyapunov!(lear, 100, solver, do_print=false)
 
 @testset "learn lyapunov: radius too small" begin
     @test sol.status == CPLA.RADIUS_TOO_SMALL

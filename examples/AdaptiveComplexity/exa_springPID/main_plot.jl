@@ -102,6 +102,8 @@ fig.savefig(string(
         @__DIR__,
         "/../../figures/AdaptiveComplexity/fig_exa_mass_spring_decrease.png"
     ),
-    dpi=200, transparent=false, bbox_inches="tight")
+    dpi=200, transparent=false,
+    bbox_inches=matplotlib.transforms.Bbox(((0.45, -0.3), (9.1, 2.7)))
+)
 
 end # module
