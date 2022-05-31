@@ -22,9 +22,10 @@ solver = optimizer_with_attributes(
 
 f = open(string(@__DIR__, "/measurements.txt"), "w")
 iter = 0
-max_iter = 50
+max_iter = 100
 
-for nvar in (4, 5, 6, 7, 8, 9)
+# for nvar in (4, 5, 6, 7, 8, 9)
+for nvar in (9,)
     iter > max_iter && break
     ONE_ = ones(nvar, nvar)
     EYE_ = Matrix{Float64}(I, nvar, nvar)
@@ -41,28 +42,40 @@ for nvar in (4, 5, 6, 7, 8, 9)
     print(string("---> ", str))
     print(f, str)
 
-    for γ in (1, 0.1, 0.01)
-        global iter += 1
-        iter > max_iter && break
-        sys = CPLA.System()
-        CPLA.add_piece!(sys, domain1, A1)
-        A2 = U \ (ONE_ - (nvar + γ)*EYE_) * U
-        CPLA.add_piece!(sys, domain2, A2)
+    for γ in (1.0, 0.1, 0.01)
+        for δ in (γ/50, γ)
+            global iter += 1
+            iter > max_iter && break
+            sys = CPLA.System()
+            CPLA.add_piece!(sys, domain1, A1)
+            A2 = U \ (ONE_ - (nvar + γ)*EYE_) * U
+            CPLA.add_piece!(sys, domain2, A2)
 
-        lear = CPLA.Learner(nvar, sys, ϵ, θ, δ)
+            lear = CPLA.Learner(nvar, sys, ϵ, θ, δ)
 
-        sol = @time CPLA.learn_lyapunov!(lear, 1000, solver, do_print=false)
-        time = @elapsed CPLA.learn_lyapunov!(lear, 1000, solver, do_print=false)
-        flag = sol.status == CPLA.LYAPUNOV_FOUND
-        deriv = sol.val_lie_list[sol.niter]
-        
-        complexity = length(sol.vecs_list[sol.niter])
-        σ = -maximum(real.(eigvals(A2)))
-        str = @sprintf("%s %f | %f & %e & %.2f & %d\n",
-            flag, deriv, γ, σ, time, complexity)
-        print(string("---> ", str))
-        print(f, str)
-        flush(f)
+            sol = @time CPLA.learn_lyapunov!(
+                lear, 1000, solver, do_print=false
+            )
+            time = @elapsed CPLA.learn_lyapunov!(
+                lear, 1000, solver, do_print=false
+            )
+            complexity = 0
+            deriv = Inf
+            if sol.status == CPLA.LYAPUNOV_FOUND
+                deriv = sol.val_lie_list[sol.niter]
+                complexity = length(sol.vecs_list[sol.niter])
+            elseif sol.status == CPLA.LYAPUNOV_INFEASIBLE
+                complexity = sol.niter
+            else
+                error("Unexpected status")
+            end
+            σ = -maximum(real.(eigvals(A2)))
+            str = @sprintf("%s %f | %f & %e & %.2f & %d\n",
+                sol.status, deriv, γ, σ, time, complexity)
+            print(string("---> ", str))
+            print(f, str)
+            flush(f)
+        end
     end
 end
 

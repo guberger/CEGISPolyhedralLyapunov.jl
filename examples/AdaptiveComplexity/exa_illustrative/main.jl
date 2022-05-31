@@ -110,9 +110,9 @@ for wit in witnesses
     end
 end
 
-ax.text(1.5, +1.6, L"\mathcal{Q}(x)=1",
+ax.text(1.5, +1.6, L"q=1",
         horizontalalignment="center", verticalalignment="center", fontsize=20)
-ax.text(1.5, -1.6, L"\mathcal{Q}(x)=2",
+ax.text(1.5, -1.6, L"q=2",
         horizontalalignment="center", verticalalignment="center", fontsize=20)
 
 LH = (matplotlib.patches.Patch(fc="gold", ec="gold", lw=2.5, alpha=0.5,
@@ -199,10 +199,10 @@ ax.plot(
     c="green", lw=2.5
 )
 
-ax.text(1.5, +1.6, L"\mathcal{Q}(x)=1",
+ax.text(1.5, +1.6, L"q=1",
         horizontalalignment="center", verticalalignment="center",
         fontsize=20, alpha=1.0, bbox=Dict(["facecolor"=>"white", "alpha"=>1.0]))
-ax.text(1.5, -1.6, L"\mathcal{Q}(x)=2",
+ax.text(1.5, -1.6, L"q=2",
         horizontalalignment="center", verticalalignment="center",
         fontsize=20, alpha=1.0, bbox=Dict(["facecolor"=>"white", "alpha"=>1.0]))
 
