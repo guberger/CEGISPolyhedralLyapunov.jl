@@ -24,8 +24,7 @@ f = open(string(@__DIR__, "/measurements.txt"), "w")
 iter = 0
 max_iter = 100
 
-# for nvar in (4, 5, 6, 7, 8, 9)
-for nvar in (9,)
+for nvar in (4, 5, 6, 7, 8, 9)
     iter > max_iter && break
     ONE_ = ones(nvar, nvar)
     EYE_ = Matrix{Float64}(I, nvar, nvar)
