@@ -26,10 +26,11 @@ p = CPLP.Polyhedron()
 for vec in vecs
     CPLP.add_halfspace!(p, vec, -1.0)
 end
-simplices = compute_simplices_3d(p)
+simplices = compute_simplices_3d(p, zeros(3))
 
-fig = figure(0, figsize=(8, 10))
+fig = figure(0, figsize=(8, 12))
 ax = fig.add_subplot(projection="3d")
+ax.set_box_aspect((4, 4, 5))
 ax.xaxis.pane.fill = false
 ax.yaxis.pane.fill = false
 ax.zaxis.pane.fill = false
@@ -60,11 +61,12 @@ ax.view_init(elev=10.0, azim=-135)
 filename = 
 fig.savefig(string(
         @__DIR__,
-        "/../../figures/AdaptiveComplexity/fig_exa_mass_spring_lyapunov.png"
+        "/../../figures/AdaptiveComplexity/",
+        "fig_exa_mass_spring_lyapunov.png"
     ),
     dpi=200,
     transparent=false,
-    bbox_inches=matplotlib.transforms.Bbox(((1.05, 1.80), (7.15, 7.6)))
+    bbox_inches=matplotlib.transforms.Bbox(((1.1, 0.95), (6.75, 6.5)))
 )
 
 x = [0.0, 1.0, 0.0]
@@ -100,7 +102,8 @@ ax.tick_params(axis="both", which="major", labelsize=12)
 
 fig.savefig(string(
         @__DIR__,
-        "/../../figures/AdaptiveComplexity/fig_exa_mass_spring_decrease.png"
+        "/../../figures/AdaptiveComplexity/",
+        "fig_exa_mass_spring_decrease.png"
     ),
     dpi=200, transparent=false,
     bbox_inches=matplotlib.transforms.Bbox(((0.45, -0.3), (9.1, 2.7)))
