@@ -1,4 +1,4 @@
-module ExampleIllustrative
+module ExampleZelentsowsky_Compute
 
 using LinearAlgebra
 using JuMP
@@ -15,21 +15,12 @@ solver = optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
 )
 
-# With ϵ = 50, θ = 1/64 and δ = 0.001
-# With α = 6
-# Find a polyhedral Lyapunov function with 299 pieces
-
-# With ϵ = 50, θ = 1/2048 and δ = 0.001
-# With α = 6.87
-# Stop after 8 hours, Iter = 1116
+datafile = "dataset_1"
+include(string("./datasets/", datafile, ".jl"))
 
 ## Parameters
-ϵ = 50.0
-θ = 1/64
-δ = 0.001
 nvar = 2
 
-α = 6.0
 sys = CPLA.System()
 
 domain = CPLP.Cone()
@@ -49,8 +40,15 @@ for point in points_init
     CPLA.add_point_init!(lear, point)
 end
 
+## Solving
 sol = CPLA.learn_lyapunov!(lear, 1000, solver)
 
-@assert sol.status == CPLA.LYAPUNOV_FOUND
+display(sol.status)
+
+f = open(string(@__DIR__, "/results/", datafile, ".txt"), "w")
+for vec in sol.vecs_list[sol.niter]
+    println(f, vec)
+end
+close(f)
 
 end # module

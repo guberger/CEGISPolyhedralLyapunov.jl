@@ -1,4 +1,4 @@
-module ExampleSpringPID
+module ExampleSpringPID_Plot
 
 using LinearAlgebra
 using PyPlot
