@@ -155,6 +155,7 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
             return sol
         end
 
+        # Feasibility check:
         slack = compute_vecs_feasibility(gen, lear.ϵ, lear.θ, lear.δ, solver)[2]
         if slack < 0
             println(string(
@@ -164,7 +165,7 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
             ))
             sol.status = LYAPUNOV_INFEASIBLE
             return sol
-        end
+        end # end Feasibility check
 
         vecs, r = compute_vecs_chebyshev(gen, 1/lear.θ, solver)
         if do_print
