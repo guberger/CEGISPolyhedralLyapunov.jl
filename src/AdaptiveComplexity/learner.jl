@@ -167,7 +167,8 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
             return sol
         end # end Feasibility check
 
-        vecs, r = compute_vecs_chebyshev(gen, 1/lear.θ, solver)
+        # vecs, r = compute_vecs_chebyshev(gen, 1/lear.θ, solver)
+        vecs, r = compute_vecs_witness(gen, 1/lear.θ, solver) # test
         if do_print
             println("|--- radius: ", r)
         end

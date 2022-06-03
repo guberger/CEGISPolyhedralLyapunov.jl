@@ -47,7 +47,8 @@ for point in points
     CPLA.add_witness!(gen, wit)
     push!(witnesses, wit)
 end
-vecs, r = CPLA.compute_vecs_chebyshev(gen, 1/θ, solver)
+# vecs, r = CPLA.compute_vecs_chebyshev(gen, 1/θ, solver)
+vecs, r = CPLA.compute_vecs_witness(gen, 1/θ, solver) # test
 
 # Verifier:
 verif = CPLA.make_verif_from_system(nvar, sys)

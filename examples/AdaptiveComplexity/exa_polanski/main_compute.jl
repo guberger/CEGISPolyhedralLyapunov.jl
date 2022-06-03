@@ -15,7 +15,7 @@ solver = optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
 )
 
-datafile = "dataset_1"
+datafile = "dataset_2"
 include(string("./datasets/", datafile, ".jl"))
 
 ## Parameters

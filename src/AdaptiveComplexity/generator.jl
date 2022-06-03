@@ -177,3 +177,32 @@ function compute_vecs_chebyshev(gen::Generator, G::Float64, solver)
     prob = GeneratorChebyshev(G)
     return _compute_vecs(prob, gen.nvar, gen.witnesses, solver)
 end
+
+## Witness
+
+struct GeneratorWitness <: GeneratorProblem
+    G::Float64
+end
+
+function _add_pos_constr_prob!(
+        ::GeneratorWitness, model, vecs, r, i, posevid
+    )
+    point = posevid.point
+    β = posevid.npoint
+    _add_pos_constr!(model, vecs, r, i, point, 1, β, 0)
+end
+
+function _add_lie_constr_prob!(
+        prob::GeneratorWitness, model, vecs, r, i, j, lieevid
+    )
+    point = lieevid.point
+    deriv = lieevid.deriv
+    G::Float64 = i == j ? 0.0 : prob.G
+    β = 2*lieevid.npoint*G + lieevid.nA*lieevid.npoint
+    _add_lie_constr(model, vecs, r, i, j, point, deriv, 1, β, G, 0)
+end
+
+function compute_vecs_witness(gen::Generator, G::Float64, solver)
+    prob = GeneratorWitness(G)
+    return _compute_vecs(prob, gen.nvar, gen.witnesses, solver)
+end
