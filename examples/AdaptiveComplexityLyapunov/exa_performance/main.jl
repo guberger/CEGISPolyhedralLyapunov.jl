@@ -5,9 +5,9 @@ using Printf
 using JuMP
 using Gurobi
 
-include("../../../src/CEGISPolyhedralLyapunov.jl")
-CPL = CEGISPolyhedralLyapunov
-CPLA = CPL.AdaptiveComplexity
+include("../../../src/CEGISPolyhedralVerification.jl")
+CPL = CEGISPolyhedralVerification
+CPLA = CPL.AdaptiveComplexityLyapunov
 CPLP = CPL.Polyhedra
 
 const GUROBI_ENV = Gurobi.Env()

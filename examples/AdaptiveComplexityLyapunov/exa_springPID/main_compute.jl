@@ -4,9 +4,9 @@ using JuMP
 using Gurobi
 using PyPlot
 
-include("../../../src/CEGISPolyhedralLyapunov.jl")
-CPLA = CEGISPolyhedralLyapunov.AdaptiveComplexity
-CPLP = CEGISPolyhedralLyapunov.Polyhedra
+include("../../../src/CEGISPolyhedralVerification.jl")
+CPLA = CEGISPolyhedralVerification.AdaptiveComplexityLyapunov
+CPLP = CEGISPolyhedralVerification.Polyhedra
 
 datafile = "dataset_3"
 include(string("./datasets/", datafile, ".jl"))

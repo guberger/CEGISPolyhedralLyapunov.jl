@@ -4,9 +4,9 @@ using LinearAlgebra
 using PyPlot
 using PyCall
 art3d = PyObject(PyPlot.art3D)
-include("../../../src/CEGISPolyhedralLyapunov.jl")
-CPLA = CEGISPolyhedralLyapunov.AdaptiveComplexity
-CPLP = CEGISPolyhedralLyapunov.Polyhedra
+include("../../../src/CEGISPolyhedralVerification.jl")
+CPLA = CEGISPolyhedralVerification.AdaptiveComplexityLyapunov
+CPLP = CEGISPolyhedralVerification.Polyhedra
 include("../../utils/geometry.jl")
 
 datafile = "dataset_1"
@@ -90,7 +90,7 @@ ax.legend(handles=LH, fontsize=20, loc="upper left",
 
 fig.savefig(string(
         @__DIR__,
-        "/../../figures/AdaptiveComplexity/",
+        "/../../figures/AdaptiveComplexityLyapunov/",
         "fig_exa_zelentsowsky.png"
     ),
     dpi=200, transparent=false, bbox_inches="tight")

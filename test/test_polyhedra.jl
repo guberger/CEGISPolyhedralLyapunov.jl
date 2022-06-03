@@ -1,10 +1,10 @@
 using Test
 @static if isdefined(Main, :TestLocal)
-    include("../src/CEGISPolyhedralLyapunov.jl")
+    include("../src/CEGISPolyhedralVerification.jl")
 else
-    using CEGISPolyhedralLyapunov
+    using CEGISPolyhedralVerification
 end
-CPLP = CEGISPolyhedralLyapunov.Polyhedra
+CPLP = CEGISPolyhedralVerification.Polyhedra
 
 cone = CPLP.Cone()
 CPLP.add_supp!(cone, [1.0, 1.0])

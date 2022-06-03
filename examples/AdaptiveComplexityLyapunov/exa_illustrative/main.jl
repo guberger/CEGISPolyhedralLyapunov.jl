@@ -5,9 +5,9 @@ using JuMP
 using Gurobi
 using PyPlot
 
-include("../../../src/CEGISPolyhedralLyapunov.jl")
-CPLA = CEGISPolyhedralLyapunov.AdaptiveComplexity
-CPLP = CEGISPolyhedralLyapunov.Polyhedra
+include("../../../src/CEGISPolyhedralVerification.jl")
+CPLA = CEGISPolyhedralVerification.AdaptiveComplexityLyapunov
+CPLP = CEGISPolyhedralVerification.Polyhedra
 include("../../utils/geometry.jl")
 include("plotting.jl")
 
@@ -90,7 +90,7 @@ ax.legend(handles=LH, fontsize=20, loc="upper left",
 
 fig.savefig(string(
         @__DIR__,
-        "/../../figures/AdaptiveComplexity/",
+        "/../../figures/AdaptiveComplexityLyapunov/",
         "fig_exa_illustrative_generator_verifier.png"
     ),
     dpi=200, transparent=false, bbox_inches="tight")
@@ -172,7 +172,7 @@ end
 
 fig.savefig(string(
         @__DIR__,
-        "/../../figures/AdaptiveComplexity/",
+        "/../../figures/AdaptiveComplexityLyapunov/",
         "fig_exa_illustrative_learner_steps.png"
     ),
     dpi=200, transparent=false, bbox_inches="tight")

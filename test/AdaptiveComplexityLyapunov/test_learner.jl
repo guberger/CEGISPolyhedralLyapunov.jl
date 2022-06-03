@@ -3,12 +3,12 @@ using JuMP
 using HiGHS
 using Test
 @static if isdefined(Main, :TestLocal)
-    include("../../src/CEGISPolyhedralLyapunov.jl")
+    include("../../src/CEGISPolyhedralVerification.jl")
 else
-    using CEGISPolyhedralLyapunov
+    using CEGISPolyhedralVerification
 end
-CPLA = CEGISPolyhedralLyapunov.AdaptiveComplexity
-CPLP = CEGISPolyhedralLyapunov.Polyhedra
+CPLA = CEGISPolyhedralVerification.AdaptiveComplexityLyapunov
+CPLP = CEGISPolyhedralVerification.Polyhedra
 
 function HiGHS._check_ret(ret::Cint) 
     if ret != Cint(0) && ret != Cint(1)

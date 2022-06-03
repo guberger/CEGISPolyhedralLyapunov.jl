@@ -1,4 +1,4 @@
-module AdaptiveComplexity
+module AdaptiveComplexityLyapunov
 
 include("generator.jl")
 include("verifier.jl")

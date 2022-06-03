@@ -4,8 +4,8 @@ using LinearAlgebra
 using PyPlot
 using PyCall
 art3d = PyObject(PyPlot.art3D)
-include("../../../src/CEGISPolyhedralLyapunov.jl")
-CPLP = CEGISPolyhedralLyapunov.Polyhedra
+include("../../../src/CEGISPolyhedralVerification.jl")
+CPLP = CEGISPolyhedralVerification.Polyhedra
 include("../../utils/geometry.jl")
 
 datafile = "dataset_3"
@@ -61,7 +61,7 @@ ax.view_init(elev=10.0, azim=-135)
 filename = 
 fig.savefig(string(
         @__DIR__,
-        "/../../figures/AdaptiveComplexity/",
+        "/../../figures/AdaptiveComplexityLyapunov/",
         "fig_exa_mass_spring_lyapunov.png"
     ),
     dpi=200,
@@ -102,7 +102,7 @@ ax.tick_params(axis="both", which="major", labelsize=12)
 
 fig.savefig(string(
         @__DIR__,
-        "/../../figures/AdaptiveComplexity/",
+        "/../../figures/AdaptiveComplexityLyapunov/",
         "fig_exa_mass_spring_decrease.png"
     ),
     dpi=200, transparent=false,
