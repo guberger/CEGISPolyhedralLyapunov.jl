@@ -1,4 +1,4 @@
-# CEGPolyhedralLyapunov.jl
+# CEGISPolyhedralVerification.jl
 
 A toolbox for the learning control Lyapunov functions from counterexamples and demonstrations
 
