@@ -78,8 +78,8 @@ function _verify_pos_comp(nvar, domain, vecs, k, s, solver)
 end
 
 function _verify_pos_single(nvar, domain, vecs, solver)
-    xopt = Float64[]
-    ropt = Inf
+    xopt::_VT_ = Float64[]
+    ropt::Float64 = Inf
     for (k, s) in Iterators.product(1:nvar, (-1, 1))
         x, r = _verify_pos_comp(nvar, domain, vecs, k, s, solver)
         if r < ropt
@@ -139,7 +139,7 @@ function _verify_lie_comp(nvar, domain, A, vecs, k, s, i, solver)
         return value.(x), objective_value(model)
     elseif primal_status(model) == _RSC_(0) &&
             termination_status(model) == _TSC_(2)
-        return Float64, -Inf
+        return Float64[], -Inf
     else
         error(string(
             "Verifier lie: neither feasible or infeasible: ",
@@ -153,8 +153,8 @@ function _verify_lie_comp(nvar, domain, A, vecs, k, s, i, solver)
 end
 
 function _verify_lie_single(nvar, domain, A, vecs, solver)
-    xopt = Float64[]
-    ropt = -Inf
+    xopt::_VT_ = Float64[]
+    ropt::Float64 = -Inf
     for (i, k, s) in Iterators.product(1:length(vecs), 1:nvar, (-1, 1)) # new
     # for (i, k, s) in Iterators.product(1:length(vecs), 1:1, 1:1) # old
         x, r = _verify_lie_comp(nvar, domain, A, vecs, k, s, i, solver)

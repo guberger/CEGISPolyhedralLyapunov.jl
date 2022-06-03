@@ -5,6 +5,11 @@ _RSC_ = JuMP.MathOptInterface.ResultStatusCode
 _TSC_ = JuMP.MathOptInterface.TerminationStatusCode
 _VT_ = Vector{Float64}
 
+struct NegEvidence
+    point::_VT_
+    npoint::Float64
+end
+
 struct PosEvidence
     point::_VT_
     npoint::Float64
