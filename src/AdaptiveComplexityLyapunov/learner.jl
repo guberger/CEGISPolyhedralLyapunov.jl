@@ -61,14 +61,10 @@ function make_witness_from_point_system(sys, point)
     wit = Witness()
     npoint = norm(point, Inf) # new
     # npoint = norm(point) # old
-    add_evidence_pos!(wit, point, npoint)
+    add_evidence_pos!(wit, point)
     for piece in sys.pieces
         point ∉ piece.domain && continue
-        deriv = piece.A*point
-        nderiv = norm(deriv, Inf) # new
-        # nderiv = norm(deriv) # old
-        nA = opnorm(piece.A, Inf)
-        add_evidence_lie!(wit, point, deriv, npoint, nderiv, nA)
+        add_evidence_lie!(wit, point, piece.A)
     end
     return wit
 end

@@ -36,9 +36,8 @@ points = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 
 for point in points
     wit = CPLA.Witness()
-    CPLA.add_evidence_pos!(wit, point, norm(point, Inf))
-    deriv = A*point
-    CPLA.add_evidence_lie!(wit, point, deriv, norm(point, Inf), 1.0, 1.0)
+    CPLA.add_evidence_pos!(wit, point)
+    CPLA.add_evidence_lie!(wit, point, A)
     CPLA.add_witness!(gen, wit)
 end
 
@@ -74,10 +73,7 @@ for point in points
     for A in As
         wit = CPLA.Witness()
         CPLA.add_evidence_pos!(wit, point, norm(point, Inf))
-        deriv = A*point
-        CPLA.add_evidence_lie!(
-            wit, point, deriv, norm(point, Inf), norm(point, Inf), 1.0
-        )
+        CPLA.add_evidence_lie!(wit, point, A)
         CPLA.add_witness!(gen, wit)
     end
 end

@@ -4,18 +4,16 @@ using JuMP
 _RSC_ = JuMP.MathOptInterface.ResultStatusCode
 _TSC_ = JuMP.MathOptInterface.TerminationStatusCode
 _VT_ = Vector{Float64}
+_MT_ = Matrix{Float64}
 
 struct PosEvidence
     point::_VT_
-    npoint::Float64
 end
 
 struct LieEvidence
     point::_VT_
     deriv::_VT_
-    npoint::Float64
-    nderiv::Float64
-    nA::Float64
+    A::_MT_
 end
 
 struct Witness
@@ -33,12 +31,12 @@ function add_evidence!(wit::Witness, lie_evid::LieEvidence)
     push!(wit.lie_evids, lie_evid)
 end
 
-function add_evidence_pos!(wit::Witness, point, npoint)
-    add_evidence!(wit, PosEvidence(point, npoint))
+function add_evidence_pos!(wit::Witness, point)
+    add_evidence!(wit, PosEvidence(point))
 end
 
-function add_evidence_lie!(wit::Witness, point, deriv, npoint, nderiv, nA)
-    add_evidence!(wit, LieEvidence(point, deriv, npoint, nderiv, nA))
+function add_evidence_lie!(wit::Witness, point, A)
+    add_evidence!(wit, LieEvidence(point, A*point, A))
 end
 
 struct Generator
@@ -125,8 +123,9 @@ function _add_pos_constr_prob!(
         prob::GeneratorFeasibility, model, vecs, r, i, posevid
     )
     point = posevid.point
-    off = posevid.npoint/prob.ϵ
-    β = posevid.npoint
+    npoint = norm(point, Inf)
+    off = npoint/prob.ϵ
+    β = npoint
     _add_pos_constr!(model, vecs, r, i, point, 1, β, off)
 end
 
@@ -135,9 +134,10 @@ function _add_lie_constr_prob!(
     )
     point = lieevid.point
     deriv = lieevid.deriv
-    off = lieevid.npoint*prob.δ
-    α = 1/lieevid.nA # TODO: update with α = 1
-    β = lieevid.npoint
+    npoint = norm(point, Inf)
+    off = npoint*prob.δ
+    α = 1/opnorm(lieevid.A, Inf) # TODO: update with α = 1
+    β = npoint
     γ::Float64 = i == j ? 0.0 : 1/prob.θ
     _add_lie_constr(model, vecs, r, i, j, point, deriv, α, β, γ, off)
 end
@@ -159,7 +159,7 @@ function _add_pos_constr_prob!(
         ::GeneratorChebyshev, model, vecs, r, i, posevid
     )
     point = posevid.point
-    β = posevid.npoint
+    β = norm(point, Inf)
     _add_pos_constr!(model, vecs, r, i, point, 1, β, 0)
 end
 
@@ -169,7 +169,7 @@ function _add_lie_constr_prob!(
     point = lieevid.point
     deriv = lieevid.deriv
     G::Float64 = i == j ? 0.0 : prob.G
-    β = 2*lieevid.npoint*G + lieevid.nderiv
+    β = norm(point, Inf)*G + norm(deriv + G*point, Inf)
     _add_lie_constr(model, vecs, r, i, j, point, deriv, 1, β, G, 0)
 end
 
@@ -182,13 +182,14 @@ end
 
 struct GeneratorWitness <: GeneratorProblem
     G::Float64
+    GI::_MT_
 end
 
 function _add_pos_constr_prob!(
         ::GeneratorWitness, model, vecs, r, i, posevid
     )
     point = posevid.point
-    β = posevid.npoint
+    β = norm(point, Inf)
     _add_pos_constr!(model, vecs, r, i, point, 1, β, 0)
 end
 
@@ -197,12 +198,14 @@ function _add_lie_constr_prob!(
     )
     point = lieevid.point
     deriv = lieevid.deriv
+    A = lieevid.A
     G::Float64 = i == j ? 0.0 : prob.G
-    β = 2*lieevid.npoint*G + lieevid.nA*lieevid.npoint
+    npoint = norm(point, Inf)
+    β = npoint*G + npoint*opnorm(A + prob.GI, Inf)
     _add_lie_constr(model, vecs, r, i, j, point, deriv, 1, β, G, 0)
 end
 
 function compute_vecs_witness(gen::Generator, G::Float64, solver)
-    prob = GeneratorWitness(G)
+    prob = GeneratorWitness(G, G*Matrix{Bool}(I, gen.nvar, gen.nvar))
     return _compute_vecs(prob, gen.nvar, gen.witnesses, solver)
 end
