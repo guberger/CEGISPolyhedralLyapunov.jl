@@ -1,5 +1,7 @@
 module CEGISPolyhedralVerification
 
+export LinForm, _eval, Witness, Cone, Polyhedron
+
 using LinearAlgebra
 using JuMP
 
