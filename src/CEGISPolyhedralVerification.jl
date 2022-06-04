@@ -13,7 +13,7 @@ struct LinForm
 end
 _eval(lf::LinForm, point) = dot(lf.lin, point)
 
-include("Polyhedra.jl")
+include("polyhedra.jl")
 
 include("generator.jl")
 include("verifier.jl")
