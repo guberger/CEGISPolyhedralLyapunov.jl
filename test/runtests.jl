@@ -1,5 +1,4 @@
 include("test_polyhedra.jl")
-
-include("./AdaptiveComplexityLyapunov/test_generator.jl")
-include("./AdaptiveComplexityLyapunov/test_verifier.jl")
-include("./AdaptiveComplexityLyapunov/test_learner.jl")
+include("test_generator.jl")
+include("test_verifier.jl")
+include("test_learner.jl")

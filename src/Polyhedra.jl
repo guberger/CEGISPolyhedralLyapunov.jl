@@ -1,10 +1,3 @@
-module Polyhedra
-
-using LinearAlgebra
-
-_VT_ = Vector{Float64}
-_MT_ = Matrix{Float64}
-
 struct Supp
     a::_VT_
 end
@@ -49,5 +42,3 @@ function add_halfspace!(p::Polyhedron, a, β)
 end
 
 Base.in(x, p::Polyhedron) = all(h -> x ∈ h, p.halfspaces)
-
-end # module

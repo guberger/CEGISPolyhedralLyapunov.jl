@@ -4,7 +4,7 @@ using LinearAlgebra
 using PyPlot
 using PyCall
 art3d = PyObject(PyPlot.art3D)
-include("../../../src/CEGISPolyhedralVerification.jl")
+include("../../src/CEGISPolyhedralVerification.jl")
 CPLA = CEGISPolyhedralVerification.AdaptiveComplexityLyapunov
 CPLP = CEGISPolyhedralVerification.Polyhedra
 include("../../utils/geometry.jl")

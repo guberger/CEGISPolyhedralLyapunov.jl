@@ -1,10 +1,22 @@
 module CEGISPolyhedralVerification
 
+using LinearAlgebra
+using JuMP
+
+_RSC_ = JuMP.MathOptInterface.ResultStatusCode
+_TSC_ = JuMP.MathOptInterface.TerminationStatusCode
+_VT_ = Vector{Float64}
+_MT_ = Matrix{Float64}
+
+struct LinForm
+    lin::_VT_
+end
+_eval(lf::LinForm, point) = dot(lf.lin, point)
+
 include("Polyhedra.jl")
 
-include("AdaptiveComplexityLyapunov/AdaptiveComplexityLyapunov.jl")
-include("FixedComplexityLyapunov/FixedComplexityLyapunov.jl")
-
-include("AdaptiveComplexityBarrier/AdaptiveComplexityBarrier.jl")
+include("generator.jl")
+include("verifier.jl")
+include("learner.jl")
 
 end # module

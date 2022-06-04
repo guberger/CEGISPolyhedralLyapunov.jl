@@ -4,7 +4,7 @@ using JuMP
 using Gurobi
 using PyPlot
 
-include("../../../src/CEGISPolyhedralVerification.jl")
+include("../../src/CEGISPolyhedralVerification.jl")
 CPLA = CEGISPolyhedralVerification.AdaptiveComplexityLyapunov
 CPLP = CEGISPolyhedralVerification.Polyhedra
 

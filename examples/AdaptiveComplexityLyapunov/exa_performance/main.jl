@@ -5,7 +5,7 @@ using Printf
 using JuMP
 using Gurobi
 
-include("../../../src/CEGISPolyhedralVerification.jl")
+include("../../src/CEGISPolyhedralVerification.jl")
 CPL = CEGISPolyhedralVerification
 CPLA = CPL.AdaptiveComplexityLyapunov
 CPLP = CPL.Polyhedra

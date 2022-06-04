@@ -4,17 +4,17 @@ using Test
 else
     using CEGISPolyhedralVerification
 end
-CPLP = CEGISPolyhedralVerification.Polyhedra
+CPV = CEGISPolyhedralVerification
 
-cone = CPLP.Cone()
-CPLP.add_supp!(cone, [1.0, 1.0])
+cone = CPV.Cone()
+CPV.add_supp!(cone, [1.0, 1.0])
 
 @testset "cone" begin
     @test [1, -2] ∈ cone
 end
 
-poly = CPLP.Polyhedron()
-CPLP.add_halfspace!(poly, [1.0, 1.0], 1.0)
+poly = CPV.Polyhedron()
+CPV.add_halfspace!(poly, [1.0, 1.0], 1.0)
 
 @testset "polyhedron" begin
     @test [1, -2.1] ∈ poly
