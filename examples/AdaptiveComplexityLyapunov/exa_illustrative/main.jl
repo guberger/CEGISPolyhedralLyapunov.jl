@@ -47,12 +47,12 @@ for point in points
     CPLA.add_witness!(gen, wit)
     push!(witnesses, wit)
 end
-# vecs, r = CPLA.compute_vecs_chebyshev(gen, 1/θ, solver)
-vecs, r = CPLA.compute_vecs_witness(gen, 1/θ, solver) # test
+# lfs, r = CPLA.compute_lfs_chebyshev(gen, 1/θ, solver)
+lfs, r = CPLA.compute_lfs_witness(gen, 1/θ, solver) # test
 
 # Verifier:
 verif = CPLA.make_verif_from_system(nvar, sys)
-x, val, q = CPLA.verify_lie(verif, vecs, solver)
+x, val, q = CPLA.verify_lie(verif, lfs, solver)
 ce_point = x/norm(x, Inf)
 
 # Illustration
@@ -70,11 +70,11 @@ ax.plot(xlims, (0, 0), ls="--", c="black", lw=1.0)
 ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
 
 plot_field!(ax, sys, xlims, ylims, 20)
-level = plot_level!(ax, vecs, 1.8)
-plot_witnesses!(ax, witnesses, vecs, level, 0.6)
+level = plot_level!(ax, lfs, 1.8)
+plot_witnesses!(ax, witnesses, lfs, level, 0.6)
 
 ce_wit = CPLA.make_witness_from_point_system(sys, ce_point)
-plot_witnesses!(ax, (ce_wit,), vecs, level, 0.6, mc="black", lc="red")
+plot_witnesses!(ax, (ce_wit,), lfs, level, 0.6, mc="black", lc="red")
 
 ax.text(1.5, +1.6, L"q=1",
         horizontalalignment="center", verticalalignment="center",
@@ -114,8 +114,8 @@ ax_ = fig.subplots(
     gridspec_kw=Dict("wspace"=>0.1, "hspace"=>0.1),
     subplot_kw=Dict("aspect"=>"equal")
 )
-nvecs = length(sol.vecs_list)
-indexes = unique(round.(Int, range(1, nvecs, length=length(ax_))))
+nlfs = length(sol.lfs_list)
+indexes = unique(round.(Int, range(1, nlfs, length=length(ax_))))
 nplot = length(indexes)
 
 xlims = (-2, 2)
@@ -144,22 +144,22 @@ for k = 1:nplot
     ax.plot(xlims, (0, 0), ls="--", c="black", lw=0.5)
     ax.plot(0, 0, marker="x", ms=5, c="black", mew=1.5)
     idx = indexes[k]
-    vecs = sol.vecs_list[idx]
-    level = plot_level!(ax, vecs, radmax, ew=1)
+    lfs = sol.lfs_list[idx]
+    level = plot_level!(ax, lfs, radmax, ew=1)
     witnesses = sol.witnesses_list[idx]
     plot_witnesses!(
-        ax, witnesses, vecs, level, deriv_length, ms=7.5, lw=1.5
+        ax, witnesses, lfs, level, deriv_length, ms=7.5, lw=1.5
     )
     if idx ≤ length(sol.counterexample_list)
         ce_wit = sol.counterexample_list[idx]
         plot_witnesses!(
-            ax, (ce_wit,), vecs, level, deriv_length,
+            ax, (ce_wit,), lfs, level, deriv_length,
             mc="black", ms=7.5, lc="red", lw=1.5
         )
     else
         # plot trajectory on last plot:
         x0 = [1.0, -1e-6]
-        x0_scaled = x0*level/_norm(vecs, x0)
+        x0_scaled = x0*level/_norm(lfs, x0)
         nstep = 100
         dt = 4π/nstep
         plot_traj!(ax, sys, x0_scaled, dt, nstep, ms=7.5, lw=1.5)

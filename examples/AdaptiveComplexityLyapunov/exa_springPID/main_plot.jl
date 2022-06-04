@@ -5,6 +5,7 @@ using PyPlot
 using PyCall
 art3d = PyObject(PyPlot.art3D)
 include("../../../src/CEGISPolyhedralVerification.jl")
+CPLA = CEGISPolyhedralVerification.AdaptiveComplexityLyapunov
 CPLP = CEGISPolyhedralVerification.Polyhedra
 include("../../utils/geometry.jl")
 
@@ -13,24 +14,24 @@ include(string("./datasets/", datafile, ".jl"))
 
 str = readlines(string(@__DIR__, "/results/", datafile, ".txt"))
 M = length(str)
-vecs = Vector{Vector{Float64}}(undef, M)
+lfs = Vector{CPLA.LinForm}(undef, M)
 
 for (i, ln) in enumerate(str)
     ln = replace(ln, r"[\[\],]"=>"")
     words = split(ln)
     @assert length(words) == 3
-    vecs[i] = parse.(Float64, words)
+    lfs[i] = CPLA.LinForm(parse.(Float64, words))
 end
 
 p = CPLP.Polyhedron()
-for vec in vecs
-    CPLP.add_halfspace!(p, vec, -1.0)
+for lf in lfs
+    CPLP.add_halfspace!(p, lf.lin, -1.0)
 end
 simplices = compute_simplices_3d(p, zeros(3))
 
 fig = figure(0, figsize=(8, 12))
 ax = fig.add_subplot(projection="3d")
-ax.set_box_aspect((4, 4, 5))
+# ax.set_box_aspect((4, 4, 5))
 ax.xaxis.pane.fill = false
 ax.yaxis.pane.fill = false
 ax.zaxis.pane.fill = false
@@ -78,7 +79,7 @@ Vplot_seq = Vector{Float64}(undef, nstep)
 
 for t = 1:nstep
     global x
-    Vplot_seq[t] = maximum(vec -> dot(vec, x), vecs)
+    Vplot_seq[t] = maximum(lf -> CPLA._eval(lf, x), lfs)
     xnext = Vector{Float64}(undef, 3)
     if Kd*x[3] + Kp*x[2] + Ki*x[1] ≥ 0
         xnext[1] = x[1] + dt*(x[2])

@@ -1,9 +1,3 @@
-using LinearAlgebra
-using ..Polyhedra: Cone
-
-_VT_ = Vector{Float64}
-_MT_ = Matrix{Float64}
-
 struct Piece
     domain::Cone
     A::_MT_
@@ -82,10 +76,10 @@ function make_verif_from_system(nvar, sys)
     return verif
 end
 
-function _verify_with_exit(verif, vecs, tol_pos, tol_lie, solver, do_print)
+function _verify_with_exit(verif, lfs, tol_pos, tol_lie, solver, do_print)
     # new Eccentricity V1:
     do_print && print("|--- Verify pos... ")
-    x, val_pos, q = verify_pos(verif, vecs, solver)
+    x, val_pos, q = verify_pos(verif, lfs, solver)
     if val_pos < tol_pos
         do_print && println("CE found: ", x, ", ", val_pos, ", ", q)
         return x, val_pos, -Inf
@@ -94,7 +88,7 @@ function _verify_with_exit(verif, vecs, tol_pos, tol_lie, solver, do_print)
     end # end new Eccentricity V1
     # val_pos = Inf # new Eccentricity V2
     do_print && print("|--- Verify lie... ")
-    x, val_lie, q = verify_lie(verif, vecs, solver)
+    x, val_lie, q = verify_lie(verif, lfs, solver)
     if val_lie > tol_lie
         do_print && println("CE found: ", x, ", ", val_lie, ", ", q)
         return x, val_pos, val_lie
@@ -116,7 +110,7 @@ mutable struct LearnerSolution
     status::StatusCode
     niter::Int
     witnesses_list::Vector{Vector{Witness}}
-    vecs_list::Vector{Vector{_VT_}}
+    lfs_list::Vector{Vector{LinForm}}
     r_list::Vector{Float64}
     counterexample_list::Vector{Witness}
     val_pos_list::Vector{Float64}
@@ -156,7 +150,7 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
         end
 
         # Feasibility check:
-        slack = compute_vecs_feasibility(gen, lear.ϵ, lear.θ, lear.δ, solver)[2]
+        slack = compute_lfs_feasibility(gen, lear.ϵ, lear.θ, lear.δ, solver)[2]
         if slack < 0
             println(string(
                 "System does not admit a Lyapunov function with parameters: ",
@@ -167,12 +161,12 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
             return sol
         end # end Feasibility check
 
-        # vecs, r = compute_vecs_chebyshev(gen, 1/lear.θ, solver)
-        vecs, r = compute_vecs_witness(gen, 1/lear.θ, solver) # test
+        # lfs, r = compute_lfs_chebyshev(gen, 1/lear.θ, solver)
+        lfs, r = compute_lfs_witness(gen, 1/lear.θ, solver) # test
         if do_print
             println("|--- radius: ", r)
         end
-        push!(sol.vecs_list, vecs)
+        push!(sol.lfs_list, lfs)
         push!(sol.r_list, r)
         if r < lear.tols[:rad]
             println(string("Satisfiability radius too small: ", r))
@@ -183,12 +177,12 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
         # new Eccentricity V2:
         # for k = 1:lear.nvar
         #     vec_side = [(k_ == k ? 1.0 : 0.0) for k_ = 1:lear.nvar]
-        #     push!(vecs, vec_side/(2*lear.ϵ))
-        #     push!(vecs, -vec_side/(2*lear.ϵ))
+        #     push!(lfs, vec_side/(2*lear.ϵ))
+        #     push!(lfs, -vec_side/(2*lear.ϵ))
         # end # end new Eccentricity V2
 
         x, val_pos, val_lie = _verify_with_exit(
-            verif, vecs, lear.tols[:pos], lear.tols[:lie], solver, do_print
+            verif, lfs, lear.tols[:pos], lear.tols[:lie], solver, do_print
         )
         push!(sol.val_pos_list, val_pos)
         push!(sol.val_lie_list, val_lie)

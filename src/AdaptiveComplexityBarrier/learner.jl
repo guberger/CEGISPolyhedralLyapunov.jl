@@ -1,9 +1,3 @@
-using LinearAlgebra
-using ..Polyhedra: Cone
-
-_VT_ = Vector{Float64}
-_MT_ = Matrix{Float64}
-
 struct Piece
     domain::Cone
     A::_MT_

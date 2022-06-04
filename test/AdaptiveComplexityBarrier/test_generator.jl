@@ -7,7 +7,7 @@ using Test
 else
     using CEGISPolyhedralVerification
 end
-CPLA = CEGISPolyhedralVerification.AdaptiveComplexityLyapunov
+CPLA = CEGISPolyhedralVerification.AdaptiveComplexityBarrier
 
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
@@ -16,19 +16,20 @@ solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 θ = 1.0
 δ = 1.0
 nvar = 2
-gen = CPLA.Generator(nvar)
+nloc = 2
+gen = CPLA.Generator(nvar, nloc)
 
-r = CPLA.compute_lfs_feasibility(gen, ϵ, θ, δ, solver)[2]
+r = CPLA.compute_afs_feasibility(gen, ϵ, θ, δ, solver)[2]
 
-@testset "compute lfs feasibility" begin
+@testset "compute afs feasibility" begin
     @test r > 0
 end
 
-lfs, r = CPLA.compute_lfs_chebyshev(gen, 1/θ, solver)
+afs, r = CPLA.compute_afs_chebyshev(gen, 1/θ, solver)
 
-@testset "compute lfs chebyshev" begin
+@testset "compute afs chebyshev" begin
     @test r ≈ 2
-    @test isempty(lfs)
+    @test isempty(afs)
 end
 
 A = [-1.0 0.0; 0.0 -1.0]
@@ -43,19 +44,19 @@ for point in points
 end
 
 δ = 1.0 + 1e-5
-r = CPLA.compute_lfs_feasibility(gen, ϵ, θ, δ, solver)[2]
+r = CPLA.compute_afs_feasibility(gen, ϵ, θ, δ, solver)[2]
 
-@testset "compute lfs feasibility" begin
+@testset "compute afs feasibility" begin
     @test r < 0
 end
 
 # Gs = [0.25, 0.5, 1.0]
 
-lfs, r = CPLA.compute_lfs_chebyshev(gen, 1.0, solver)
+afs, r = CPLA.compute_afs_chebyshev(gen, 1.0, solver)
 
-@testset "compute lfs chebyshev" begin
+@testset "compute afs chebyshev" begin
     @test r ≈ 1/3
-    @test maximum(lf -> norm(lf.lin, 1), lfs) ≈ 1
+    @test maximum(vec -> norm(vec, 1), afs) ≈ 1
 end
 
 ϵ = 1e5
@@ -82,19 +83,19 @@ for point in points
     end
 end
 
-r = CPLA.compute_lfs_feasibility(gen, ϵ, θ, δ, solver)[2]
+r = CPLA.compute_afs_feasibility(gen, ϵ, θ, δ, solver)[2]
 
-@testset "compute lfs feasibility" begin
+@testset "compute afs feasibility" begin
     @test r < 0
 end
 
 # Gs = [0.25, 0.5, 1.0, 2.0]
 
-lfs, r = CPLA.compute_lfs_chebyshev(gen, 2.0, solver)
+afs, r = CPLA.compute_afs_chebyshev(gen, 2.0, solver)
 
-@testset "compute lfs chebyshev" begin
+@testset "compute afs chebyshev" begin
     @test r ≈ 0.8/3
-    @test maximum(lf -> norm(lf.lin, 1), lfs) ≈ 1
+    @test maximum(vec -> norm(vec, 1), afs) ≈ 1
 end
 
 nothing

@@ -1,10 +1,3 @@
-using LinearAlgebra
-using JuMP
-
-_RSC_ = JuMP.MathOptInterface.ResultStatusCode
-_TSC_ = JuMP.MathOptInterface.TerminationStatusCode
-_VT_ = Vector{Float64}
-
 struct PosEvidence
     point::_VT_
     npoint::Float64
@@ -52,46 +45,52 @@ function add_witness!(gen::Generator, wit::Witness)
     push!(gen.witnesses, wit)
 end
 
-## Compute vecs
+## Compute lfs
+
+struct _LF
+    lin::Vector{VariableRef}
+end
+_eval(lf::_LF, point) = dot(point, lf.lin)
 
 function _add_vars!(model, nvar, nwit)
-    vecs = Vector{Vector{VariableRef}}(undef, nwit)
+    lfs = Vector{_LF}(undef, nwit)
     for i = 1:nwit
-        vec = @variable(model, [1:nvar], lower_bound=-1, upper_bound=1)
-        vecs[i] = vec
+        lin = @variable(model, [1:nvar], lower_bound=-1, upper_bound=1)
+        lfs[i] = _LF(lin)
         #new:
-        avec = @variable(model, [1:nvar], lower_bound=0, upper_bound=1)
-        @constraint(model, -vec .≤ avec)
-        @constraint(model, +vec .≤ avec)
-        @constraint(model, sum(avec) ≤ 1) # end new
+        alin = @variable(model, [1:nvar], lower_bound=0, upper_bound=1)
+        @constraint(model, -lin .≤ alin)
+        @constraint(model, +lin .≤ alin)
+        @constraint(model, sum(alin) ≤ 1) # end new
     end
     r = @variable(model, upper_bound=2)
-    return vecs, r
+    return lfs, r
 end
 
-function _add_pos_constr!(model, vecs, r, i, point, α, β, off)
-    @constraint(model, α*dot(point, vecs[i]) ≥ β*r + off)
+function _add_pos_constr!(model, lfs, r, i, point, α, β, off)
+    @constraint(model, α*_eval(lfs[i], point) ≥ β*r + off)
 end
 
-function _add_lie_constr(model, vecs, r, i, j, point, deriv, α, β, γ, off)
+function _add_lie_constr(model, lfs, r, i, j, point, deriv, α, β, γ, off)
     @constraint(model,
-        α*dot(deriv, vecs[j]) + β*r + off ≤ γ*dot(point, vecs[i] - vecs[j])
+        α*_eval(lfs[j], deriv) + β*r + off -
+            γ*(_eval(lfs[i], point) - _eval(lfs[j], point)) ≤ 0
     )
 end
 
 abstract type GeneratorProblem end
 
-function _compute_vecs(prob::GeneratorProblem, nvar, witnesses, solver)
+function _compute_lfs(prob::GeneratorProblem, nvar, witnesses, solver)
     model = Model(solver)
-    vecs, r = _add_vars!(model, nvar, length(witnesses))
+    lfs, r = _add_vars!(model, nvar, length(witnesses))
 
     for (i, wit) in enumerate(witnesses)
         for posevid in wit.pos_evids
-            _add_pos_constr_prob!(prob, model, vecs, r, i, posevid)
+            _add_pos_constr_prob!(prob, model, lfs, r, i, posevid)
         end
         for lieevid in wit.lie_evids
             for j = 1:length(witnesses)
-                _add_lie_constr_prob!(prob, model, vecs, r, i, j, lieevid)
+                _add_lie_constr_prob!(prob, model, lfs, r, i, j, lieevid)
             end
         end
     end
@@ -110,7 +109,7 @@ function _compute_vecs(prob::GeneratorProblem, nvar, witnesses, solver)
         ))
     end
 
-    return [value.(vec) for vec in vecs], value(r)
+    return [LinForm(value.(lf.lin)) for lf in lfs], value(r)
 end
 
 ## Feasibility
@@ -122,16 +121,16 @@ struct GeneratorFeasibility <: GeneratorProblem
 end
 
 function _add_pos_constr_prob!(
-        prob::GeneratorFeasibility, model, vecs, r, i, posevid
+        prob::GeneratorFeasibility, model, lfs, r, i, posevid
     )
     point = posevid.point
     off = posevid.npoint/prob.ϵ
     β = posevid.npoint
-    _add_pos_constr!(model, vecs, r, i, point, 1, β, off)
+    _add_pos_constr!(model, lfs, r, i, point, 1, β, off)
 end
 
 function _add_lie_constr_prob!(
-        prob::GeneratorFeasibility, model, vecs, r, i, j, lieevid
+        prob::GeneratorFeasibility, model, lfs, r, i, j, lieevid
     )
     point = lieevid.point
     deriv = lieevid.deriv
@@ -139,14 +138,14 @@ function _add_lie_constr_prob!(
     α = 1/lieevid.nA # TODO: update with α = 1
     β = lieevid.npoint
     γ::Float64 = i == j ? 0.0 : 1/prob.θ
-    _add_lie_constr(model, vecs, r, i, j, point, deriv, α, β, γ, off)
+    _add_lie_constr(model, lfs, r, i, j, point, deriv, α, β, γ, off)
 end
 
-function compute_vecs_feasibility(
+function compute_lfs_feasibility(
         gen::Generator, ϵ::Float64, θ::Float64, δ::Float64, solver
     )
     prob = GeneratorFeasibility(ϵ, θ, δ)
-    return _compute_vecs(prob, gen.nvar, gen.witnesses, solver)
+    return _compute_lfs(prob, gen.nvar, gen.witnesses, solver)
 end
 
 ## Chebyshev
@@ -156,26 +155,26 @@ struct GeneratorChebyshev <: GeneratorProblem
 end
 
 function _add_pos_constr_prob!(
-        ::GeneratorChebyshev, model, vecs, r, i, posevid
+        ::GeneratorChebyshev, model, lfs, r, i, posevid
     )
     point = posevid.point
     β = posevid.npoint
-    _add_pos_constr!(model, vecs, r, i, point, 1, β, 0)
+    _add_pos_constr!(model, lfs, r, i, point, 1, β, 0)
 end
 
 function _add_lie_constr_prob!(
-        prob::GeneratorChebyshev, model, vecs, r, i, j, lieevid
+        prob::GeneratorChebyshev, model, lfs, r, i, j, lieevid
     )
     point = lieevid.point
     deriv = lieevid.deriv
     G::Float64 = i == j ? 0.0 : prob.G
     β = 2*lieevid.npoint*G + lieevid.nderiv
-    _add_lie_constr(model, vecs, r, i, j, point, deriv, 1, β, G, 0)
+    _add_lie_constr(model, lfs, r, i, j, point, deriv, 1, β, G, 0)
 end
 
-function compute_vecs_chebyshev(gen::Generator, G::Float64, solver)
+function compute_lfs_chebyshev(gen::Generator, G::Float64, solver)
     prob = GeneratorChebyshev(G)
-    return _compute_vecs(prob, gen.nvar, gen.witnesses, solver)
+    return _compute_lfs(prob, gen.nvar, gen.witnesses, solver)
 end
 
 ## Witness
@@ -185,24 +184,24 @@ struct GeneratorWitness <: GeneratorProblem
 end
 
 function _add_pos_constr_prob!(
-        ::GeneratorWitness, model, vecs, r, i, posevid
+        ::GeneratorWitness, model, lfs, r, i, posevid
     )
     point = posevid.point
     β = posevid.npoint
-    _add_pos_constr!(model, vecs, r, i, point, 1, β, 0)
+    _add_pos_constr!(model, lfs, r, i, point, 1, β, 0)
 end
 
 function _add_lie_constr_prob!(
-        prob::GeneratorWitness, model, vecs, r, i, j, lieevid
+        prob::GeneratorWitness, model, lfs, r, i, j, lieevid
     )
     point = lieevid.point
     deriv = lieevid.deriv
     G::Float64 = i == j ? 0.0 : prob.G
     β = 2*lieevid.npoint*G + lieevid.nA*lieevid.npoint
-    _add_lie_constr(model, vecs, r, i, j, point, deriv, 1, β, G, 0)
+    _add_lie_constr(model, lfs, r, i, j, point, deriv, 1, β, G, 0)
 end
 
-function compute_vecs_witness(gen::Generator, G::Float64, solver)
+function compute_lfs_witness(gen::Generator, G::Float64, solver)
     prob = GeneratorWitness(G)
-    return _compute_vecs(prob, gen.nvar, gen.witnesses, solver)
+    return _compute_lfs(prob, gen.nvar, gen.witnesses, solver)
 end

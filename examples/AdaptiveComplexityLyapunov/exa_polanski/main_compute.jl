@@ -1,4 +1,4 @@
-module ExampleZelentsowsky_Compute
+module ExamplePolanski_Compute
 
 using LinearAlgebra
 using JuMP
@@ -49,10 +49,10 @@ sol = CPLA.learn_lyapunov!(lear, 1000, solver)
 
 display(sol.status)
 
-f = open(string(@__DIR__, "/results/", datafile, ".txt"), "w")
-for vec in sol.vecs_list[sol.niter]
-    println(f, vec)
-end
-close(f)
+# f = open(string(@__DIR__, "/results/", datafile, ".txt"), "w")
+# for lf in sol.lfs_list[sol.niter]
+#     println(f, lf.lin)
+# end
+# close(f)
 
 end # module

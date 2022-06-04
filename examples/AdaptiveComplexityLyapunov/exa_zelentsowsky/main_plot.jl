@@ -14,13 +14,13 @@ include(string("./datasets/", datafile, ".jl"))
 
 str = readlines(string(@__DIR__, "/results/", datafile, ".txt"))
 M = length(str)
-vecs = Vector{Vector{Float64}}(undef, M)
+lfs = Vector{CPLA.LinForm}(undef, M)
 
 for (i, ln) in enumerate(str)
     ln = replace(ln, r"[\[\],]"=>"")
     words = split(ln)
     @assert length(words) == 2
-    vecs[i] = parse.(Float64, words)
+    lfs[i] = CPLA.LinForm(parse.(Float64, words))
 end
 
 sys = CPLA.System()
@@ -69,8 +69,8 @@ for piece in sys.pieces
 end
 
 p = CPLP.Polyhedron()
-for vec in vecs
-    CPLP.add_halfspace!(p, vec, -1)
+for lf in lfs
+    CPLP.add_halfspace!(p, lf.lin, -1)
 end
 verts = compute_vertices_2d(p, zeros(2))
 verts_radius = maximum(vert -> norm(vert, Inf), verts)

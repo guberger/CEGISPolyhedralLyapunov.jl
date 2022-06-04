@@ -1,12 +1,3 @@
-using LinearAlgebra
-using JuMP
-using ..Polyhedra: Cone
-
-_RSC_ = JuMP.MathOptInterface.ResultStatusCode
-_TSC_ = JuMP.MathOptInterface.TerminationStatusCode
-_VT_ = Vector{Float64}
-_MT_ = Matrix{Float64}
-
 struct VerifyingPos
     nvar::Int
     domain::Cone
@@ -43,7 +34,7 @@ end
 
 ## Verif Pos
 
-function _verify_pos_comp(nvar, domain, vecs, k, s, solver)
+function _verify_pos_comp(nvar, domain, lfs, k, s, solver)
     model = Model(solver)
     x = @variable(model, [1:nvar], lower_bound=-1, upper_bound=1)
     fix(x[k], s, force=true)
@@ -53,8 +44,8 @@ function _verify_pos_comp(nvar, domain, vecs, k, s, solver)
         @constraint(model, dot(s.a, x) ≤ 0)
     end
 
-    for vec in vecs
-        @constraint(model, r ≥ dot(vec, x))
+    for lf in lfs
+        @constraint(model, r ≥ _eval(lf, x))
     end
 
     @objective(model, Min, r)
@@ -77,11 +68,11 @@ function _verify_pos_comp(nvar, domain, vecs, k, s, solver)
     end
 end
 
-function _verify_pos_single(nvar, domain, vecs, solver)
+function _verify_pos_single(nvar, domain, lfs, solver)
     xopt::_VT_ = Float64[]
     ropt::Float64 = Inf
     for (k, s) in Iterators.product(1:nvar, (-1, 1))
-        x, r = _verify_pos_comp(nvar, domain, vecs, k, s, solver)
+        x, r = _verify_pos_comp(nvar, domain, lfs, k, s, solver)
         if r < ropt
             ropt = r
             xopt = x
@@ -93,12 +84,12 @@ function _verify_pos_single(nvar, domain, vecs, solver)
     return xopt, ropt
 end
 
-function verify_pos(verif::Verifier, vecs::Vector{_VT_}, solver)
+function verify_pos(verif::Verifier, lfs::Vector{LinForm}, solver)
     xopt = Float64[]
     ropt = Inf
     qopt = 0
     for (q, posverif) in enumerate(verif.pos_verifs)
-        x, r = _verify_pos_single(posverif.nvar, posverif.domain, vecs, solver)
+        x, r = _verify_pos_single(posverif.nvar, posverif.domain, lfs, solver)
         if r < ropt
             ropt = r
             xopt = x
@@ -110,27 +101,27 @@ end
 
 ## Verify Lie
 
-function _verify_lie_comp(nvar, domain, A, vecs, k, s, i, solver)
+function _verify_lie_comp(nvar, domain, A, lfs, k, s, i, solver)
     model = Model(solver)
     # new:
     x = @variable(model, [1:nvar], lower_bound=-1, upper_bound=1)
     fix(x[k], s, force=true) # end new
     # x = @variable(model, [1:nvar], lower_bound=-1e5, upper_bound=1e5) # old
-    vec = vecs[i]
+    lf = lfs[i]
 
     for s in domain.supps
         @constraint(model, dot(s.a, x) ≤ 0)
     end
 
-    # @constraint(model, dot(vec, x) == 1) # old
+    # @constraint(model, dot(lf, x) == 1) # old
 
-    for j = 1:length(vecs)
+    for j = 1:length(lfs)
         j == i && continue
-        vec2 = vecs[j]
-        @constraint(model, dot(vec - vec2, x) ≥ 0)
+        lf2 = lfs[j]
+        @constraint(model, _eval(lf, x) ≥ _eval(lf2, x))
     end
 
-    @objective(model, Max, dot(vec, A, x))
+    @objective(model, Max, dot(lf.lin, A, x))
 
     optimize!(model)
 
@@ -152,12 +143,12 @@ function _verify_lie_comp(nvar, domain, A, vecs, k, s, i, solver)
     return value.(x), objective_value(model)
 end
 
-function _verify_lie_single(nvar, domain, A, vecs, solver)
+function _verify_lie_single(nvar, domain, A, lfs, solver)
     xopt::_VT_ = Float64[]
     ropt::Float64 = -Inf
-    for (i, k, s) in Iterators.product(1:length(vecs), 1:nvar, (-1, 1)) # new
-    # for (i, k, s) in Iterators.product(1:length(vecs), 1:1, 1:1) # old
-        x, r = _verify_lie_comp(nvar, domain, A, vecs, k, s, i, solver)
+    for (i, k, s) in Iterators.product(1:length(lfs), 1:nvar, (-1, 1)) # new
+    # for (i, k, s) in Iterators.product(1:length(lfs), 1:1, 1:1) # old
+        x, r = _verify_lie_comp(nvar, domain, A, lfs, k, s, i, solver)
         if r > ropt
             ropt = r
             xopt = x
@@ -169,13 +160,13 @@ function _verify_lie_single(nvar, domain, A, vecs, solver)
     return xopt, ropt
 end
 
-function verify_lie(verif::Verifier, vecs::Vector{_VT_}, solver)
+function verify_lie(verif::Verifier, lfs::Vector{LinForm}, solver)
     xopt = Float64[]
     ropt = -Inf
     qopt = 0
     for (q, lieverif) in enumerate(verif.lie_verifs)
         x, r = _verify_lie_single(
-            lieverif.nvar, lieverif.domain, lieverif.A, vecs, solver
+            lieverif.nvar, lieverif.domain, lieverif.A, lfs, solver
         )
         # r = r/norm(x) # old
         if r > ropt

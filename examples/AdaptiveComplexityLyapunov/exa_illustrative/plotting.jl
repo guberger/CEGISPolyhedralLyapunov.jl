@@ -20,10 +20,10 @@ function plot_field!(ax, sys, xlims, ylims, ngrid; c="gray")
     end
 end
 
-function plot_level!(ax, vecs, radmax; fc="gold", fa=0.5, ec="gold", ew=2.0)
+function plot_level!(ax, lfs, radmax; fc="gold", fa=0.5, ec="gold", ew=2.0)
     p = CPLP.Polyhedron()
-    for vec in vecs
-        CPLP.add_halfspace!(p, vec, -1)
+    for lf in lfs
+        CPLP.add_halfspace!(p, lf.lin, -1)
     end
     verts = compute_vertices_2d(p, zeros(2))
     verts_radius = maximum(vert -> norm(vert, Inf), verts)
@@ -38,27 +38,27 @@ function plot_level!(ax, vecs, radmax; fc="gold", fa=0.5, ec="gold", ew=2.0)
     return scaling
 end
 
-_norm(vecs, point) = maximum(vec -> dot(vec, point), vecs)
+_norm(lfs, point) = maximum(lf -> CPLA._eval(lf, point), lfs)
 
 function plot_witnesses!(
-        ax, witnesses, vecs, level, deriv_length;
+        ax, witnesses, lfs, level, deriv_length;
         mc="blue", ms=15, lc="green", lw=2.5
     )
     derivs_norm = -Inf
     for wit in witnesses
         for lieevid in wit.lie_evids
-            point_norm = _norm(vecs, lieevid.point)
+            point_norm = _norm(lfs, lieevid.point)
             derivs_norm = max(derivs_norm, norm(lieevid.deriv)/point_norm)
         end
     end
     for wit in witnesses
         for posevid in wit.pos_evids
-            point_norm = _norm(vecs, posevid.point)
+            point_norm = _norm(lfs, posevid.point)
             point_scaled = posevid.point*level/point_norm
             ax.plot(point_scaled..., marker=".", ms=ms, c=mc)
         end
         for lieevid in wit.lie_evids
-            point_norm = _norm(vecs, lieevid.point)
+            point_norm = _norm(lfs, lieevid.point)
             point_scaled = lieevid.point*level/point_norm
             ax.plot(point_scaled..., marker=".", ms=ms, c=mc)
             deriv_scaled = lieevid.deriv/(point_norm*derivs_norm)

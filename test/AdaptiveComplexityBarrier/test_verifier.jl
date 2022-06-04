@@ -19,10 +19,9 @@ domain = CPLP.Cone()
 CPLP.add_supp!(domain, [1.0, 1.0])
 CPLA.add_verifying_pos!(verif, nvar, domain)
 
-lins = [[-0.5, 0.5], [1.0, 0.0]]
-lfs = [CPLA.LinForm(lin) for lin in lins]
+vecs = [[-0.5, 0.5], [1.0, 0.0]]
 
-x, r = CPLA.verify_pos(verif, lfs, solver)
+x, r = CPLA.verify_pos(verif, vecs, solver)
 
 @testset "verify pos" begin
     @test r ≈ -1/3
@@ -36,10 +35,9 @@ domain = CPLP.Cone()
 CPLP.add_supp!(domain, [-1.0, -1.0])
 CPLA.add_verifying_pos!(verif, nvar, domain)
 
-lins = [[-0.5, 0.5], [1.0, 0.0]]
-lfs = [CPLA.LinForm(lin) for lin in lins]
+vecs = [[-0.5, 0.5], [1.0, 0.0]]
 
-x, r = CPLA.verify_pos(verif, lfs, solver)
+x, r = CPLA.verify_pos(verif, vecs, solver)
 
 @testset "verify pos" begin
     @test r ≈ 1/3
@@ -52,10 +50,9 @@ domain = CPLP.Cone()
 A = [0.0 1.0; 0.0 0.0]
 CPLA.add_verifying_lie!(verif, nvar, domain, A)
 
-lins = [[-1.0, 0.0], [1.0, 0.0]]
-lfs = [CPLA.LinForm(lin) for lin in lins]
+vecs = [[-1.0, 0.0], [1.0, 0.0]]
 
-x, r = CPLA.verify_lie(verif, lfs, solver)
+x, r = CPLA.verify_lie(verif, vecs, solver)
 
 @testset "verify lie" begin
     @test r ≈ 1
@@ -70,10 +67,9 @@ CPLP.add_supp!(domain, [-1.0, 0.0])
 A = [1.0 0.1; 0.0 0.0]
 CPLA.add_verifying_lie!(verif, nvar, domain, A)
 
-lins = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
-lfs = [CPLA.LinForm(lin) for lin in lins]
+vecs = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 
-x, r = CPLA.verify_lie(verif, lfs, solver)
+x, r = CPLA.verify_lie(verif, vecs, solver)
 
 @testset "verify lie" begin
     @test r ≈ 1.1
@@ -88,7 +84,7 @@ CPLP.add_supp!(domain, [1.0, 0.0])
 A = [-1.0 0.1; 0.0 -1.0]
 CPLA.add_verifying_lie!(verif, nvar, domain, A)
 
-x, r = CPLA.verify_lie(verif, lfs, solver)
+x, r = CPLA.verify_lie(verif, vecs, solver)
 
 @testset "verify lie" begin
     @test r ≈ -0.9
@@ -101,7 +97,7 @@ domain = CPLP.Cone()
 A = [-101.1 99; 101 -99.1]
 CPLA.add_verifying_lie!(verif, nvar, domain, A)
 
-x, r = CPLA.verify_lie(verif, lfs, solver)
+x, r = CPLA.verify_lie(verif, vecs, solver)
 
 @testset "verify lie" begin
     @test r ≈ 1.9
@@ -110,10 +106,9 @@ x, r = CPLA.verify_lie(verif, lfs, solver)
     @test x ≈ [-1, -1]
 end
 
-lins = [[-1.0, -1.0], [1.0, -1.0], [-1.0, 1.0], [1.0, 1.0]]
-lfs = [CPLA.LinForm(lin) for lin in lins]
+vecs = [[-1.0, -1.0], [1.0, -1.0], [-1.0, 1.0], [1.0, 1.0]]
 
-x, r = CPLA.verify_lie(verif, lfs, solver)
+x, r = CPLA.verify_lie(verif, vecs, solver)
 
 @testset "verify lie" begin
     @test r ≈ -0.1

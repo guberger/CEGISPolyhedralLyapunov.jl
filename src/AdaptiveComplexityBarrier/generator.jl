@@ -1,10 +1,3 @@
-using LinearAlgebra
-using JuMP
-
-_RSC_ = JuMP.MathOptInterface.ResultStatusCode
-_TSC_ = JuMP.MathOptInterface.TerminationStatusCode
-_VT_ = Vector{Float64}
-
 struct NegEvidence
     point::_VT_
     npoint::Float64
@@ -16,19 +9,24 @@ struct PosEvidence
 end
 
 struct LieEvidence
-    point::_VT_
-    deriv::_VT_
-    npoint::Float64
-    nderiv::Float64
+    point1::_VT_
+    point2::_VT_
+    loc2::Int
+    npoint1::Float64
+    npoint2::Float64
     nA::Float64
 end
 
 struct Witness
+    loc::Int
+    neg_evids::Vector{NegEvidence}
     pos_evids::Vector{PosEvidence}
     lie_evids::Vector{LieEvidence}
 end
 
-Witness() = Witness(PosEvidence[], LieEvidence[])
+Witness(loc::Int, neg_evids::Vector{NegEvidence}) = Witness(
+    loc, neg_evids, PosEvidence[], LieEvidence[]
+)
 
 function add_evidence!(wit::Witness, pos_evid::PosEvidence)
     push!(wit.pos_evids, pos_evid)
@@ -42,61 +40,94 @@ function add_evidence_pos!(wit::Witness, point, npoint)
     add_evidence!(wit, PosEvidence(point, npoint))
 end
 
-function add_evidence_lie!(wit::Witness, point, deriv, npoint, nderiv, nA)
-    add_evidence!(wit, LieEvidence(point, deriv, npoint, nderiv, nA))
+function add_evidence_lie!(
+        wit::Witness, point1, point2, loc2, npoint1, npoint2, nA
+    )
+    add_evidence!(wit, LieEvidence(point1, point2, loc2, npoint1, npoint2, nA))
 end
 
 struct Generator
     nvar::Int
+    nloc::Int
     witnesses::Vector{Witness}
 end
 
-Generator(nvar::Int) = Generator(nvar, Witness[])
+Generator(nvar::Int, nloc::Int) = Generator(nvar, nloc, Witness[])
 
 function add_witness!(gen::Generator, wit::Witness)
     push!(gen.witnesses, wit)
 end
 
-## Compute vecs
+## Compute afs
+
+struct _AF
+    lin::Vector{VariableRef}
+    con::VariableRef
+end
+_eval(af::_AF, point) = dot(af.lin, point) + af.con
 
 function _add_vars!(model, nvar, nwit)
-    vecs = Vector{Vector{VariableRef}}(undef, nwit)
+    afs = Vector{_AF}(undef, nwit)
     for i = 1:nwit
-        vec = @variable(model, [1:nvar], lower_bound=-1, upper_bound=1)
-        vecs[i] = vec
+        lin = @variable(model, [1:nvar], lower_bound=-1, upper_bound=1)
+        con = @variable(model, lower_bound=-1, upper_bound=1)
+        afs[i] = _AF(lin, con)
         #new:
-        avec = @variable(model, [1:nvar], lower_bound=0, upper_bound=1)
-        @constraint(model, -vec .≤ avec)
-        @constraint(model, +vec .≤ avec)
-        @constraint(model, sum(avec) ≤ 1) # end new
+        alin = @variable(model, [1:nvar], lower_bound=0, upper_bound=1)
+        @constraint(model, -a .≤ alin)
+        @constraint(model, +a .≤ alin)
+        @constraint(model, sum(alin) + con ≤ 1)
+        @constraint(model, sum(alin) - con ≤ 1) # end new
     end
     r = @variable(model, upper_bound=2)
-    return vecs, r
+    return afs, r
 end
 
-function _add_pos_constr!(model, vecs, r, i, point, α, β, off)
-    @constraint(model, α*dot(point, vecs[i]) ≥ β*r + off)
+function _add_neg_constr!(model, afs, r, i, point, α, β, off)
+    @constraint(model, α*_eval(afs[i], point) + β*r + off ≤ 0)
 end
 
-function _add_lie_constr(model, vecs, r, i, j, point, deriv, α, β, γ, off)
-    @constraint(model,
-        α*dot(deriv, vecs[j]) + β*r + off ≤ γ*dot(point, vecs[i] - vecs[j])
+function _add_pos_constr!(model, afs, r, i, point, α, β, off)
+    @constraint(model, α*_eval(afs[i], point) - β*r - off ≥ 0)
+end
+
+function _add_lie_constr(
+        model, afs, r, i, j1, j2, point1, point2, α, β, γ, off
     )
+    @constraint(model,
+        α*(_eval(afs[j2], point2) - _eval(afs[j1], point1)) + β*r + off -
+            γ*(_eval(afs[i], point1) - _eval(afs[j1], point1)) ≤ 0
+    )
+end
+
+function _make_loc_dict(witnesses::Vector{Witness})
+    loc_dict = Dict{Int,Vector{Int}}()
+    for (i, wit) in enumerate(witnesses)
+        i_list = get(loc_dict, wit.loc, Int[])
+        push!(i_list, i)
+    end
+    return loc_dict
 end
 
 abstract type GeneratorProblem end
 
-function _compute_vecs(prob::GeneratorProblem, nvar, witnesses, solver)
+function _compute_afs(prob::GeneratorProblem, nvar, witnesses, solver)
     model = Model(solver)
-    vecs, r = _add_vars!(model, nvar, length(witnesses))
+    afs, r = _add_vars!(model, nvar, length(witnesses))
+    loc_dict = _make_loc_dict(witnesses)
 
     for (i, wit) in enumerate(witnesses)
-        for posevid in wit.pos_evids
-            _add_pos_constr_prob!(prob, model, vecs, r, i, posevid)
+        for negevid in wit.neg_evids
+            _add_neg_constr_prob!(prob, model, afs, r, i, negevid)
         end
+        for posevid in wit.pos_evids
+            _add_pos_constr_prob!(prob, model, afs, r, i, posevid)
+        end
+        j1_list = loc_dict[wit.loc]
         for lieevid in wit.lie_evids
-            for j = 1:length(witnesses)
-                _add_lie_constr_prob!(prob, model, vecs, r, i, j, lieevid)
+            j2_list = loc_dict[lieevid.loc2]
+            for (j1, j2) in Iterators.product(j1_list, j2_list)
+                _add_lie_constr_prob!(prob, model, afs, r, i, j1, j2, lieevid)
             end
         end
     end
@@ -115,7 +146,7 @@ function _compute_vecs(prob::GeneratorProblem, nvar, witnesses, solver)
         ))
     end
 
-    return [value.(vec) for vec in vecs], value(r)
+    return [AffForm(value.(af.lin), value(af.con)) for af in afs], value(r)
 end
 
 ## Feasibility
@@ -126,32 +157,40 @@ struct GeneratorFeasibility <: GeneratorProblem
     δ::Float64
 end
 
+function _add_neg_constr_prob!(
+        prob::GeneratorFeasibility, model, afs, r, i, negevid
+    )
+    point = negevid.point
+    off = negevid.npoint/prob.ϵ
+    β = negevid.npoint
+    _add_neg_constr!(model, afs, r, i, point, 1, β, off)
+end
+
 function _add_pos_constr_prob!(
-        prob::GeneratorFeasibility, model, vecs, r, i, posevid
+        prob::GeneratorFeasibility, model, afs, r, i, posevid
     )
     point = posevid.point
     off = posevid.npoint/prob.ϵ
     β = posevid.npoint
-    _add_pos_constr!(model, vecs, r, i, point, 1, β, off)
+    _add_pos_constr!(model, afs, r, i, point, 1, β, off)
 end
 
 function _add_lie_constr_prob!(
-        prob::GeneratorFeasibility, model, vecs, r, i, j, lieevid
+        prob::GeneratorFeasibility, model, afs, r, i, j1, j2, lieevid
     )
-    point = lieevid.point
-    deriv = lieevid.deriv
-    off = lieevid.npoint*prob.δ
-    α = 1/lieevid.nA # TODO: update with α = 1
-    β = lieevid.npoint
-    γ::Float64 = i == j ? 0.0 : 1/prob.θ
-    _add_lie_constr(model, vecs, r, i, j, point, deriv, α, β, γ, off)
+    point1 = lieevid.point1
+    point2 = lieevid.point2
+    off = lieevid.npoint1*prob.δ
+    β = lieevid.npoint1
+    γ::Float64 = i == j1 ? 0.0 : 1/prob.θ
+    _add_lie_constr(model, afs, r, i, j1, j2, point1, point2, 1, β, γ, off)
 end
 
-function compute_vecs_feasibility(
+function compute_afs_feasibility(
         gen::Generator, ϵ::Float64, θ::Float64, δ::Float64, solver
     )
     prob = GeneratorFeasibility(ϵ, θ, δ)
-    return _compute_vecs(prob, gen.nvar, gen.witnesses, solver)
+    return _compute_afs(prob, gen.nvar, gen.witnesses, solver)
 end
 
 ## Chebyshev
@@ -160,27 +199,36 @@ struct GeneratorChebyshev <: GeneratorProblem
     G::Float64
 end
 
+function _add_neg_constr_prob!(
+        ::GeneratorChebyshev, model, afs, r, i, negevid
+    )
+    point = negevid.point
+    β = negevid.npoint
+    _add_neg_constr!(model, afs, r, i, point, 1, β, 0)
+end
+
 function _add_pos_constr_prob!(
-        ::GeneratorChebyshev, model, vecs, r, i, posevid
+        ::GeneratorChebyshev, model, afs, r, i, posevid
     )
     point = posevid.point
     β = posevid.npoint
-    _add_pos_constr!(model, vecs, r, i, point, 1, β, 0)
+    _add_pos_constr!(model, afs, r, i, point, 1, β, 0)
 end
 
 function _add_lie_constr_prob!(
-        prob::GeneratorChebyshev, model, vecs, r, i, j, lieevid
+        prob::GeneratorChebyshev, model, afs, r, i, j1, j2, lieevid
     )
-    point = lieevid.point
-    deriv = lieevid.deriv
-    G::Float64 = i == j ? 0.0 : prob.G
-    β = 2*lieevid.npoint*G + lieevid.nderiv
-    _add_lie_constr(model, vecs, r, i, j, point, deriv, 1, β, G, 0)
+    point1 = lieevid.point1
+    point2 = lieevid.point2
+    G::Float64 = i == j1 ? 0.0 : prob.G
+    α = 1
+    β = lieevid.npoint1*(G + abs(G - α)) + lieevid.npoint2
+    _add_lie_constr(model, afs, r, i, j1, j2, point1, point2, α, β, G, 0)
 end
 
-function compute_vecs_chebyshev(gen::Generator, G::Float64, solver)
+function compute_afs_chebyshev(gen::Generator, G::Float64, solver)
     prob = GeneratorChebyshev(G)
-    return _compute_vecs(prob, gen.nvar, gen.witnesses, solver)
+    return _compute_afs(prob, gen.nvar, gen.witnesses, solver)
 end
 
 ## Witness
@@ -189,25 +237,34 @@ struct GeneratorWitness <: GeneratorProblem
     G::Float64
 end
 
+function _add_neg_constr_prob!(
+        ::GeneratorWitness, model, afs, r, i, negevid
+    )
+    point = negevid.point
+    β = negevid.npoint
+    _add_neg_constr!(model, afs, r, i, point, 1, β, 0)
+end
+
 function _add_pos_constr_prob!(
-        ::GeneratorWitness, model, vecs, r, i, posevid
+        ::GeneratorWitness, model, afs, r, i, posevid
     )
     point = posevid.point
     β = posevid.npoint
-    _add_pos_constr!(model, vecs, r, i, point, 1, β, 0)
+    _add_pos_constr!(model, afs, r, i, point, 1, β, 0)
 end
 
 function _add_lie_constr_prob!(
-        prob::GeneratorWitness, model, vecs, r, i, j, lieevid
+        prob::GeneratorWitness, model, afs, r, i, j1, j2, lieevid
     )
-    point = lieevid.point
-    deriv = lieevid.deriv
-    G::Float64 = i == j ? 0.0 : prob.G
-    β = 2*lieevid.npoint*G + lieevid.nA*lieevid.npoint
-    _add_lie_constr(model, vecs, r, i, j, point, deriv, 1, β, G, 0)
+    point1 = lieevid.point1
+    point2 = lieevid.point2
+    G::Float64 = i == j1 ? 0.0 : prob.G
+    α = 1
+    β = lieevid.npoint1*(G + abs(G - α)) + lieevid.nA*lieevid.npoint1
+    _add_lie_constr(model, afs, r, i, j1, j2, point1, point2, α, β, G, 0)
 end
 
-function compute_vecs_witness(gen::Generator, G::Float64, solver)
+function compute_afs_witness(gen::Generator, G::Float64, solver)
     prob = GeneratorWitness(G)
-    return _compute_vecs(prob, gen.nvar, gen.witnesses, solver)
+    return _compute_afs(prob, gen.nvar, gen.witnesses, solver)
 end
