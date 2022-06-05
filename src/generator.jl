@@ -90,32 +90,32 @@ end
 
 _value(lf::_LF) = LinForm(value.(lf.lin))
 
-function _make_loc_dict(nloc, witnesses)
-    loc_dict = Dict{Int,BitSet}([loc => BitSet() for loc = 1:nloc])
+function _make_loc_map(nloc, witnesses)
+    loc_map = [BitSet() for loc = 1:nloc]
     for (i, wit) in enumerate(witnesses)
         for posevid in wit.pos_evids
-            push!(loc_dict[posevid.loc], i)
+            push!(loc_map[posevid.loc], i)
         end
         for lievid in wit.lie_evids
-            push!(loc_dict[lievid.loc1], i)
+            push!(loc_map[lievid.loc1], i)
         end
     end
-    return loc_dict
+    return loc_map
 end
 
 abstract type GeneratorProblem end
 
-function _compute_lfs(prob::GeneratorProblem, nvar, nloc, witnesses, solver)
+function _compute_polyf(prob::GeneratorProblem, nvar, nloc, witnesses, solver)
     model = Model(solver)
     lfs, r = _add_vars!(model, nvar, length(witnesses))
-    loc_dict = _make_loc_dict(nloc, witnesses)
+    loc_map = _make_loc_map(nloc, witnesses)
 
     for (i1, wit) in enumerate(witnesses)
         for posevid in wit.pos_evids
             _add_pos_constr_prob!(prob, model, lfs, r, i1, posevid)
         end
         for lieevid in wit.lie_evids
-            for i2 in loc_dict[lieevid.loc2]
+            for i2 in loc_map[lieevid.loc2]
                 _add_lie_constr_prob!(prob, model, lfs, r, i1, i2, lieevid)
             end
         end
@@ -135,9 +135,7 @@ function _compute_lfs(prob::GeneratorProblem, nvar, nloc, witnesses, solver)
         ))
     end
 
-    lfsopt_list = [[_value(lfs[i]) for i in loc_dict[loc]] for loc = 1:nloc]
-
-    return lfsopt_list, value(r)
+    return PolyFunc([_value(lf) for lf in lfs], loc_map), value(r)
 end
 
 ## Feasibility
@@ -166,11 +164,11 @@ function _add_lie_constr_prob!(
     _add_lie_constr(model, lfs, r, i1, i2, point1, point2, α, β)
 end
 
-function compute_lfs_feasibility(
+function compute_polyf_feasibility(
         gen::Generator, ϵ::Float64, δ::Float64, solver
     )
     prob = GeneratorFeasibility(ϵ, δ)
-    return _compute_lfs(prob, gen.nvar, gen.nloc, gen.witnesses, solver)
+    return _compute_polyf(prob, gen.nvar, gen.nloc, gen.witnesses, solver)
 end
 
 ## Chebyshev
@@ -195,9 +193,9 @@ function _add_lie_constr_prob!(
     _add_lie_constr(model, lfs, r, i1, i2, point1, point2, α, 0)
 end
 
-function compute_lfs_chebyshev(gen::Generator, solver)
+function compute_polyf_chebyshev(gen::Generator, solver)
     prob = GeneratorChebyshev()
-    return _compute_lfs(prob, gen.nvar, gen.nloc, gen.witnesses, solver)
+    return _compute_polyf(prob, gen.nvar, gen.nloc, gen.witnesses, solver)
 end
 
 ## Witness
@@ -222,7 +220,7 @@ function _add_lie_constr_prob!(
     _add_lie_constr(model, lfs, r, i1, i2, point1, point2, α, 0)
 end
 
-function compute_lfs_witness(gen::Generator, solver)
+function compute_polyf_witness(gen::Generator, solver)
     prob = GeneratorWitness()
-    return _compute_lfs(prob, gen.nvar, gen.nloc, gen.witnesses, solver)
+    return _compute_polyf(prob, gen.nvar, gen.nloc, gen.witnesses, solver)
 end

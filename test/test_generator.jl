@@ -19,17 +19,18 @@ _EYE_ = Matrix{Bool}(I, nvar, nvar)
 
 ϵ = 1e5
 δ = 1.0
-r = CPV.compute_lfs_feasibility(gen, ϵ, δ, solver)[2]
+r = CPV.compute_polyf_feasibility(gen, ϵ, δ, solver)[2]
 
 @testset "compute lfs feasibility" begin
     @test r > 0
 end
 
-lfs_list, r = CPV.compute_lfs_chebyshev(gen, solver)
+polyf, r = CPV.compute_polyf_chebyshev(gen, solver)
 
 @testset "compute lfs chebyshev" begin
     @test r ≈ 2
-    @test all(lfs -> isempty(lfs), lfs_list)
+    @test isempty(polyf.lfs)
+    @test all(iset -> isempty(iset), polyf.loc_map)
 end
 
 A = [-1.0 0.0; 0.0 -1.0]
@@ -51,17 +52,17 @@ end
 
 ϵ = 1e5
 δ = 1.0 + 1e-5
-r = CPV.compute_lfs_feasibility(gen, ϵ, δ, solver)[2]
+r = CPV.compute_polyf_feasibility(gen, ϵ, δ, solver)[2]
 
 @testset "compute lfs feasibility" begin
     @test r < 0
 end
 
-lfs_list, r = CPV.compute_lfs_chebyshev(gen, solver)
+polyf, r = CPV.compute_polyf_chebyshev(gen, solver)
 
 @testset "compute lfs chebyshev" begin
     @test r ≈ 1
-    @test maximum(lf -> norm(lf.lin, 1), Iterators.flatten(lfs_list)) ≈ 1
+    @test maximum(lf -> norm(lf.lin, 1), polyf.lfs) ≈ 1
 end
 
 gen = CPV.Generator(nvar, nloc)
@@ -89,17 +90,17 @@ end
 
 ϵ = 1e5
 δ = 1e-5
-r = CPV.compute_lfs_feasibility(gen, ϵ, δ, solver)[2]
+r = CPV.compute_polyf_feasibility(gen, ϵ, δ, solver)[2]
 
 @testset "compute lfs feasibility" begin
     @test r > 0
 end
 
-lfs_list, r = CPV.compute_lfs_chebyshev(gen, solver)
+polyf, r = CPV.compute_polyf_chebyshev(gen, solver)
 
 @testset "compute lfs chebyshev" begin
     @test r ≈ 0.5
-    @test maximum(lf -> norm(lf.lin, 1), Iterators.flatten(lfs_list)) ≈ 1
+    @test maximum(lf -> norm(lf.lin, 1), polyf.lfs) ≈ 1
 end
 
 nvar = 2
@@ -127,17 +128,17 @@ end
 
 ϵ = 1e5
 δ = 1e-5
-r = CPV.compute_lfs_feasibility(gen, ϵ, δ, solver)[2]
+r = CPV.compute_polyf_feasibility(gen, ϵ, δ, solver)[2]
 
 @testset "compute lfs feasibility" begin
     @test r > 0
 end
 
-lfs_list, r = CPV.compute_lfs_chebyshev(gen, solver)
+polyf, r = CPV.compute_polyf_chebyshev(gen, solver)
 
 @testset "compute lfs chebyshev" begin
     @test r ≈ 1/11
-    @test maximum(lf -> norm(lf.lin, 1), Iterators.flatten(lfs_list)) ≈ 1
+    @test maximum(lf -> norm(lf.lin, 1), polyf.lfs) ≈ 1
 end
 
 nothing

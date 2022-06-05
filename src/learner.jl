@@ -1,22 +1,3 @@
-struct Piece
-    domain::Cone
-    A::_MT_
-end
-
-struct System
-    pieces::Vector{Piece}
-end
-
-System() = System(Piece[])
-
-function add_piece!(sys::System, piece::Piece)
-    push!(sys.pieces, piece)
-end
-
-function add_piece!(sys::System, domain, A)
-    add_piece!(sys, Piece(domain, A))
-end
-
 ## Learner
 
 struct Learner
