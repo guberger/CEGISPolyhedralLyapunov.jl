@@ -8,6 +8,9 @@ else
     using CEGISPolyhedralVerification
 end
 CPV = CEGISPolyhedralVerification
+Cone = CPV.Cone
+LinForm = CPV.LinForm
+PolyFunc = CPV.PolyFunc
 
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
@@ -16,13 +19,13 @@ nvar = 2
 _EYE_ = Matrix{Bool}(I, nvar, nvar)
 
 verif = CPV.Verifier()
-domain = CPV.Cone()
+domain = Cone()
 CPV.add_supp!(domain, [1.0, 1.0])
-CPV.add_predic_pos!(verif, nvar, domain, 1)
+CPV.add_predicate_pos!(verif, nvar, domain, 1)
 
 lins = [[-0.5, 0.5], [1.0, 0.0]]
-lfs = [CPV.LinForm(lin) for lin in lins]
-polyf = CPV.PolyFunc(lfs, [BitSet(eachindex(lfs))])
+lfs = [LinForm(lin) for lin in lins]
+polyf = PolyFunc(lfs, [BitSet(eachindex(lfs))])
 
 x, r = CPV.verify_pos(verif, polyf, solver)
 
@@ -33,13 +36,13 @@ x, r = CPV.verify_pos(verif, polyf, solver)
 end
 
 verif = CPV.Verifier()
-domain = CPV.Cone()
+domain = Cone()
 CPV.add_supp!(domain, [-1.0, -1.0])
-CPV.add_predic_pos!(verif, nvar, domain, 1)
+CPV.add_predicate_pos!(verif, nvar, domain, 1)
 
 lins = [[-0.5, 0.5], [1.0, 0.0]]
-lfs = [CPV.LinForm(lin) for lin in lins]
-polyf = CPV.PolyFunc(lfs, [BitSet(eachindex(lfs))])
+lfs = [LinForm(lin) for lin in lins]
+polyf = PolyFunc(lfs, [BitSet(eachindex(lfs))])
 
 x, r = CPV.verify_pos(verif, polyf, solver)
 
@@ -50,15 +53,15 @@ x, r = CPV.verify_pos(verif, polyf, solver)
 end
 
 verif = CPV.Verifier()
-domain = CPV.Cone()
+domain = Cone()
 DA = [0.0 1.0; 0.0 0.0]
 τ = 1e-2
 A = _EYE_ + τ*DA
-CPV.add_predic_lie!(verif, nvar, domain, 1, A, 1)
+CPV.add_predicate_lie!(verif, nvar, domain, 1, A, 1)
 
 lins = [[-1.0, 0.0], [1.0, 0.0]]
-lfs = [CPV.LinForm(lin) for lin in lins]
-polyf = CPV.PolyFunc(lfs, [BitSet(eachindex(lfs))])
+lfs = [LinForm(lin) for lin in lins]
+polyf = PolyFunc(lfs, [BitSet(eachindex(lfs))])
 
 x, r = CPV.verify_lie(verif, polyf, solver)
 
@@ -70,16 +73,16 @@ x, r = CPV.verify_lie(verif, polyf, solver)
 end
 
 verif = CPV.Verifier()
-domain = CPV.Cone()
+domain = Cone()
 CPV.add_supp!(domain, [-1.0, 0.0])
 DA = [1.0 0.1; 0.0 0.0]
 τ = 1e-2
 A = _EYE_ + τ*DA
-CPV.add_predic_lie!(verif, nvar, domain, 1, A, 1)
+CPV.add_predicate_lie!(verif, nvar, domain, 1, A, 1)
 
 lins = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
-lfs = [CPV.LinForm(lin) for lin in lins]
-polyf = CPV.PolyFunc(lfs, [BitSet(eachindex(lfs))])
+lfs = [LinForm(lin) for lin in lins]
+polyf = PolyFunc(lfs, [BitSet(eachindex(lfs))])
 
 x, r = CPV.verify_lie(verif, polyf, solver)
 
@@ -91,12 +94,12 @@ x, r = CPV.verify_lie(verif, polyf, solver)
 end
 
 verif = CPV.Verifier()
-domain = CPV.Cone()
+domain = Cone()
 CPV.add_supp!(domain, [1.0, 0.0])
 DA = [-1.0 0.1; 0.0 -1.0]
 τ = 1e-2
 A = _EYE_ + τ*DA
-CPV.add_predic_lie!(verif, nvar, domain, 1, A, 1)
+CPV.add_predicate_lie!(verif, nvar, domain, 1, A, 1)
 
 x, r = CPV.verify_lie(verif, polyf, solver)
 
@@ -107,12 +110,12 @@ x, r = CPV.verify_lie(verif, polyf, solver)
 end
 
 verif = CPV.Verifier()
-domain = CPV.Cone()
+domain = Cone()
 CPV.add_supp!(domain, [1.0, 0.0])
 DA = [-101.1 99; 101 -99.1]
 τ = 1e-4
 A = _EYE_ + τ*DA
-CPV.add_predic_lie!(verif, nvar, domain, 1, A, 1)
+CPV.add_predicate_lie!(verif, nvar, domain, 1, A, 1)
 
 x, r = CPV.verify_lie(verif, polyf, solver)
 
@@ -124,8 +127,8 @@ x, r = CPV.verify_lie(verif, polyf, solver)
 end
 
 lins = [[-1.0, -1.0], [1.0, -1.0], [-1.0, 1.0], [1.0, 1.0]]
-lfs = [CPV.LinForm(lin) for lin in lins]
-polyf = CPV.PolyFunc(lfs, [BitSet(eachindex(lfs))])
+lfs = [LinForm(lin) for lin in lins]
+polyf = PolyFunc(lfs, [BitSet(eachindex(lfs))])
 
 x, r = CPV.verify_lie(verif, polyf, solver)
 
@@ -136,15 +139,15 @@ x, r = CPV.verify_lie(verif, polyf, solver)
 end
 
 verif = CPV.Verifier()
-domain = CPV.Cone()
+domain = Cone()
 CPV.add_supp!(domain, [-1.0, -1.0])
 CPV.add_supp!(domain, [-1.0, 1.0])
 A = [0.5 0.25; 0.0 1.0]
-CPV.add_predic_lie!(verif, nvar, domain, 1, A, 2)
+CPV.add_predicate_lie!(verif, nvar, domain, 1, A, 2)
 
 lins = [[1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
-lfs = [CPV.LinForm(lin) for lin in lins]
-polyf = CPV.PolyFunc(lfs, [BitSet(eachindex(lfs)), BitSet(eachindex(lfs))])
+lfs = [LinForm(lin) for lin in lins]
+polyf = PolyFunc(lfs, [BitSet(eachindex(lfs)), BitSet(eachindex(lfs))])
 
 x, r = CPV.verify_lie(verif, polyf, solver)
 
@@ -155,8 +158,8 @@ x, r = CPV.verify_lie(verif, polyf, solver)
 end
 
 lins = [[1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
-lfs = [CPV.LinForm(lin) for lin in lins]
-polyf = CPV.PolyFunc(lfs, [BitSet(eachindex(lfs)), BitSet(1)])
+lfs = [LinForm(lin) for lin in lins]
+polyf = PolyFunc(lfs, [BitSet(eachindex(lfs)), BitSet(1)])
 
 x, r = CPV.verify_lie(verif, polyf, solver)
 

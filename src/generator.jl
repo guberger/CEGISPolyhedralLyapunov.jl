@@ -1,14 +1,11 @@
 struct PosEvidence
-    point::_VT_
-    loc::Int
+    state::State
     npoint::Float64
 end
 
 struct LieEvidence
-    point1::_VT_
-    loc1::Int
-    point2::_VT_
-    loc2::Int
+    state1::State
+    state2::State
     npoint1::Float64
     npoint2::Float64
     ndiff::Float64
@@ -31,17 +28,16 @@ function add_evidence!(wit::Witness, lie_evid::LieEvidence)
     push!(wit.lie_evids, lie_evid)
 end
 
-function add_evidence_pos!(wit::Witness, point, loc, npoint)
-    add_evidence!(wit, PosEvidence(point, loc, npoint))
+function add_evidence_pos!(wit::Witness, state, npoint)
+    add_evidence!(wit, PosEvidence(state, npoint))
 end
 
 function add_evidence_lie!(
-        wit::Witness,
-        point1, loc1, point2, loc2, npoint1, npoint2, ndiff, nA, nD
+        wit::Witness, state1, state2, npoint1, npoint2, ndiff, nA, nD
     )
-    add_evidence!(wit, LieEvidence(
-        point1, loc1, point2, loc2, npoint1, npoint2, ndiff, nA, nD
-    ))
+    add_evidence!(
+        wit, LieEvidence(state1, state2, npoint1, npoint2, ndiff, nA, nD)
+    )
 end
 
 struct Generator
@@ -94,10 +90,10 @@ function _make_loc_map(nloc, witnesses)
     loc_map = [BitSet() for loc = 1:nloc]
     for (i, wit) in enumerate(witnesses)
         for posevid in wit.pos_evids
-            push!(loc_map[posevid.loc], i)
+            push!(loc_map[posevid.state.loc], i)
         end
         for lievid in wit.lie_evids
-            push!(loc_map[lievid.loc1], i)
+            push!(loc_map[lievid.state1.loc], i)
         end
     end
     return loc_map
@@ -115,7 +111,7 @@ function _compute_polyf(prob::GeneratorProblem, nvar, nloc, witnesses, solver)
             _add_pos_constr_prob!(prob, model, lfs, r, i1, posevid)
         end
         for lieevid in wit.lie_evids
-            for i2 in loc_map[lieevid.loc2]
+            for i2 in loc_map[lieevid.state2.loc]
                 _add_lie_constr_prob!(prob, model, lfs, r, i1, i2, lieevid)
             end
         end
@@ -148,7 +144,7 @@ end
 function _add_pos_constr_prob!(
         prob::GeneratorFeasibility, model, lfs, r, i, posevid
     )
-    point = posevid.point
+    point = posevid.state.point
     α = posevid.npoint
     β = posevid.npoint/prob.ϵ
     _add_pos_constr!(model, lfs, r, i, point, α, β)
@@ -157,8 +153,8 @@ end
 function _add_lie_constr_prob!(
         prob::GeneratorFeasibility, model, lfs, r, i1, i2, lieevid
     )
-    point1 = lieevid.point1
-    point2 = lieevid.point2
+    point1 = lieevid.state1.point
+    point2 = lieevid.state2.point
     α = lieevid.npoint1
     β = lieevid.npoint1*prob.δ
     _add_lie_constr(model, lfs, r, i1, i2, point1, point2, α, β)
@@ -178,7 +174,7 @@ struct GeneratorChebyshev <: GeneratorProblem end
 function _add_pos_constr_prob!(
         ::GeneratorChebyshev, model, lfs, r, i, posevid
     )
-    point = posevid.point
+    point = posevid.state.point
     α = posevid.npoint
     _add_pos_constr!(model, lfs, r, i, point, α, 0)
 end
@@ -186,10 +182,11 @@ end
 function _add_lie_constr_prob!(
         prob::GeneratorChebyshev, model, lfs, r, i1, i2, lieevid
     )
-    point1 = lieevid.point1
-    point2 = lieevid.point2
+    point1 = lieevid.state1.point
+    point2 = lieevid.state2.point
     α::Float64 = i1 == i2 ? lieevid.ndiff : lieevid.npoint1 + lieevid.npoint2
-    # α::Float64 = i1 == i2 ? lieevid.ndiff : 2*lieevid.npoint1 + lieevid.ndiff # old
+    # α::Float64 = i1 == i2 ?
+        # lieevid.ndiff : 2*lieevid.npoint1 + lieevid.ndiff # old
     _add_lie_constr(model, lfs, r, i1, i2, point1, point2, α, 0)
 end
 
@@ -205,7 +202,7 @@ struct GeneratorWitness <: GeneratorProblem end
 function _add_pos_constr_prob!(
         ::GeneratorWitness, model, lfs, r, i, posevid
     )
-    point = posevid.point
+    point = posevid.state.point
     α = posevid.npoint
     _add_pos_constr!(model, lfs, r, i, point, α, 0)
 end
@@ -213,8 +210,8 @@ end
 function _add_lie_constr_prob!(
         prob::GeneratorWitness, model, lfs, r, i1, i2, lieevid
     )
-    point1 = lieevid.point1
-    point2 = lieevid.point2
+    point1 = lieevid.state1.point
+    point2 = lieevid.state2.point
     α::Float64 = i1 == i2 ?
         lieevid.npoint1*lieevid.nD : lieevid.npoint1*(1 + lieevid.nA)
     _add_lie_constr(model, lfs, r, i1, i2, point1, point2, α, 0)

@@ -8,6 +8,8 @@ else
     using CEGISPolyhedralVerification
 end
 CPV = CEGISPolyhedralVerification
+Witness = CPV.Witness
+State = CPV.State
 
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
@@ -39,11 +41,11 @@ point1s = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 τ = 1.0
 
 for point1 in point1s
-    wit = CPV.Witness()
-    CPV.add_evidence_pos!(wit, point1, 1, norm(point1, Inf))
+    wit = Witness()
+    CPV.add_evidence_pos!(wit, State(point1, 1), norm(point1, Inf))
     point2 = point1 + τ*(A*point1)
     CPV.add_evidence_lie!(
-        wit, point1, 1, point2, 1,
+        wit, State(point1, 1), State(point2, 1),
         norm(point1, Inf), norm(point2, Inf), norm(point2 - point1, Inf),
         opnorm(τ*A + _EYE_, Inf), opnorm(τ*A, Inf)
     )
@@ -76,11 +78,11 @@ As = [
 
 for point1 in point1s
     for A in As
-        wit = CPV.Witness()
-        CPV.add_evidence_pos!(wit, point1, 1, norm(point1, Inf))
+        wit = Witness()
+        CPV.add_evidence_pos!(wit, State(point1, 1), norm(point1, Inf))
         point2 = point1 + τ*(A*point1)
         CPV.add_evidence_lie!(
-            wit, point1, 1, point2, 1,
+            wit, State(point1, 1), State(point2, 1),
             norm(point1, Inf), norm(point2, Inf), norm(point2 - point1, Inf),
             opnorm(τ*A + _EYE_, Inf), opnorm(τ*A, Inf)
         )
@@ -114,11 +116,11 @@ A_locs = [
 
 for point1 in point1s
     for (A, loc1, loc2) in A_locs
-        wit = CPV.Witness()
-        CPV.add_evidence_pos!(wit, point1, loc1, norm(point1, Inf))
+        wit = Witness()
+        CPV.add_evidence_pos!(wit, State(point1, loc1), norm(point1, Inf))
         point2 = A*point1
         CPV.add_evidence_lie!(
-            wit, point1, loc1, point2, loc2,
+            wit, State(point1, loc1), State(point2, loc2),
             norm(point1, Inf), norm(point2, Inf), norm(point2 - point1, Inf),
             opnorm(A, Inf), opnorm(A - _EYE_, Inf)
         )

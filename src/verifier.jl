@@ -1,10 +1,10 @@
-struct PosPredic
+struct PosPredicate
     nvar::Int
     domain::Cone
     loc::Int
 end
 
-struct LiePredic
+struct LiePredicate
     nvar::Int
     domain::Cone
     loc1::Int
@@ -13,26 +13,26 @@ struct LiePredic
 end
 
 struct Verifier
-    pos_predics::Vector{PosPredic}
-    lie_predics::Vector{LiePredic}
+    pos_predics::Vector{PosPredicate}
+    lie_predics::Vector{LiePredicate}
 end
 
-Verifier() = Verifier(PosPredic[], LiePredic[])
+Verifier() = Verifier(PosPredicate[], LiePredicate[])
 
-function add_predic!(verif::Verifier, pospredic::PosPredic)
+function add_predicate!(verif::Verifier, pospredic::PosPredicate)
     push!(verif.pos_predics, pospredic)
 end
 
-function add_predic!(verif::Verifier, liepredic::LiePredic)
+function add_predicate!(verif::Verifier, liepredic::LiePredicate)
     push!(verif.lie_predics, liepredic)
 end
 
-function add_predic_pos!(verif::Verifier, nvar, domain, loc)
-    add_predic!(verif, PosPredic(nvar, domain, loc))
+function add_predicate_pos!(verif::Verifier, nvar, domain, loc)
+    add_predicate!(verif, PosPredicate(nvar, domain, loc))
 end
 
-function add_predic_lie!(verif::Verifier, nvar, domain, loc1, A, loc2)
-    add_predic!(verif, LiePredic(nvar, domain, loc1, A, loc2))
+function add_predicate_lie!(verif::Verifier, nvar, domain, loc1, A, loc2)
+    add_predicate!(verif, LiePredicate(nvar, domain, loc1, A, loc2))
 end
 
 ## Optim problem
