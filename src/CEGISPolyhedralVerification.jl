@@ -19,7 +19,10 @@ _eval(lf::LinForm, point) = dot(lf.lin, point)
 
 struct PolyFunc
     lfs::Vector{LinForm}
-    loc_map::Vector{BitSet}
+end
+
+struct MultiPolyFunc
+    pfs::Vector{PolyFunc}
 end
 
 struct State
@@ -52,6 +55,6 @@ end
 
 include("generator.jl")
 include("verifier.jl")
-include("learner.jl")
+# include("learner.jl")
 
 end # module
