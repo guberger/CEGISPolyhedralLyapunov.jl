@@ -31,6 +31,7 @@ struct Piece
     domain::Cone
     loc1::Int
     A::_MT_
+    D::_MT_
     loc2::Int
 end
 
@@ -45,7 +46,8 @@ function add_piece!(sys::System, piece::Piece)
 end
 
 function add_piece!(sys::System, domain, loc1, A, loc2)
-    add_piece!(sys, Piece(domain, loc1, A, loc2))
+    D = A - Matrix{Bool}(I, size(A)...)
+    add_piece!(sys, Piece(domain, loc1, A, D, loc2))
 end
 
 include("generator.jl")

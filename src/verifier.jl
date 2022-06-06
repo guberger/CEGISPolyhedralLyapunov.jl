@@ -56,18 +56,13 @@ _feasib(model) =
 _infeas(model) =
     primal_status(model) == _RSC_(0) && termination_status(model) == _TSC_(2)
 
-function _optim_update!(model, x, xopt, ropt)
+function _optimize!(model)
     optimize!(model)
     if _feasib(model)
-        obj = objective_value(model)
-        if obj > ropt
-            resize!(xopt, length(x))
-            map!(xk -> value(xk), xopt, x)
-            return obj, true
-        else
-            return ropt, true
-        end
-    elseif !_infeas(model)
+        return objective_value(model), true
+    elseif _infeas(model)
+        return -Inf, false
+    else
         error(string(
             "Verifier: neither feasible or infeasible: ",
             primal_status(model), " ",
@@ -75,10 +70,9 @@ function _optim_update!(model, x, xopt, ropt)
             termination_status(model)
         ))
     end
-    return ropt, false
 end
 
-function _verify!(prob::VerifierProblem, lfs, xopt, ropt, solver)
+function _verify!(prob::VerifierProblem, lfs, xrec, solver)
     model = Model(solver)
     x, r = _add_variables!(prob, model)
 
@@ -88,6 +82,7 @@ function _verify!(prob::VerifierProblem, lfs, xopt, ropt, solver)
 
     @objective(model, Max, r)
 
+    ropt = -Inf
     flag_feas = false
     
     for k in eachindex(x)
@@ -95,8 +90,13 @@ function _verify!(prob::VerifierProblem, lfs, xopt, ropt, solver)
         ub = upper_bound(x[k])
         for s in (-1, 1)
             fix(x[k], s, force=true)
-            ropt, F = _optim_update!(model, x, xopt, ropt)
+            obj, F = _optimize!(model)
             flag_feas |= F
+            if obj > ropt
+                resize!(xrec, length(x))
+                map!(xk -> value(xk), xrec, x)
+                ropt = obj
+            end
         end
         unfix(x[k])
         set_lower_bound(x[k], lb)
@@ -127,13 +127,22 @@ end
 _add_lie_constrs!(::VerifierPos, ::Any, ::Any, ::Any, ::Any) = nothing
 
 function verify_pos(verif::Verifier, polyf::PolyFunc, solver)
+    xrec = Float64[]
     xopt = Float64[]
     ropt::Float64 = -Inf
+    locopt::Int = 0
     for p in verif.pos_predics
         prob = VerifierPos(p.nvar, p.domain, polyf.loc_map[p.loc])
-        ropt = _verify!(prob, polyf.lfs, xopt, ropt, solver)
+        rc = _verify!(prob, polyf.lfs, xrec, solver)
+        if rc > ropt
+            resize!(xopt, length(xrec))
+            copyto!(xopt, xrec)
+            ropt = rc
+            locopt = p.loc
+        end
     end
-    return xopt, ropt
+    @assert !isinf(ropt)
+    return xopt, ropt, locopt
 end
 
 ## Verify Lie
@@ -156,14 +165,23 @@ function _add_lie_constrs!(prob::VerifierLie, model, x, r, lfs)
 end
 
 function verify_lie(verif::Verifier, polyf::PolyFunc, solver)
+    xrec = Float64[]
     xopt = Float64[]
     ropt::Float64 = -Inf
+    locopt::Int = 0
     for p in verif.lie_predics
         iset1 = polyf.loc_map[p.loc1]
         for i2 in polyf.loc_map[p.loc2]
             prob = VerifierLie(p.nvar, p.domain, iset1, p.A, i2)
-            ropt = _verify!(prob, polyf.lfs, xopt, ropt, solver)
+            rc = _verify!(prob, polyf.lfs, xrec, solver)
+            if rc > ropt
+                resize!(xopt, length(xrec))
+                copyto!(xopt, xrec)
+                ropt = rc
+                locopt = p.loc1
+            end
         end
     end
-    return xopt, ropt
+    @assert !isinf(ropt)
+    return xopt, ropt, locopt
 end
