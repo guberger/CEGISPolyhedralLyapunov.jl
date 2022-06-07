@@ -9,6 +9,8 @@ _RSC_ = JuMP.MathOptInterface.ResultStatusCode
 _TSC_ = JuMP.MathOptInterface.TerminationStatusCode
 _VT_ = Vector{Float64}
 _MT_ = Matrix{Float64}
+Point = _VT_
+Deriv = _VT_
 
 include("polyhedra.jl")
 
@@ -33,36 +35,44 @@ MultiPolyFunc(nloc::Int) = MultiPolyFunc([PolyFunc() for loc = 1:nloc])
 
 add_lf!(mpf::MultiPolyFunc, loc, lin) = add_lf!(mpf.pfs[loc], lin)
 
-struct State
-    point::_VT_
-    loc::Int
-end
-
-struct Piece
+struct PieceDisc
     domain::Cone
     loc1::Int
     A::_MT_
-    D::_MT_
     loc2::Int
 end
 
+struct PieceCont
+    domain::Cone
+    loc::Int
+    A::_MT_
+end
+
 struct System
-    pieces::Vector{Piece}
+    disc_pieces::Vector{PieceDisc}
+    cont_pieces::Vector{PieceCont}
 end
 
-System() = System(Piece[])
+System() = System(PieceDisc[], PieceCont[])
 
-function add_piece!(sys::System, piece::Piece)
-    push!(sys.pieces, piece)
+function add_piece_disc!(sys::System, domain, loc1, A, loc2)
+    push!(sys.disc_pieces, PieceDisc(domain, loc1, A, loc2))
 end
 
-function add_piece!(sys::System, domain, loc1, A, loc2)
-    D = A - Matrix{Bool}(I, size(A)...)
-    add_piece!(sys, Piece(domain, loc1, A, D, loc2))
+function add_piece_cont!(sys::System, domain, loc, A)
+    push!(sys.cont_pieces, PieceCont(domain, loc, A))
 end
+
+# struct Witness
+#     state::State
+#     images::Vector{State}
+#     derivs::Vector{Deriv}
+# end
+
+# Witness(point::Point, loc::Int) = Witness(State(point, loc), State[], Deriv[])
 
 include("generator.jl")
 include("verifier.jl")
-# include("learner.jl")
+include("learner.jl")
 
 end # module

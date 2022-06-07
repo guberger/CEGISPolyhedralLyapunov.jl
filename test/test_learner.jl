@@ -9,7 +9,6 @@ else
 end
 CPV = CEGISPolyhedralVerification
 Cone = CPV.Cone
-State = CPV.State
 System = CPV.System
 
 function HiGHS._check_ret(ret::Cint) 
@@ -25,32 +24,28 @@ end
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
 ## Parameters
-ϵ = 10.0
-δ = 0.1
 nvar = 2
 nloc = 1
-_EYE_ = Matrix{Bool}(I, nvar, nvar)
 
 sys = System()
-τ = 0.1
 
 domain = Cone()
 CPV.add_supp!(domain, [1.0, 0.0])
-DA = [-1.0 1.0; -1.0 -1.0]
-A = _EYE_ + τ*DA
-CPV.add_piece!(sys, domain, 1, A, 1)
+A = [-1.0 1.0; -1.0 -1.0]
+CPV.add_piece_cont!(sys, domain, 1, A)
 
 domain = Cone()
 CPV.add_supp!(domain, [-1.0, 0.0])
-DA = [-1.0 -1.0; 1.0 -1.0]
-τ = 1.0
-A = _EYE_ + τ*DA
-CPV.add_piece!(sys, domain, 1, A, 1)
+A = [-1.0 -1.0; 1.0 -1.0]
+CPV.add_piece_cont!(sys, domain, 1, A)
 
-lear = CPV.Learner(nvar, nloc, sys, ϵ, δ)
+ϵ = 10.0
+δ = 0.5
+τ = 1.0
+lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 0.0)
 point = [-1.0, 0.0]
-CPV.add_state_init!(lear, point, 1)
+CPV.add_pre_evidence!(lear, 1, point)
 
 sol = CPV.learn_lyapunov!(lear, 1, solver)
 
@@ -64,11 +59,13 @@ sol = CPV.learn_lyapunov!(lear, 100, solver)
     @test sol.status == CPV.LYAPUNOV_INFEASIBLE
 end
 
-δ = 0.01
-lear = CPV.Learner(nvar, nloc, sys, ϵ, δ)
+ϵ = 10.0
+δ = 0.2
+τ = 0.5
+lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 0.0)
 point = [-1.0, 0.0]
-CPV.add_state_init!(lear, point, 1)
+CPV.add_pre_evidence!(lear, 1, point)
 
 sol = CPV.learn_lyapunov!(lear, 100, solver, do_print=false)
 
@@ -76,7 +73,7 @@ sol = CPV.learn_lyapunov!(lear, 100, solver, do_print=false)
     @test sol.status == CPV.LYAPUNOV_FOUND
 end
 
-CPV.set_tol!(lear, :rad, 0.1)
+CPV.set_tol!(lear, :rad, 0.2)
 
 sol = CPV.learn_lyapunov!(lear, 100, solver, do_print=false)
 

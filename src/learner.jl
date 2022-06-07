@@ -1,75 +1,105 @@
 ## Learner
 
+struct PreEvidence
+    loc::Int
+    point::Point
+end
+
 struct Learner
     nvar::Int
     nloc::Int
-    system::System
+    sys::System
+    τ::Float64
     ϵ::Float64
     δ::Float64
-    states_init::Vector{State}
+    pre_evids::Vector{PreEvidence}
     tols::Dict{Symbol,Float64}
 end
 
-function Learner(nvar::Int, nloc::Int, sys::System, ϵ::Float64, δ::Float64)
+function Learner(
+        nvar::Int, nloc::Int, sys::System, τ::Float64, ϵ::Float64, δ::Float64
+    )
     tols = Dict([
         :rad => eps(1.0),
         :pos => -eps(1.0),
         :lie => -eps(1.0),
         :norm => eps(1.0)
     ])
-    return Learner(nvar, nloc, sys, ϵ, δ, State[], tols)
+    return Learner(nvar, nloc, sys, τ, ϵ, δ, PreEvidence[], tols)
 end
 
 set_tol!(lear::Learner, s::Symbol, tol::Float64) = (lear.tols[s] = tol)
 
-function add_state_init!(lear::Learner, point::_VT_, loc::Int)
+function add_pre_evidence!(lear::Learner, loc::Int, point::Point)
     npoint = norm(point, Inf)
     if npoint < lear.tols[:norm]*lear.nvar
         error(string("Point norm close to zero: ", npoint))
     end
     @assert 1 ≤ loc ≤ lear.nloc
-    push!(lear.states_init, State(point/npoint, loc))
+    push!(lear.pre_evids, PreEvidence(loc, point/npoint))
 end
 
 ## Learn Lyapunov
 
-function make_witness_from_state_system(sys, state)
-    wit = Witness()
-    point1 = state.point
-    loc1 = state.loc
-    state1 = State(point1, loc1)
+function _add_evidences!(gen, sys, τ, preevid)
+    point1 = preevid.point
+    loc1 = preevid.loc
+    i1 = add_lf!(gen, loc1)
     npoint1 = norm(point1, Inf) # new
     # npoint = norm(point) # old
-    add_evidence_pos!(wit, state1, npoint1)
-    for piece in sys.pieces
+    add_evidence_pos!(gen, loc1, i1, point1, npoint1)
+    for piece in sys.disc_pieces
         !(loc1 == piece.loc1 && point1 ∈ piece.domain) && continue
-        point2 = piece.A*point1
-        state2 = State(point2, piece.loc2)
+        A = piece.A
+        point2 = A*point1
+        loc2 = loc2
         npoint2 = norm(point2, Inf) # new
         # nderiv = norm(deriv) # old
         ndiff = norm(point2 - point1, Inf)
-        nA = opnorm(piece.A, Inf)
-        nD = opnorm(piece.D, Inf)
-        add_evidence_lie!(wit, state1, state2, npoint1, npoint2, ndiff, nA, nD)
+        nA = opnorm(A, Inf)
+        nD = opnorm(A - I, Inf)
+        add_evidence_lie!(
+            gen, loc1, i1, point1, loc2, point2,
+            npoint1, npoint2, ndiff, nA, nD
+        )
     end
-    return wit
+    for piece in sys.cont_pieces
+        !(loc1 == piece.loc && point1 ∈ piece.domain) && continue
+        A = piece.A
+        diff = τ*(A*point1)
+        point2 = point1 + diff
+        loc2 = piece.loc
+        npoint2 = norm(point2, Inf) # new
+        # nderiv = norm(deriv) # old
+        ndiff = norm(diff, Inf)
+        nA = opnorm(I + τ*A, Inf)
+        nD = opnorm(A, Inf)*τ
+        add_evidence_lie!(
+            gen, loc1, i1, point1, loc2, point2,
+            npoint1, npoint2, ndiff, nA, nD
+        )
+    end
 end
 
-function make_verif_from_system(nvar, sys)
-    verif = Verifier()
-    for piece in sys.pieces
+function _add_predicates!(verif, nvar, sys)
+    for piece in sys.disc_pieces
         add_predicate_pos!(verif, nvar, piece.domain, piece.loc1)
-        add_predicate_lie!(
+        add_predicate_lie_disc!(
             verif, nvar, piece.domain, piece.loc1, piece.A, piece.loc2
         )
     end
-    return verif
+    for piece in sys.cont_pieces
+        add_predicate_pos!(verif, nvar, piece.domain, piece.loc)
+        add_predicate_lie_cont!(
+            verif, nvar, piece.domain, piece.loc, piece.A
+        )
+    end
 end
 
-function _verify_with_exit(verif, polyf, tol_pos, tol_lie, solver, do_print)
+function _verify_with_exit(verif, mpf, tol_pos, tol_lie, solver, do_print)
     # new Eccentricity V1:
     do_print && print("|--- Verify pos... ")
-    x, r_pos, loc = verify_pos(verif, polyf, solver)
+    x, r_pos, loc = verify_pos(verif, mpf, solver)
     if r_pos > tol_pos
         do_print && println("CE found: ", x, ", ", r_pos, ", ", loc)
         return x, loc, r_pos, -Inf
@@ -78,7 +108,7 @@ function _verify_with_exit(verif, polyf, tol_pos, tol_lie, solver, do_print)
     end # end new Eccentricity V1
     # r_pos = Inf # new Eccentricity V2
     do_print && print("|--- Verify lie... ")
-    x, r_lie, loc = verify_lie(verif, polyf, solver)
+    x, r_lie, loc = verify_lie_cont(verif, mpf, solver)
     if r_lie > tol_lie
         do_print && println("CE found: ", x, ", ", r_lie, ", ", loc)
         return x, loc, r_pos, r_lie
@@ -99,33 +129,28 @@ end
 mutable struct LearnerSolution
     status::StatusCode
     niter::Int
-    witnesses_list::Vector{Vector{Witness}}
-    polyf_list::Vector{PolyFunc}
+    # witnesses_list::Vector{Vector{Witness}}
+    mpf_list::Vector{MultiPolyFunc}
     r_list::Vector{Float64}
-    counterexample_list::Vector{Witness}
+    # counterexample_list::Vector{Witness}
     r_pos_list::Vector{Float64}
     r_lie_list::Vector{Float64}
 end
 
 LearnerSolution() = LearnerSolution(
-    NOT_SOLVED, 0,
-    Vector{Witness}[], PolyFunc[], Float64[],
-    Witness[], Float64[], Float64[]
+    NOT_SOLVED, 0, MultiPolyFunc[], Float64[], Float64[], Float64[]
 )
 
 function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
     gen = Generator(lear.nvar, lear.nloc)
     sol = LearnerSolution()
 
-    witnesses = Witness[]
-    for state in lear.states_init
-        wit = make_witness_from_state_system(lear.system, state)
-        add_witness!(gen, wit)
-        push!(witnesses, wit)
+    for preevid in lear.pre_evids
+        _add_evidences!(gen, lear.sys, lear.τ, preevid)
     end
-    push!(sol.witnesses_list, copy(witnesses))
 
-    verif = make_verif_from_system(lear.nvar, lear.system)
+    verif = Verifier()
+    _add_predicates!(verif, lear.nvar, lear.sys)
 
     iter = 0
 
@@ -140,7 +165,7 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
         end
 
         # Feasibility check:
-        slack = compute_polyf_feasibility(gen, lear.ϵ, lear.δ, solver)[2]
+        slack = compute_mpf_feasibility(gen, lear.ϵ, lear.δ, solver)[2]
         if slack < 0
             println(string(
                 "System does not admit a Lyapunov function with parameters: ",
@@ -150,12 +175,12 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
             return sol
         end # end Feasibility check
 
-        # polyf, r = compute_polyf_chebyshev(gen, 1/lear.θ, solver)
-        polyf, r = compute_polyf_witness(gen, solver) # test
+        # mpf, r = compute_mpf_chebyshev(gen, 1/lear.θ, solver)
+        mpf, r = compute_mpf_evidence(gen, solver) # test
         if do_print
             println("|--- radius: ", r)
         end
-        push!(sol.polyf_list, polyf)
+        push!(sol.mpf_list, mpf)
         push!(sol.r_list, r)
         if r < lear.tols[:rad]
             println(string("Satisfiability radius too small: ", r))
@@ -171,7 +196,7 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
         # end # end new Eccentricity V2
 
         x, loc, r_pos, r_lie = _verify_with_exit(
-            verif, polyf, lear.tols[:pos], lear.tols[:lie], solver, do_print
+            verif, mpf, lear.tols[:pos], lear.tols[:lie], solver, do_print
         )
         push!(sol.r_pos_list, r_pos)
         push!(sol.r_lie_list, r_lie)
@@ -183,10 +208,10 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
         end
 
         point = x/norm(x, Inf)
-        wit = make_witness_from_state_system(lear.system, State(point, loc))
-        add_witness!(gen, wit)
-        push!(sol.counterexample_list, wit)
-        push!(witnesses, wit)
-        push!(sol.witnesses_list, copy(witnesses))
+        preevid = PreEvidence(loc, point)
+        _add_evidences!(gen, lear.sys, lear.τ, preevid)
+        # push!(sol.counterexample_list, wit)
+        # push!(witnesses, wit)
+        # push!(sol.witnesses_list, copy(witnesses))
     end
 end

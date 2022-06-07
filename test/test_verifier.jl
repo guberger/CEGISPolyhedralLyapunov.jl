@@ -17,7 +17,6 @@ solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
 ## Parameters
 nvar = 2
-_EYE_ = Matrix{Bool}(I, nvar, nvar)
 
 ## Pos false #1 #2
 verif = CPV.Verifier()

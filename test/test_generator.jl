@@ -15,14 +15,13 @@ solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
 ## Parameters
 nvar = 2
-_EYE_ = Matrix{Bool}(I, nvar, nvar)
 
 ## Empty
 gen = CPV.Generator(nvar, nloc)
 
 rf = CPV.compute_mpf_feasibility(gen, 1e5, 1.0, solver)[2]
 mpf, rc = CPV.compute_mpf_chebyshev(gen, solver)
-rw = CPV.compute_mpf_witness(gen, solver)[2]
+rw = CPV.compute_mpf_evidence(gen, solver)[2]
 
 @testset "compute mpf empty" begin
     @test rf > 0
@@ -37,13 +36,13 @@ gen = CPV.Generator(nvar, nloc)
 
 CPV.add_lf!(gen, 1)
 point = [2, 0]
-CPV.add_witness_pos!(gen, 1, 1, point, norm(point, Inf))
+CPV.add_evidence_pos!(gen, 1, 1, point, norm(point, Inf))
 
 ϵ = 1e5
 δ = 1.0
 rf = CPV.compute_mpf_feasibility(gen, ϵ, δ, solver)[2]
 mpf, rc = CPV.compute_mpf_chebyshev(gen, solver)
-rw = CPV.compute_mpf_witness(gen, solver)[2]
+rw = CPV.compute_mpf_evidence(gen, solver)[2]
 
 @testset "compute mpf pos" begin
     @test rf ≈ δ - 1/ϵ
@@ -59,7 +58,7 @@ gen = CPV.Generator(nvar, nloc)
 CPV.add_lf!(gen, 1)
 point1 = [2, 0]
 point2 = [4, 0]
-CPV.add_witness_lie!(
+CPV.add_evidence_lie!(
     gen, 1, 1, point1, 1, point2,
     norm(point1, Inf), norm(point2, Inf), norm(point2 - point1, Inf),
     1, 0
@@ -69,7 +68,7 @@ CPV.add_witness_lie!(
 δ = 1.0
 rf = CPV.compute_mpf_feasibility(gen, ϵ, δ, solver)[2]
 mpf, rc = CPV.compute_mpf_chebyshev(gen, solver)
-rw = CPV.compute_mpf_witness(gen, solver)[2]
+rw = CPV.compute_mpf_evidence(gen, solver)[2]
 
 @testset "compute mpf lie" begin
     @test rf ≈ 1 - δ
@@ -85,8 +84,8 @@ gen = CPV.Generator(nvar, nloc)
 CPV.add_lf!(gen, 1)
 point1 = [2, 0]
 point2 = [4, 0]
-CPV.add_witness_pos!(gen, 1, 1, point1, norm(point1, Inf))
-CPV.add_witness_lie!(
+CPV.add_evidence_pos!(gen, 1, 1, point1, norm(point1, Inf))
+CPV.add_evidence_lie!(
     gen, 1, 1, point1, 1, point2,
     norm(point1, Inf), norm(point2, Inf), norm(point2 - point1, Inf),
     1, 0
@@ -96,7 +95,7 @@ CPV.add_witness_lie!(
 δ = 1.0
 rf = CPV.compute_mpf_feasibility(gen, ϵ, δ, solver)[2]
 mpf, rc = CPV.compute_mpf_chebyshev(gen, solver)
-rw = CPV.compute_mpf_witness(gen, solver)[2]
+rw = CPV.compute_mpf_evidence(gen, solver)[2]
 
 @testset "compute mpf pos and lie: 1 wit" begin
     @test rf ≈ -(δ + 1/ϵ)/2
@@ -112,10 +111,10 @@ gen = CPV.Generator(nvar, nloc)
 CPV.add_lf!(gen, 1)
 CPV.add_lf!(gen, 2)
 point = [2, 0]
-CPV.add_witness_pos!(gen, 2, 1, point, norm(point, Inf))
+CPV.add_evidence_pos!(gen, 2, 1, point, norm(point, Inf))
 point1 = [2, 0]
 point2 = [4, 0]
-CPV.add_witness_lie!(
+CPV.add_evidence_lie!(
     gen, 1, 1, point1, 2, point2,
     norm(point1, Inf), norm(point2, Inf), norm(point2 - point1, Inf),
     2, 1
@@ -125,7 +124,7 @@ CPV.add_witness_lie!(
 δ = 1.0
 rf = CPV.compute_mpf_feasibility(gen, ϵ, δ, solver)[2]
 mpf, rc = CPV.compute_mpf_chebyshev(gen, solver)
-rw = CPV.compute_mpf_witness(gen, solver)[2]
+rw = CPV.compute_mpf_evidence(gen, solver)[2]
 
 @testset "compute mpf pos and lie: 2 wits #1" begin
     @test rf ≈ (1 - δ - 2/ϵ)/3
@@ -141,12 +140,12 @@ gen = CPV.Generator(nvar, nloc)
 CPV.add_lf!(gen, 1)
 CPV.add_lf!(gen, 2)
 point = [-2, 0]
-CPV.add_witness_pos!(gen, 1, 1, point, norm(point, Inf))
+CPV.add_evidence_pos!(gen, 1, 1, point, norm(point, Inf))
 point = [2, 0]
-CPV.add_witness_pos!(gen, 2, 1, point, norm(point, Inf))
+CPV.add_evidence_pos!(gen, 2, 1, point, norm(point, Inf))
 point1 = [2, 0]
 point2 = [4, 0]
-CPV.add_witness_lie!(
+CPV.add_evidence_lie!(
     gen, 2, 1, point1, 1, point2,
     norm(point1, Inf), norm(point2, Inf), norm(point2 - point1, Inf),
     4, 1
@@ -156,7 +155,7 @@ CPV.add_witness_lie!(
 δ = 3.0
 rf = CPV.compute_mpf_feasibility(gen, ϵ, δ, solver)[2]
 mpf, rc = CPV.compute_mpf_chebyshev(gen, solver)
-rw = CPV.compute_mpf_witness(gen, solver)[2]
+rw = CPV.compute_mpf_evidence(gen, solver)[2]
 
 @testset "compute mpf pos and lie: 2 wits #2" begin
     @test rf ≈ min(1 - 1/ϵ, 3 - δ)
@@ -172,17 +171,17 @@ gen = CPV.Generator(nvar, nloc)
 CPV.add_lf!(gen, 1)
 CPV.add_lf!(gen, 2)
 point = [2, 0]
-CPV.add_witness_pos!(gen, 1, 1, point, norm(point, Inf))
+CPV.add_evidence_pos!(gen, 1, 1, point, norm(point, Inf))
 point1 = [0, 2]
 point2 = [4, 0]
-CPV.add_witness_lie!(
+CPV.add_evidence_lie!(
     gen, 1, 1, point1, 2, point2,
     norm(point1, Inf), norm(point2, Inf), norm(point2 - point1, Inf),
     4, 1
 )
 point1 = [2, 0]
 point2 = [0, 0]
-CPV.add_witness_lie!(
+CPV.add_evidence_lie!(
     gen, 2, 1, point1, 1, point2,
     norm(point1, Inf), norm(point2, Inf), norm(point2 - point1, Inf),
     4, 1
@@ -192,7 +191,7 @@ CPV.add_witness_lie!(
 δ = 0.0
 rf = CPV.compute_mpf_feasibility(gen, ϵ, δ, solver)[2]
 mpf, rc = CPV.compute_mpf_chebyshev(gen, solver)
-rw = CPV.compute_mpf_witness(gen, solver)[2]
+rw = CPV.compute_mpf_evidence(gen, solver)[2]
 
 @testset "compute mpf pos and lie: 2 wits #3" begin
     @test rf ≈ (1 - 3*δ - 1/ϵ)/4
@@ -208,14 +207,14 @@ gen = CPV.Generator(nvar, nloc)
 CPV.add_lf!(gen, 1)
 point1 = [0, 2]
 point2 = [0, 2]
-CPV.add_witness_lie!(
+CPV.add_evidence_lie!(
     gen, 1, 1, point1, 1, point2,
     norm(point1, Inf), norm(point2, Inf), 0,
     -Inf, 1
 )
 
 rc = CPV.compute_mpf_chebyshev(gen, solver)[2]
-rw = CPV.compute_mpf_witness(gen, solver)[2]
+rw = CPV.compute_mpf_evidence(gen, solver)[2]
 
 @testset "compute mpf pos and lie: 2 wits #3" begin
     @test rc ≈ 2

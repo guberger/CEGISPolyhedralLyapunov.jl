@@ -221,8 +221,8 @@ function verify_lie_cont(verif::Verifier, mpf::MultiPolyFunc, solver)
                 copyto!(xopt, xrec)
                 ropt = rc
                 locopt = p.loc
-                flag_feas = true
             end
+            flag_feas |= F
         end
         @assert flag_feas
     end
