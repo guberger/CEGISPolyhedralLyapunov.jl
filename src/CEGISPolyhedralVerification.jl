@@ -21,9 +21,17 @@ struct PolyFunc
     lfs::Vector{LinForm}
 end
 
+PolyFunc() = PolyFunc(LinForm[])
+
+add_lf!(pf::PolyFunc, lin) = push!(pf.lfs, LinForm(lin))
+
 struct MultiPolyFunc
     pfs::Vector{PolyFunc}
 end
+
+MultiPolyFunc(nloc::Int) = MultiPolyFunc([PolyFunc() for loc = 1:nloc])
+
+add_lf!(mpf::MultiPolyFunc, loc, lin) = add_lf!(mpf.pfs[loc], lin)
 
 struct State
     point::_VT_

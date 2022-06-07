@@ -4,7 +4,7 @@ struct PosPredicate
     loc::Int
 end
 
-struct LiePredicate
+struct LieDiscPredicate
     nvar::Int
     domain::Cone
     loc1::Int
@@ -12,27 +12,31 @@ struct LiePredicate
     loc2::Int
 end
 
+struct LieContPredicate
+    nvar::Int
+    domain::Cone
+    loc::Int
+    A::_MT_
+end
+
 struct Verifier
     pos_predics::Vector{PosPredicate}
-    lie_predics::Vector{LiePredicate}
+    liedisc_predics::Vector{LieDiscPredicate}
+    liecont_predics::Vector{LieContPredicate}
 end
 
-Verifier() = Verifier(PosPredicate[], LiePredicate[])
-
-function add_predicate!(verif::Verifier, pospredic::PosPredicate)
-    push!(verif.pos_predics, pospredic)
-end
-
-function add_predicate!(verif::Verifier, liepredic::LiePredicate)
-    push!(verif.lie_predics, liepredic)
-end
+Verifier() = Verifier(PosPredicate[], LieDiscPredicate[], LieContPredicate[])
 
 function add_predicate_pos!(verif::Verifier, nvar, domain, loc)
-    add_predicate!(verif, PosPredicate(nvar, domain, loc))
+    push!(verif.pos_predics, PosPredicate(nvar, domain, loc))
 end
 
-function add_predicate_lie!(verif::Verifier, nvar, domain, loc1, A, loc2)
-    add_predicate!(verif, LiePredicate(nvar, domain, loc1, A, loc2))
+function add_predicate_lie_disc!(verif::Verifier, nvar, domain, loc1, A, loc2)
+    push!(verif.liedisc_predics, LieDiscPredicate(nvar, domain, loc1, A, loc2))
+end
+
+function add_predicate_lie_cont!(verif::Verifier, nvar, domain, loc, A)
+    push!(verif.liecont_predics, LieContPredicate(nvar, domain, loc, A))
 end
 
 ## Optim problem
@@ -72,13 +76,13 @@ function _optimize!(model)
     end
 end
 
-function _verify!(prob::VerifierProblem, lfs, xrec, solver)
+function _verify!(prob::VerifierProblem, pfs, xrec, solver)
     model = Model(solver)
     x, r = _add_variables!(prob, model)
 
     _add_domain_constrs!(prob, model, x)
-    _add_pos_constrs!(prob, model, x, r, lfs)
-    _add_lie_constrs!(prob, model, x, r, lfs)
+    _add_pos_constrs!(prob, model, x, r, pfs)
+    _add_lie_constrs!(prob, model, x, r, pfs)
 
     @objective(model, Max, r)
 
@@ -92,7 +96,7 @@ function _verify!(prob::VerifierProblem, lfs, xrec, solver)
             fix(x[k], s, force=true)
             obj, F = _optimize!(model)
             flag_feas |= F
-            if obj > ropt
+            if F && (obj > ropt)
                 resize!(xrec, length(x))
                 map!(xk -> value(xk), xrec, x)
                 ropt = obj
@@ -103,37 +107,33 @@ function _verify!(prob::VerifierProblem, lfs, xrec, solver)
         set_upper_bound(x[k], ub)
     end
 
-    if !flag_feas
-        error(string("Verifier: infeasible: ", ropt))
-    end
-
-    return ropt
+    return ropt, flag_feas
 end
 
 ## Verif Pos
-
 struct VerifierPos <: VerifierProblem
     nvar::Int
     domain::Cone
-    iset::BitSet
+    loc::Int
 end
 
-function _add_pos_constrs!(prob::VerifierPos, model, x, r, lfs)
-    for i in prob.iset
-        @constraint(model, 0 ≥ _eval(lfs[i], x) + r)
+function _add_pos_constrs!(prob::VerifierPos, model, x, r, pfs)
+    for lf in pfs[prob.loc].lfs
+        @constraint(model, 0 ≥ _eval(lf, x) + r)
     end
 end
 
 _add_lie_constrs!(::VerifierPos, ::Any, ::Any, ::Any, ::Any) = nothing
 
-function verify_pos(verif::Verifier, polyf::PolyFunc, solver)
+function verify_pos(verif::Verifier, mpf::MultiPolyFunc, solver)
     xrec = Float64[]
     xopt = Float64[]
     ropt::Float64 = -Inf
     locopt::Int = 0
     for p in verif.pos_predics
-        prob = VerifierPos(p.nvar, p.domain, polyf.loc_map[p.loc])
-        rc = _verify!(prob, polyf.lfs, xrec, solver)
+        prob = VerifierPos(p.nvar, p.domain, p.loc)
+        rc, flag_feas = _verify!(prob, mpf.pfs, xrec, solver)
+        @assert flag_feas
         if rc > ropt
             resize!(xopt, length(xrec))
             copyto!(xopt, xrec)
@@ -145,35 +145,35 @@ function verify_pos(verif::Verifier, polyf::PolyFunc, solver)
     return xopt, ropt, locopt
 end
 
-## Verify Lie
-
-struct VerifierLie <: VerifierProblem
+## Verify Lie Disc
+struct VerifierLieDisc <: VerifierProblem
     nvar::Int
     domain::Cone
-    iset1::BitSet
+    loc1::Int
     A::_MT_
+    loc2::Int
     i2::Int
 end
 
-_add_pos_constrs!(::VerifierLie, ::Any, ::Any, ::Any, ::Any) = nothing
+_add_pos_constrs!(::VerifierLieDisc, ::Any, ::Any, ::Any, ::Any) = nothing
 
-function _add_lie_constrs!(prob::VerifierLie, model, x, r, lfs)
-    val2 = _eval(lfs[prob.i2], prob.A*x)
-    for i1 in prob.iset1
-        @constraint(model, val2 ≥ _eval(lfs[i1], x) + r)
+function _add_lie_constrs!(prob::VerifierLieDisc, model, x, r, pfs)
+    val2 = _eval(pfs[prob.loc2].lfs[prob.i2], prob.A*x)
+    for lf1 in pfs[prob.loc1].lfs
+        @constraint(model, val2 ≥ _eval(lf1, x) + r)
     end
 end
 
-function verify_lie(verif::Verifier, polyf::PolyFunc, solver)
+function verify_lie_disc(verif::Verifier, mpf::MultiPolyFunc, solver)
     xrec = Float64[]
     xopt = Float64[]
     ropt::Float64 = -Inf
     locopt::Int = 0
-    for p in verif.lie_predics
-        iset1 = polyf.loc_map[p.loc1]
-        for i2 in polyf.loc_map[p.loc2]
-            prob = VerifierLie(p.nvar, p.domain, iset1, p.A, i2)
-            rc = _verify!(prob, polyf.lfs, xrec, solver)
+    for p in verif.liedisc_predics
+        for i2 in eachindex(mpf.pfs[p.loc2].lfs)
+            prob = VerifierLieDisc(p.nvar, p.domain, p.loc1, p.A, p.loc2, i2)
+            rc, flag_feas = _verify!(prob, mpf.pfs, xrec, solver)
+            @assert flag_feas
             if rc > ropt
                 resize!(xopt, length(xrec))
                 copyto!(xopt, xrec)
@@ -181,6 +181,50 @@ function verify_lie(verif::Verifier, polyf::PolyFunc, solver)
                 locopt = p.loc1
             end
         end
+    end
+    @assert !isinf(ropt)
+    return xopt, ropt, locopt
+end
+
+## Verify Lie Cont
+struct VerifierLieCont <: VerifierProblem
+    nvar::Int
+    domain::Cone
+    loc::Int
+    i::Int
+    A::_MT_
+end
+
+_add_pos_constrs!(::VerifierLieCont, ::Any, ::Any, ::Any, ::Any) = nothing
+
+function _add_lie_constrs!(prob::VerifierLieCont, model, x, r, pfs)
+    lf1 = pfs[prob.loc].lfs[prob.i]
+    for lf2 in pfs[prob.loc].lfs
+        lf1 == lf2 && continue
+        @constraint(model, _eval(lf1, x) ≥ _eval(lf2, x))
+    end
+    @constraint(model, _eval(lf1, prob.A*x) ≥ r)
+end
+
+function verify_lie_cont(verif::Verifier, mpf::MultiPolyFunc, solver)
+    xrec = Float64[]
+    xopt = Float64[]
+    ropt::Float64 = -Inf
+    locopt::Int = 0
+    for p in verif.liecont_predics
+        flag_feas = false
+        for i in eachindex(mpf.pfs[p.loc].lfs)
+            prob = VerifierLieCont(p.nvar, p.domain, p.loc, i, p.A)
+            rc, F = _verify!(prob, mpf.pfs, xrec, solver)
+            if F && (rc > ropt)
+                resize!(xopt, length(xrec))
+                copyto!(xopt, xrec)
+                ropt = rc
+                locopt = p.loc
+                flag_feas = true
+            end
+        end
+        @assert flag_feas
     end
     @assert !isinf(ropt)
     return xopt, ropt, locopt
