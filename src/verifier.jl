@@ -182,7 +182,7 @@ function verify_lie_disc(verif::Verifier, mpf::MultiPolyFunc, solver)
             end
         end
     end
-    @assert !isinf(ropt)
+    @assert isempty(verif.liedisc_predics) || !isinf(ropt)
     return xopt, ropt, locopt
 end
 
@@ -226,6 +226,6 @@ function verify_lie_cont(verif::Verifier, mpf::MultiPolyFunc, solver)
         end
         @assert flag_feas
     end
-    @assert !isinf(ropt)
+    @assert isempty(verif.liecont_predics) || !isinf(ropt)
     return xopt, ropt, locopt
 end

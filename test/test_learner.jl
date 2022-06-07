@@ -23,62 +23,204 @@ end
 
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
-## Parameters
-nvar = 2
+## Learner Cont
+nvar = 1
 nloc = 1
 
 sys = System()
 
 domain = Cone()
-CPV.add_supp!(domain, [1.0, 0.0])
-A = [-1.0 1.0; -1.0 -1.0]
+CPV.add_supp!(domain, [1.0])
+A = reshape([-1.0], 1, 1)
 CPV.add_piece_cont!(sys, domain, 1, A)
 
 domain = Cone()
-CPV.add_supp!(domain, [-1.0, 0.0])
-A = [-1.0 -1.0; 1.0 -1.0]
+CPV.add_supp!(domain, [-1.0])
+A = reshape([-1.0], 1, 1)
 CPV.add_piece_cont!(sys, domain, 1, A)
 
 ϵ = 10.0
-δ = 0.5
-τ = 1.0
+δ = 0.1 - 1e-5
+τ = 0.1
 lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 0.0)
-point = [-1.0, 0.0]
-CPV.add_pre_evidence!(lear, 1, point)
+point = [1.0]
+CPV.add_witness!(lear, 1, point)
 
 sol = CPV.learn_lyapunov!(lear, 1, solver)
 
-@testset "learn lyapunov: max iter" begin
+@testset "learn lyapunov cont: max iter" begin
     @test sol.status == CPV.MAX_ITER_REACHED
 end
 
-sol = CPV.learn_lyapunov!(lear, 100, solver)
+sol = CPV.learn_lyapunov!(lear, 2, solver)
 
-@testset "learn lyapunov: infeasible" begin
+@testset "learn lyapunov cont: found" begin
+    @test sol.status == CPV.LYAPUNOV_FOUND
+end
+
+ϵ = 10.0
+δ = 0.1 + 1e-5
+τ = 0.1
+lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
+CPV.set_tol!(lear, :rad, 0.0)
+point = [1.0]
+CPV.add_witness!(lear, 1, point)
+
+sol = CPV.learn_lyapunov!(lear, 1, solver)
+
+@testset "learn lyapunov cont: infeasible" begin
     @test sol.status == CPV.LYAPUNOV_INFEASIBLE
 end
 
 ϵ = 10.0
-δ = 0.2
-τ = 0.5
+δ = 0.1 - 1e-5
+τ = 0.1
 lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
-CPV.set_tol!(lear, :rad, 0.0)
-point = [-1.0, 0.0]
-CPV.add_pre_evidence!(lear, 1, point)
+CPV.set_tol!(lear, :rad, 0.1 + 1e-5)
+point = [1.0]
+CPV.add_witness!(lear, 1, point)
 
-sol = CPV.learn_lyapunov!(lear, 100, solver, do_print=false)
+sol = CPV.learn_lyapunov!(lear, 2, solver)
 
-@testset "learn lyapunov: feasible" begin
+@testset "learn lyapunov cont: found" begin
     @test sol.status == CPV.LYAPUNOV_FOUND
 end
 
-CPV.set_tol!(lear, :rad, 0.2)
+ϵ = 10.0
+δ = 0.1 - 1e-5
+τ = 0.1
+lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
+CPV.set_tol!(lear, :rad, 0.1 + 1e-5)
+point = [1.0]
+CPV.add_witness!(lear, 1, point)
+CPV.add_witness!(lear, 1, point)
 
-sol = CPV.learn_lyapunov!(lear, 100, solver, do_print=false)
+sol = CPV.learn_lyapunov!(lear, 2, solver)
 
-@testset "learn lyapunov: radius too small" begin
+@testset "learn lyapunov cont: radius too small" begin
     @test sol.status == CPV.RADIUS_TOO_SMALL
+end
+
+## Learner Disc
+nvar = 1
+nloc = 2
+
+sys = System()
+
+domain = Cone()
+CPV.add_supp!(domain, [-1.0])
+A = reshape([-0.5], 1, 1)
+CPV.add_piece_disc!(sys, domain, 1, A, 2)
+
+domain = Cone()
+CPV.add_supp!(domain, [1.0])
+A = reshape([0.0], 1, 1)
+CPV.add_piece_disc!(sys, domain, 2, A, 1)
+
+ϵ = 10.0
+δ = min(2/3, 1 - 3/(2*ϵ)) - 1e-5
+lear = CPV.Learner(nvar, nloc, sys, 0.0, ϵ, δ)
+CPV.set_tol!(lear, :rad, 0.0)
+point = [1.0]
+CPV.add_witness!(lear, 1, point)
+
+sol = CPV.learn_lyapunov!(lear, 1, solver)
+
+@testset "learn lyapunov disc: max iter" begin
+    @test sol.status == CPV.MAX_ITER_REACHED
+end
+
+sol = CPV.learn_lyapunov!(lear, 2, solver)
+
+@testset "learn lyapunov disc: found" begin
+    @test sol.status == CPV.LYAPUNOV_FOUND
+end
+
+ϵ = 10.0
+δ = min(2/3, 1 - 3/(2*ϵ)) + 1e-5
+lear = CPV.Learner(nvar, nloc, sys, 0.0, ϵ, δ)
+CPV.set_tol!(lear, :rad, 0.0)
+point = [1.0]
+CPV.add_witness!(lear, 1, point)
+
+sol = CPV.learn_lyapunov!(lear, 2, solver)
+
+@testset "learn lyapunov cont: infeasible" begin
+    @test sol.status == CPV.LYAPUNOV_INFEASIBLE
+end
+
+ϵ = 10.0
+δ = min(2/3, 1 - 3/(2*ϵ)) - 1e-5
+lear = CPV.Learner(nvar, nloc, sys, 0.0, ϵ, δ)
+CPV.set_tol!(lear, :rad, 0.5 - 1e-5)
+point = [1.0]
+CPV.add_witness!(lear, 1, point)
+
+sol = CPV.learn_lyapunov!(lear, 2, solver)
+
+@testset "learn lyapunov cont: feasible" begin
+    @test sol.status == CPV.LYAPUNOV_FOUND
+end
+
+ϵ = 10.0
+δ = min(2/3, 1 - 3/(2*ϵ)) - 1e-5
+lear = CPV.Learner(nvar, nloc, sys, 0.0, ϵ, δ)
+CPV.set_tol!(lear, :rad, 0.5 + 1e-5)
+point = [1.0]
+CPV.add_witness!(lear, 1, point)
+
+sol = CPV.learn_lyapunov!(lear, 2, solver)
+
+@testset "learn lyapunov cont: radius too small" begin
+    @test sol.status == CPV.RADIUS_TOO_SMALL
+end
+
+## Learner Disc and Cont
+
+nvar = 1
+nloc = 2
+
+sys = System()
+
+domain = Cone()
+CPV.add_supp!(domain, [-1.0])
+A = reshape([2.0], 1, 1)
+CPV.add_piece_disc!(sys, domain, 1, A, 2)
+
+domain = Cone()
+CPV.add_supp!(domain, [-1.0])
+A = reshape([-1.0], 1, 1)
+CPV.add_piece_cont!(sys, domain, 2, A)
+
+τ = 0.1
+ϵ = 10.0
+δ = min(τ/(2 + τ), 1 - 1/(2*ϵ)) - 1e-5
+lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
+CPV.set_tol!(lear, :rad, 0.0)
+
+sol = CPV.learn_lyapunov!(lear, 1, solver)
+
+@testset "learn lyapunov disc & cont: max iter" begin
+    @test sol.status == CPV.MAX_ITER_REACHED
+end
+
+sol = CPV.learn_lyapunov!(lear, 3, solver)
+
+@testset "learn lyapunov disc & cont: found" begin
+    @test sol.status == CPV.LYAPUNOV_FOUND
+end
+
+τ = 0.1
+ϵ = 10.0
+δ = min(τ/(2 + τ), 1 - 1/(2*ϵ)) + 1e-5
+lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
+CPV.set_tol!(lear, :rad, 0.0)
+
+sol = CPV.learn_lyapunov!(lear, 3, solver)
+
+@testset "learn lyapunov disc & cont: infeasible" begin
+    @test sol.status == CPV.LYAPUNOV_INFEASIBLE
 end
 
 nothing

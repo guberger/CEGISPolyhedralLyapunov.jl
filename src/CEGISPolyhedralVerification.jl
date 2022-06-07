@@ -63,14 +63,6 @@ function add_piece_cont!(sys::System, domain, loc, A)
     push!(sys.cont_pieces, PieceCont(domain, loc, A))
 end
 
-# struct Witness
-#     state::State
-#     images::Vector{State}
-#     derivs::Vector{Deriv}
-# end
-
-# Witness(point::Point, loc::Int) = Witness(State(point, loc), State[], Deriv[])
-
 include("generator.jl")
 include("verifier.jl")
 include("learner.jl")

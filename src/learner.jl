@@ -1,6 +1,6 @@
 ## Learner
 
-struct PreEvidence
+struct Witness
     loc::Int
     point::Point
 end
@@ -12,7 +12,7 @@ struct Learner
     τ::Float64
     ϵ::Float64
     δ::Float64
-    pre_evids::Vector{PreEvidence}
+    witnesses::Vector{Witness}
     tols::Dict{Symbol,Float64}
 end
 
@@ -22,28 +22,29 @@ function Learner(
     tols = Dict([
         :rad => eps(1.0),
         :pos => -eps(1.0),
-        :lie => -eps(1.0),
+        :liedisc => -eps(1.0),
+        :liecont => -eps(1.0),
         :norm => eps(1.0)
     ])
-    return Learner(nvar, nloc, sys, τ, ϵ, δ, PreEvidence[], tols)
+    return Learner(nvar, nloc, sys, τ, ϵ, δ, Witness[], tols)
 end
 
 set_tol!(lear::Learner, s::Symbol, tol::Float64) = (lear.tols[s] = tol)
 
-function add_pre_evidence!(lear::Learner, loc::Int, point::Point)
+function add_witness!(lear::Learner, loc::Int, point::Point)
     npoint = norm(point, Inf)
     if npoint < lear.tols[:norm]*lear.nvar
         error(string("Point norm close to zero: ", npoint))
     end
     @assert 1 ≤ loc ≤ lear.nloc
-    push!(lear.pre_evids, PreEvidence(loc, point/npoint))
+    push!(lear.witnesses, Witness(loc, point/npoint))
 end
 
 ## Learn Lyapunov
 
-function _add_evidences!(gen, sys, τ, preevid)
-    point1 = preevid.point
-    loc1 = preevid.loc
+function _add_evidences!(gen, sys, τ, wit)
+    point1 = wit.point
+    loc1 = wit.loc
     i1 = add_lf!(gen, loc1)
     npoint1 = norm(point1, Inf) # new
     # npoint = norm(point) # old
@@ -52,7 +53,7 @@ function _add_evidences!(gen, sys, τ, preevid)
         !(loc1 == piece.loc1 && point1 ∈ piece.domain) && continue
         A = piece.A
         point2 = A*point1
-        loc2 = loc2
+        loc2 = piece.loc2
         npoint2 = norm(point2, Inf) # new
         # nderiv = norm(deriv) # old
         ndiff = norm(point2 - point1, Inf)
@@ -96,26 +97,36 @@ function _add_predicates!(verif, nvar, sys)
     end
 end
 
-function _verify_with_exit(verif, mpf, tol_pos, tol_lie, solver, do_print)
+function _verify_with_exit(
+        verif, mpf, tol_pos, tol_liedisc, tol_liecont, solver, do_print
+    )
     # new Eccentricity V1:
     do_print && print("|--- Verify pos... ")
     x, r_pos, loc = verify_pos(verif, mpf, solver)
     if r_pos > tol_pos
         do_print && println("CE found: ", x, ", ", r_pos, ", ", loc)
-        return x, loc, r_pos, -Inf
+        return x, loc, r_pos, -Inf, -Inf
     else
         do_print && println("No CE found: ", r_pos)
     end # end new Eccentricity V1
     # r_pos = Inf # new Eccentricity V2
-    do_print && print("|--- Verify lie... ")
-    x, r_lie, loc = verify_lie_cont(verif, mpf, solver)
-    if r_lie > tol_lie
-        do_print && println("CE found: ", x, ", ", r_lie, ", ", loc)
-        return x, loc, r_pos, r_lie
+    do_print && print("|--- Verify lie disc... ")
+    x, r_liedisc, loc = verify_lie_disc(verif, mpf, solver)
+    if r_liedisc > tol_liedisc
+        do_print && println("CE found: ", x, ", ", r_liedisc, ", ", loc)
+        return x, loc, r_pos, r_liedisc, -Inf
     else
-        do_print && println("No CE found: ", r_lie)
+        do_print && println("No CE found: ", r_liedisc)
     end
-    return Float64[], 0, r_pos, r_lie
+    do_print && print("|--- Verify lie cont... ")
+    x, r_liecont, loc = verify_lie_cont(verif, mpf, solver)
+    if r_liecont > tol_liecont
+        do_print && println("CE found: ", x, ", ", r_liedisc, ", ", loc)
+        return x, loc, r_pos, r_liedisc, r_liecont
+    else
+        do_print && println("No CE found: ", r_liecont)
+    end
+    return Float64[], 0, r_pos, r_liedisc, r_liecont
 end
 
 @enum StatusCode begin
@@ -126,27 +137,41 @@ end
     MAX_ITER_REACHED = 4
 end
 
+struct EvidenceMap
+    pos::BitSet
+    liedisc::BitSet
+    liecont::BitSet
+end
+
+EvidenceMap() = EvidenceMap(BitSet(), BitSet(), BitSet())
+
 mutable struct LearnerSolution
     status::StatusCode
     niter::Int
-    # witnesses_list::Vector{Vector{Witness}}
     mpf_list::Vector{MultiPolyFunc}
+    pos_evids::Vector{PosEvidence}
+    lied_evids::Vector{LieEvidence}
+    allwitmap_list::Vector{EvidenceMap}
+    newwitmap_list::Vector{EvidenceMap}
     r_list::Vector{Float64}
-    # counterexample_list::Vector{Witness}
     r_pos_list::Vector{Float64}
-    r_lie_list::Vector{Float64}
+    r_liedisc_list::Vector{Float64}
+    r_liecont_list::Vector{Float64}
 end
 
 LearnerSolution() = LearnerSolution(
-    NOT_SOLVED, 0, MultiPolyFunc[], Float64[], Float64[], Float64[]
+    NOT_SOLVED, 0, MultiPolyFunc[],
+    PosEvidence[], LieEvidence[],
+    EvidenceMap[], EvidenceMap[],
+    Float64[], Float64[], Float64[], Float64[]
 )
 
 function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
     gen = Generator(lear.nvar, lear.nloc)
     sol = LearnerSolution()
 
-    for preevid in lear.pre_evids
-        _add_evidences!(gen, lear.sys, lear.τ, preevid)
+    for wit in lear.witnesses
+        _add_evidences!(gen, lear.sys, lear.τ, wit)
     end
 
     verif = Verifier()
@@ -195,11 +220,14 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
         #     push!(lfs, -vec_side/(2*lear.ϵ))
         # end # end new Eccentricity V2
 
-        x, loc, r_pos, r_lie = _verify_with_exit(
-            verif, mpf, lear.tols[:pos], lear.tols[:lie], solver, do_print
+        x, loc, r_pos, r_liedisc, r_liecont = _verify_with_exit(
+            verif, mpf,
+            lear.tols[:pos], lear.tols[:liedisc], lear.tols[:liecont],
+            solver, do_print
         )
         push!(sol.r_pos_list, r_pos)
-        push!(sol.r_lie_list, r_lie)
+        push!(sol.r_liedisc_list, r_liedisc)
+        push!(sol.r_liecont_list, r_liecont)
         if isempty(x)
             println("No CE found")
             println("Valid CLF: terminated")
@@ -208,8 +236,8 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
         end
 
         point = x/norm(x, Inf)
-        preevid = PreEvidence(loc, point)
-        _add_evidences!(gen, lear.sys, lear.τ, preevid)
+        wit = Witness(loc, point)
+        _add_evidences!(gen, lear.sys, lear.τ, wit)
         # push!(sol.counterexample_list, wit)
         # push!(witnesses, wit)
         # push!(sol.witnesses_list, copy(witnesses))
