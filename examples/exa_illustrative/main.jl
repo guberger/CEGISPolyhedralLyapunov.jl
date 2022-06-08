@@ -105,11 +105,8 @@ ax.legend(handles=LH, fontsize=20, loc="upper left",
           facecolor="white", framealpha=1.0)
 
 fig.savefig(string(
-        @__DIR__,
-        "/../figures/AdaptiveComplexityLyapunov/",
-        "fig_exa_illustrative_generator_verifier.png"
-    ),
-    dpi=200, transparent=false, bbox_inches="tight")
+    @__DIR__, "/../figures/fig_exa_illustrative_generator_verifier.png"
+), dpi=200, transparent=false, bbox_inches="tight")
 
 ## Learner feasible illustration
 lear = CPV.Learner(nvar, loc, sys, τ, ϵ, δ)
@@ -197,11 +194,8 @@ for k = 1:nplot
 end
 
 fig.savefig(string(
-        @__DIR__,
-        "/../figures/AdaptiveComplexityLyapunov/",
-        "fig_exa_illustrative_learner_steps.png"
-    ),
-    dpi=200, transparent=false, bbox_inches="tight")
+    @__DIR__, "/../figures/fig_exa_illustrative_learner_steps.png"
+), dpi=200, transparent=false, bbox_inches="tight")
 
 ## Learner infeasible illustration
 δ = 0.1

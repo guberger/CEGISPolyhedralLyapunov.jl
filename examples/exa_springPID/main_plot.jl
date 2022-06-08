@@ -58,11 +58,8 @@ ax.set_zlabel(L"\ddot{x}", fontsize=28, rotation="horizontal", usetex=true)
 
 ax.view_init(elev=10.0, azim=-135)
 
-filename = 
 fig.savefig(string(
-        @__DIR__,
-        "/../figures/AdaptiveComplexityLyapunov/",
-        "fig_exa_mass_spring_lyapunov.png"
+        @__DIR__, "/../figures/fig_exa_mass_spring_lyapunov.png"
     ),
     dpi=200,
     transparent=false,
@@ -101,9 +98,7 @@ ax.set_ylabel(L"V(x(t))", fontsize=23, usetex=true)
 ax.tick_params(axis="both", which="major", labelsize=12)
 
 fig.savefig(string(
-        @__DIR__,
-        "/../figures/AdaptiveComplexityLyapunov/",
-        "fig_exa_mass_spring_decrease.png"
+        @__DIR__, "/../figures/fig_exa_mass_spring_decrease.png"
     ),
     dpi=200, transparent=false,
     bbox_inches=matplotlib.transforms.Bbox(((0.45, -0.3), (9.1, 2.7)))
