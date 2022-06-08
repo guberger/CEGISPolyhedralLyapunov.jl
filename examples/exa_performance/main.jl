@@ -6,9 +6,7 @@ using JuMP
 using Gurobi
 
 include("../../src/CEGISPolyhedralVerification.jl")
-CPL = CEGISPolyhedralVerification
-CPLA = CPL.AdaptiveComplexityLyapunov
-CPLP = CPL.Polyhedra
+CPV = CEGISPolyhedralVerification
 
 const GUROBI_ENV = Gurobi.Env()
 solver = optimizer_with_attributes(
@@ -16,9 +14,9 @@ solver = optimizer_with_attributes(
 )
 
 ## Parameters
+τ = 1/8 # 0.1
 ϵ = 10.0
-θ = 0.1
-δ = 1e-6
+nloc = 1
 
 f = open(string(@__DIR__, "/measurements.txt"), "w")
 iter = 0
@@ -31,46 +29,35 @@ for nvar in (4, 5, 6, 7, 8, 9)
     U = qr([float(iseven(i)) for i = 1:nvar]).Q
 
     a = [(k == 1 ? 1.0 : 0.0) for k = 1:nvar]
-    domain1 = CPLP.Cone()
-    CPLP.add_supp!(domain1, -a)
+    domain1 = CPV.Cone()
+    CPV.add_supp!(domain1, -a)
     A1 = U \ (ONE_ - (nvar + 1)*EYE_) * U
-    domain2 = CPLP.Cone()
-    CPLP.add_supp!(domain2, a)
+    domain2 = CPV.Cone()
+    CPV.add_supp!(domain2, a)
 
     str = @sprintf("nvar = %d\n", nvar)
     print(string("---> ", str))
     print(f, str)
 
     for γ in (1.0, 0.1, 0.01)
+        sys = CPV.System()
+        CPV.add_piece_cont!(sys, domain1, 1, A1)
+        A2 = U \ (ONE_ - (nvar + γ)*EYE_) * U
+        CPV.add_piece_cont!(sys, domain2, 1, A2)
         for δ in (γ/50, γ)
             global iter += 1
             iter > max_iter && break
-            sys = CPLA.System()
-            CPLA.add_piece!(sys, domain1, A1)
-            A2 = U \ (ONE_ - (nvar + γ)*EYE_) * U
-            CPLA.add_piece!(sys, domain2, A2)
-
-            lear = CPLA.Learner(nvar, sys, ϵ, θ, δ)
-
-            sol = @time CPLA.learn_lyapunov!(
+            lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
+            status, mpf, niter = @time CPV.learn_lyapunov!(
                 lear, 1000, solver, do_print=false
             )
-            time = @elapsed CPLA.learn_lyapunov!(
+            time = @elapsed CPV.learn_lyapunov!(
                 lear, 1000, solver, do_print=false
             )
-            complexity = 0
-            deriv = Inf
-            if sol.status == CPLA.LYAPUNOV_FOUND
-                deriv = sol.val_lie_list[sol.niter]
-                complexity = length(sol.vecs_list[sol.niter])
-            elseif sol.status == CPLA.LYAPUNOV_INFEASIBLE
-                complexity = sol.niter
-            else
-                error("Unexpected status")
-            end
+            @assert status ∈ (CPV.LYAPUNOV_FOUND, CPV.LYAPUNOV_INFEASIBLE)
             σ = -maximum(real.(eigvals(A2)))
-            str = @sprintf("%s %f | %f & %e & %.2f & %d\n",
-                sol.status, deriv, γ, σ, time, complexity)
+            str = @sprintf("%s | %f & %e & %.2f & %d\n",
+                status, γ, σ, time, niter)
             print(string("---> ", str))
             print(f, str)
             flush(f)
