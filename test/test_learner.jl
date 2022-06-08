@@ -58,7 +58,7 @@ status = CPV.learn_lyapunov!(lear, 2, solver, tracerec=tracerec)[1]
 
 @testset "learn lyapunov cont: found" begin
     @test status == CPV.LYAPUNOV_FOUND
-    @test length(tracerec.mpf_list) == 3
+    @test length(tracerec.mpf_list) == 2
     @test length(tracerec.pos_evids_list[2]) == 2
     @test length(tracerec.liedisc_evids_list[2]) == 0
     @test length(tracerec.liecont_evids_list[2]) == 2
@@ -215,7 +215,7 @@ status = CPV.learn_lyapunov!(lear, 3, solver, tracerec=tracerec)[1]
 
 @testset "learn lyapunov disc & cont: found" begin
     @test status == CPV.LYAPUNOV_FOUND
-    @test length(tracerec.mpf_list) == 4
+    @test length(tracerec.mpf_list) == 3
     @test length(tracerec.pos_evids_list[3]) == 2
     @test length(tracerec.liedisc_evids_list[3]) == 1
     @test length(tracerec.liecont_evids_list[3]) == 1

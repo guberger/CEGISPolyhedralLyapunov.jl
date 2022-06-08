@@ -173,7 +173,6 @@ function learn_lyapunov!(
     _add_predicates!(verif, lear.nvar, lear.sys)
 
     mpf = MultiPolyFunc(lear.nloc)
-    snapshot(tracerec, mpf)
     iter = 0
 
     while true

@@ -1,9 +1,8 @@
 using LinearAlgebra
 using PyCall
 const spatial = pyimport_conda("scipy.spatial", "scipy")
-Polyhedron = CEGISPolyhedralVerification.Polyhedron
 
-function compute_vertices_2d(p::Polyhedron, x::Vector)
+function compute_vertices_2d(p, x)
     A = zeros(length(p.halfspaces), 3)
     for (i, h) in enumerate(p.halfspaces)
         for k = 1:2
@@ -17,7 +16,7 @@ function compute_vertices_2d(p::Polyhedron, x::Vector)
     return [ch.points[i + 1, :] for i in ch.vertices]
 end
 
-function compute_simplices_3d(p::Polyhedron, x::Vector)
+function compute_simplices_3d(p, x)
     A = zeros(length(p.halfspaces), 4)
     for (i, h) in enumerate(p.halfspaces)
         for k = 1:3
