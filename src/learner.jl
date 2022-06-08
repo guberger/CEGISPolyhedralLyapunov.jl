@@ -58,7 +58,7 @@ function _add_evidences!(gen, sys, τ, wit)
     i1 = add_lf!(gen, loc1)
     npoint1 = norm(point1, Inf) # new
     # npoint = norm(point) # old
-    add_evidence_pos!(gen, loc1, i1, point1, npoint1)
+    add_evidence!(gen, PosEvidence(loc1, i1, point1, npoint1))
     for piece in sys.disc_pieces
         !(loc1 == piece.loc1 && point1 ∈ piece.domain) && continue
         A = piece.A
@@ -69,42 +69,38 @@ function _add_evidences!(gen, sys, τ, wit)
         ndiff = norm(point2 - point1, Inf)
         nA = opnorm(A, Inf)
         nD = opnorm(A - I, Inf)
-        add_evidence_lie!(
-            gen, loc1, i1, point1, loc2, point2,
-            npoint1, npoint2, ndiff, nA, nD
-        )
+        add_evidence!(gen, LieDiscEvidence(
+            loc1, i1, point1, loc2, point2, npoint1, npoint2, ndiff, nA, nD
+        ))
     end
     for piece in sys.cont_pieces
         !(loc1 == piece.loc && point1 ∈ piece.domain) && continue
         A = piece.A
         diff = τ*(A*point1)
         point2 = point1 + diff
-        loc2 = piece.loc
         npoint2 = norm(point2, Inf) # new
         # nderiv = norm(deriv) # old
         ndiff = norm(diff, Inf)
         nA = opnorm(I + τ*A, Inf)
         nD = opnorm(A, Inf)*τ
-        nA = 1 + nD
-        add_evidence_lie!(
-            gen, loc1, i1, point1, loc2, point2,
-            npoint1, npoint2, ndiff, nA, nD
-        )
+        add_evidence!(gen, LieContEvidence(
+            loc1, i1, point1, point2, npoint1, npoint2, ndiff, nA, nD, τ
+        ))
     end
 end
 
 function _add_predicates!(verif, nvar, sys)
     for piece in sys.disc_pieces
-        add_predicate_pos!(verif, nvar, piece.domain, piece.loc1)
-        add_predicate_lie_disc!(
-            verif, nvar, piece.domain, piece.loc1, piece.A, piece.loc2
-        )
+        add_predicate!(verif, PosPredicate(nvar, piece.domain, piece.loc1))
+        add_predicate!(verif, LieDiscPredicate(
+            nvar, piece.domain, piece.loc1, piece.A, piece.loc2
+        ))
     end
     for piece in sys.cont_pieces
-        add_predicate_pos!(verif, nvar, piece.domain, piece.loc)
-        add_predicate_lie_cont!(
-            verif, nvar, piece.domain, piece.loc, piece.A
-        )
+        add_predicate!(verif, PosPredicate(nvar, piece.domain, piece.loc))
+        add_predicate!(verif, LieContPredicate(
+            nvar, piece.domain, piece.loc, piece.A
+        ))
     end
 end
 

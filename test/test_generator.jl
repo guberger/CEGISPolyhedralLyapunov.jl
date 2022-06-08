@@ -63,13 +63,11 @@ CPV.add_lf!(gen, 1)
 point1 = [2, 0]
 point2 = [4, 0]
 τ = 2.0
-CPV.add_evidence!(
-    gen, LieContEvidence(
-        1, 1, point1, point2,
-        norm(point1, Inf), norm(point2, Inf),
-        norm(point2 - point1, Inf), 1.0, 0.0, τ
-    )
-)
+CPV.add_evidence!(gen, LieContEvidence(
+    1, 1, point1, point2,
+    norm(point1, Inf), norm(point2, Inf),
+    norm(point2 - point1, Inf), 1.0, 0.0, τ
+))
 
 ϵ = 1e5
 δ = 1.0
@@ -92,13 +90,11 @@ CPV.add_lf!(gen, 1)
 point1 = [2, 0]
 point2 = [4, 0]
 CPV.add_evidence!(gen, PosEvidence(1, 1, point1, norm(point1, Inf)))
-CPV.add_evidence!(
-    gen, LieContEvidence(
-        1, 1, point1, point2,
-        norm(point1, Inf), norm(point2, Inf),
-        norm(point2 - point1, Inf), 1.0, 0.0, 1.0
-    )
-)
+CPV.add_evidence!(gen, LieContEvidence(
+    1, 1, point1, point2,
+    norm(point1, Inf), norm(point2, Inf),
+    norm(point2 - point1, Inf), 1.0, 0.0, 1.0
+))
 
 ϵ = 1e5
 δ = 1.0
@@ -123,13 +119,11 @@ point = [2, 0]
 CPV.add_evidence!(gen, PosEvidence(2, 1, point, norm(point, Inf)))
 point1 = [2, 0]
 point2 = [4, 0]
-CPV.add_evidence!(
-    gen, LieDiscEvidence(
-        1, 1, point1, 2, point2,
-        norm(point1, Inf), norm(point2, Inf),
-        norm(point2 - point1, Inf), 2.0, 1.0
-    )
-)
+CPV.add_evidence!(gen, LieDiscEvidence(
+    1, 1, point1, 2, point2,
+    norm(point1, Inf), norm(point2, Inf),
+    norm(point2 - point1, Inf), 2.0, 1.0
+))
 
 ϵ = 1e5
 δ = 1.0
@@ -156,13 +150,11 @@ point = [2, 0]
 CPV.add_evidence!(gen, PosEvidence(2, 1, point, norm(point, Inf)))
 point1 = [2, 0]
 point2 = [4, 0]
-CPV.add_evidence!(
-    gen, LieDiscEvidence(
-        2, 1, point1, 1, point2,
-        norm(point1, Inf), norm(point2, Inf),
-        norm(point2 - point1, Inf), 4.0, 1.0
-    )
-)
+CPV.add_evidence!(gen, LieDiscEvidence(
+    2, 1, point1, 1, point2,
+    norm(point1, Inf), norm(point2, Inf),
+    norm(point2 - point1, Inf), 4.0, 1.0
+))
 
 ϵ = 1e5
 δ = 3.0
@@ -187,22 +179,18 @@ point = [2, 0]
 CPV.add_evidence!(gen, PosEvidence(1, 1, point, norm(point, Inf)))
 point1 = [0, 2]
 point2 = [4, 0]
-CPV.add_evidence!(
-    gen, LieDiscEvidence(
-        1, 1, point1, 2, point2,
-        norm(point1, Inf), norm(point2, Inf),
-        norm(point2 - point1, Inf), 4.0, 1.0
-    )
-)
+CPV.add_evidence!(gen, LieDiscEvidence(
+    1, 1, point1, 2, point2,
+    norm(point1, Inf), norm(point2, Inf),
+    norm(point2 - point1, Inf), 4.0, 1.0
+))
 point1 = [2, 0]
 point2 = [0, 0]
-CPV.add_evidence!(
-    gen, LieDiscEvidence(
-        2, 1, point1, 1, point2,
-        norm(point1, Inf), norm(point2, Inf),
-        norm(point2 - point1, Inf), 4.0, 1.0
-    )
-)
+CPV.add_evidence!(gen, LieDiscEvidence(
+    2, 1, point1, 1, point2,
+    norm(point1, Inf), norm(point2, Inf),
+    norm(point2 - point1, Inf), 4.0, 1.0
+))
 
 ϵ = 1e5
 δ = 0.0
@@ -224,12 +212,10 @@ gen = CPV.Generator(nvar, nloc)
 CPV.add_lf!(gen, 1)
 point1 = [0, 2]
 point2 = [0, 2]
-CPV.add_evidence!(
-    gen, LieContEvidence(
-        1, 1, point1, point2,
-        norm(point1, Inf), norm(point2, Inf), 0.0, -Inf, 1.0, 2.0
-    )
-)
+CPV.add_evidence!(gen, LieContEvidence(
+    1, 1, point1, point2,
+    norm(point1, Inf), norm(point2, Inf), 0.0, -Inf, 1.0, 2.0
+))
 
 rc = CPV.compute_mpf_chebyshev(gen, solver)[2]
 re = CPV.compute_mpf_evidence(gen, solver)[2]

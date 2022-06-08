@@ -12,6 +12,9 @@ Cone = CPV.Cone
 LinForm = CPV.LinForm
 PolyFunc = CPV.PolyFunc
 MultiPolyFunc = CPV.MultiPolyFunc
+PosPredicate = CPV.PosPredicate
+LieDiscPredicate = CPV.LieDiscPredicate
+LieContPredicate = CPV.LieContPredicate
 
 solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 
@@ -22,7 +25,7 @@ nvar = 2
 verif = CPV.Verifier()
 domain = Cone()
 CPV.add_supp!(domain, [1.0, 1.0])
-CPV.add_predicate_pos!(verif, nvar, domain, 1)
+CPV.add_predicate!(verif, PosPredicate(nvar, domain, 1))
 
 mpf = MultiPolyFunc(2)
 lins = [[-0.5, 0.5], [1.0, 0.0]]
@@ -42,7 +45,7 @@ end
 domain = Cone()
 lin = [4.0, 0.0]
 CPV.add_lf!(mpf, 2, lin)
-CPV.add_predicate_pos!(verif, nvar, domain, 2)
+CPV.add_predicate!(verif, PosPredicate(nvar, domain, 2))
 
 x, r, loc = CPV.verify_pos(verif, mpf, solver)
 
@@ -55,7 +58,7 @@ end
 verif = CPV.Verifier()
 domain = Cone()
 CPV.add_supp!(domain, [-1.0, -1.0])
-CPV.add_predicate_pos!(verif, nvar, domain, 1)
+CPV.add_predicate!(verif, PosPredicate(nvar, domain, 1))
 
 mpf = MultiPolyFunc(2)
 lins = [[-0.5, 0.5], [1.0, 0.0]]
@@ -77,7 +80,7 @@ end
 verif = CPV.Verifier()
 domain = Cone()
 A = [1.0 1.0; 0.0 1.0]
-CPV.add_predicate_lie_disc!(verif, nvar, domain, 1, A, 1)
+CPV.add_predicate!(verif, LieDiscPredicate(nvar, domain, 1, A, 1))
 
 mpf = MultiPolyFunc(2)
 lins = [[-1.0, 0.0], [1.0, 0.0]]
@@ -100,7 +103,7 @@ verif = CPV.Verifier()
 domain = Cone()
 CPV.add_supp!(domain, [-1.0, 0.0])
 A = [2.0 0.1; 0.0 1.0]
-CPV.add_predicate_lie_disc!(verif, nvar, domain, 1, A, 1)
+CPV.add_predicate!(verif, LieDiscPredicate(nvar, domain, 1, A, 1))
 
 mpf = MultiPolyFunc(2)
 lins = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
@@ -123,7 +126,7 @@ verif = CPV.Verifier()
 domain = Cone()
 CPV.add_supp!(domain, [1.0, 0.0])
 A = [0.0 0.1; 0.0 0.0]
-CPV.add_predicate_lie_disc!(verif, nvar, domain, 1, A, 1)
+CPV.add_predicate!(verif, LieDiscPredicate(nvar, domain, 1, A, 1))
 
 mpf = MultiPolyFunc(2)
 lins = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
@@ -145,7 +148,7 @@ verif = CPV.Verifier()
 domain = Cone()
 CPV.add_supp!(domain, [1.0, 0.0])
 A = [0.0 0.5; 0.5 0.0]
-CPV.add_predicate_lie_disc!(verif, nvar, domain, 1, A, 1)
+CPV.add_predicate!(verif, LieDiscPredicate(nvar, domain, 1, A, 1))
 
 mpf = MultiPolyFunc(2)
 lins = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
@@ -184,7 +187,7 @@ domain = Cone()
 CPV.add_supp!(domain, [-1.0, -1.0])
 CPV.add_supp!(domain, [-1.0, 1.0])
 A = [0.5 0.25; 0.0 1.0]
-CPV.add_predicate_lie_disc!(verif, nvar, domain, 2, A, 1)
+CPV.add_predicate!(verif, LieDiscPredicate(nvar, domain, 2, A, 1))
 
 mpf = MultiPolyFunc(2)
 lins = [[1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
@@ -222,7 +225,7 @@ end
 verif = CPV.Verifier()
 domain = Cone()
 A = [0.0 1.0; 0.0 0.0]
-CPV.add_predicate_lie_cont!(verif, nvar, domain, 1, A)
+CPV.add_predicate!(verif, LieContPredicate(nvar, domain, 1, A))
 
 mpf = MultiPolyFunc(2)
 lins = [[-1.0, 0.0], [1.0, 0.0]]
@@ -245,7 +248,7 @@ verif = CPV.Verifier()
 domain = Cone()
 CPV.add_supp!(domain, [-1.0, 0.0])
 A = [1.0 0.1; 0.0 0.0]
-CPV.add_predicate_lie_cont!(verif, nvar, domain, 1, A)
+CPV.add_predicate!(verif, LieContPredicate(nvar, domain, 1, A))
 
 mpf = MultiPolyFunc(2)
 lins = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
@@ -268,7 +271,7 @@ verif = CPV.Verifier()
 domain = Cone()
 CPV.add_supp!(domain, [1.0, 0.0])
 A = [-1.0 0.1; 0.0 -1.0]
-CPV.add_predicate_lie_cont!(verif, nvar, domain, 1, A)
+CPV.add_predicate!(verif, LieContPredicate(nvar, domain, 1, A))
 
 mpf = MultiPolyFunc(2)
 lins = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
@@ -290,7 +293,7 @@ verif = CPV.Verifier()
 domain = Cone()
 CPV.add_supp!(domain, [1.0, 0.0])
 A = [-101.1 99; 101 -99.1]
-CPV.add_predicate_lie_cont!(verif, nvar, domain, 1, A)
+CPV.add_predicate!(verif, LieContPredicate(nvar, domain, 1, A))
 
 mpf = MultiPolyFunc(2)
 lins = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]

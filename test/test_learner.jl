@@ -40,7 +40,7 @@ A = reshape([-1.0], 1, 1)
 CPV.add_piece_cont!(sys, domain, 1, A)
 
 ϵ = 10.0
-δ = 0.1 - 1e-5
+δ = 1.0 - 1e-5
 τ = 0.1
 lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 0.0)
@@ -60,7 +60,7 @@ status = CPV.learn_lyapunov!(lear, 2, solver)[1]
 end
 
 ϵ = 10.0
-δ = 0.1 + 1e-5
+δ = 1.0 + 1e-5
 τ = 0.1
 lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 0.0)
@@ -74,7 +74,7 @@ status = CPV.learn_lyapunov!(lear, 1, solver)[1]
 end
 
 ϵ = 10.0
-δ = 0.1 - 1e-5
+δ = 1.0 - 1e-5
 τ = 0.1
 lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 0.1 + 1e-5)
@@ -88,7 +88,7 @@ status = CPV.learn_lyapunov!(lear, 2, solver)[1]
 end
 
 ϵ = 10.0
-δ = 0.1 - 1e-5
+δ = 1.0 - 1e-5
 τ = 0.1
 lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 0.1 + 1e-5)
@@ -195,7 +195,7 @@ CPV.add_piece_cont!(sys, domain, 2, A)
 
 τ = 0.1
 ϵ = 10.0
-δ = min(τ/(2 + τ), 1 - 1/(2*ϵ)) - 1e-5
+δ = min(1/3, 1 - 1/(2*ϵ)) - 1e-5
 lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 0.0)
 
@@ -213,7 +213,7 @@ end
 
 τ = 0.1
 ϵ = 10.0
-δ = min(τ/(2 + τ), 1 - 1/(2*ϵ)) + 1e-5
+δ = min(1/3, 1 - 1/(2*ϵ)) + 1e-5
 lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 0.0)
 
