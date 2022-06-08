@@ -5,45 +5,59 @@ struct PosEvidence
     npoint::Float64
 end
 
-struct LieEvidence
+struct LieDiscEvidence
     loc1::Int
     i1::Int
     point1::Point
     loc2::Int
-    point2::Point
+    point2::Point # A*point1
     npoint1::Float64
     npoint2::Float64
-    ndiff::Float64
-    nA::Float64
-    nD::Float64
+    ndiff::Float64 # norm(point2 - point1)
+    nA::Float64 # opnorm(A)
+    nD::Float64 # opnorm(A - I)
+end
+
+struct LieContEvidence
+    loc::Int
+    i::Int
+    point1::Point
+    point2::Point # point1*(I + τ*A)
+    npoint1::Float64
+    npoint2::Float64
+    ndiff::Float64 # norm(A*point1)*τ
+    nA::Float64 # opnorm(I + A*τ)
+    nD::Float64 # opnorm(A*τ)
+    τ::Float64
 end
 
 struct Generator
     nvar::Int
     nlfs::Vector{Int}
     pos_evids::Vector{PosEvidence}
-    lie_evids::Vector{LieEvidence}
+    liedisc_evids::Vector{LieDiscEvidence}
+    liecont_evids::Vector{LieContEvidence}
 end
 
 Generator(nvar::Int, nloc::Int) = Generator(
-    nvar, zeros(Int, nloc), PosEvidence[], LieEvidence[]
+    nvar, zeros(Int, nloc),
+    PosEvidence[], LieDiscEvidence[], LieContEvidence[]
 )
 
 function add_lf!(gen::Generator, loc)
     return gen.nlfs[loc] += 1
 end
 
-function add_evidence_pos!(gen::Generator, loc, i, point, npoint)
-    push!(gen.pos_evids, PosEvidence(loc, i, point, npoint))
+function add_evidence!(gen::Generator, evid::PosEvidence)
+    push!(gen.pos_evids, evid)
 end
 
-function add_evidence_lie!(
-        gen::Generator,
-        loc1, i1, point1, loc2, point2, npoint1, npoint2, ndiff, nA, nD
-    )
-    push!(gen.lie_evids, LieEvidence(
-        loc1, i1, point1, loc2, point2, npoint1, npoint2, ndiff, nA, nD
-    ))
+function add_evidence!(gen::Generator, evid::LieDiscEvidence)
+    push!(gen.liedisc_evids, evid)
+end
+
+function add_evidence!(gen::Generator, evid::LieContEvidence)
+    push!(gen.liecont_evids, evid)
 end
 
 ## Compute lfs
@@ -90,25 +104,35 @@ _value(lf::_LF) = LinForm(value.(lf.lin))
 abstract type GeneratorProblem end
 
 _compute_mpf(prob::GeneratorProblem, gen::Generator, solver) = _compute_mpf(
-    prob, gen.nvar, gen.nlfs, gen.pos_evids, gen.lie_evids, solver
+    prob, gen.nvar, gen.nlfs,
+    gen.pos_evids, gen.liedisc_evids, gen.liecont_evids,
+    solver
 )
 
 function _compute_mpf(
         prob::GeneratorProblem, nvar, nlfs,
-        pos_evids, lie_evids, solver
+        pos_evids, liedisc_evids, liecont_evids,
+        solver
     )
     model = Model(solver)
     pfs, r = _add_vars!(model, nvar, nlfs)
 
-    for posevid in pos_evids
-        lf = pfs[posevid.loc].lfs[posevid.i]
-        _add_pos_constr_prob!(prob, model, lf, r, posevid)
+    for evid in pos_evids
+        lf = pfs[evid.loc].lfs[evid.i]
+        _add_constr_prob!(prob, model, lf, r, evid)
     end
 
-    for lieevid in lie_evids
-        lf1 = pfs[lieevid.loc1].lfs[lieevid.i1]
-        for lf2 in pfs[lieevid.loc2].lfs
-            _add_lie_constr_prob!(prob, model, lf1, lf2, r, lieevid)
+    for evid in liedisc_evids
+        lf1 = pfs[evid.loc1].lfs[evid.i1]
+        for lf2 in pfs[evid.loc2].lfs
+            _add_constr_prob!(prob, model, lf1, lf2, r, evid)
+        end
+    end
+
+    for evid in liecont_evids
+        lf1 = pfs[evid.loc].lfs[evid.i]
+        for lf2 in pfs[evid.loc].lfs
+            _add_constr_prob!(prob, model, lf1, lf2, r, evid)
         end
     end
 
@@ -138,22 +162,32 @@ struct GeneratorFeasibility <: GeneratorProblem
     δ::Float64
 end
 
-function _add_pos_constr_prob!(
-        prob::GeneratorFeasibility, model, lf, r, posevid
+function _add_constr_prob!(
+        prob::GeneratorFeasibility, model, lf, r, evid::PosEvidence
     )
-    point = posevid.point
-    α = posevid.npoint
-    β = posevid.npoint/prob.ϵ
+    point = evid.point
+    α = evid.npoint
+    β = evid.npoint/prob.ϵ
     _add_pos_constr!(model, lf, r, point, α, β)
 end
 
-function _add_lie_constr_prob!(
-        prob::GeneratorFeasibility, model, lf1, lf2, r, lieevid
+function _add_constr_prob!(
+        prob::GeneratorFeasibility, model, lf1, lf2, r, evid::LieDiscEvidence
     )
-    point1 = lieevid.point1
-    point2 = lieevid.point2
-    α = lieevid.npoint1
-    β = lieevid.npoint1*prob.δ
+    point1 = evid.point1
+    point2 = evid.point2
+    α = evid.npoint1
+    β = evid.npoint1*prob.δ
+    _add_lie_constr(model, lf1, lf2, r, point1, point2, α, β)
+end
+
+function _add_constr_prob!(
+        prob::GeneratorFeasibility, model, lf1, lf2, r, evid::LieContEvidence
+    )
+    point1 = evid.point1
+    point2 = evid.point2
+    α = evid.npoint1
+    β = evid.npoint1*evid.τ*prob.δ
     _add_lie_constr(model, lf1, lf2, r, point1, point2, α, β)
 end
 
@@ -168,23 +202,24 @@ end
 
 struct GeneratorChebyshev <: GeneratorProblem end
 
-function _add_pos_constr_prob!(
-        ::GeneratorChebyshev, model, lf, r, posevid
+function _add_constr_prob!(
+        ::GeneratorChebyshev, model, lf, r, evid::PosEvidence
     )
-    point = posevid.point
-    α = posevid.npoint
+    point = evid.point
+    α = evid.npoint
     _add_pos_constr!(model, lf, r, point, α, 0)
 end
 
-function _add_lie_constr_prob!(
-        prob::GeneratorChebyshev, model, lf1, lf2, r, lieevid
+function _add_constr_prob!(
+        ::GeneratorChebyshev, model, lf1, lf2, r,
+        evid::Union{LieDiscEvidence,LieContEvidence}
     )
-    point1 = lieevid.point1
-    point2 = lieevid.point2
+    point1 = evid.point1
+    point2 = evid.point2
     α::Float64 = lf1 == lf2 ?
-        lieevid.ndiff : lieevid.npoint1 + lieevid.npoint2
+        evid.ndiff : evid.npoint1 + evid.npoint2
     # α::Float64 = i1 == i2 ?
-        # lieevid.ndiff : 2*lieevid.npoint1 + lieevid.ndiff # old
+    #     evid.ndiff : 2*evid.npoint1 + evid.ndiff # old
     _add_lie_constr(model, lf1, lf2, r, point1, point2, α, 0)
 end
 
@@ -197,21 +232,23 @@ end
 
 struct GeneratorEvidence <: GeneratorProblem end
 
-function _add_pos_constr_prob!(
-        ::GeneratorEvidence, model, lf, r, posevid
+function _add_constr_prob!(
+        ::GeneratorEvidence, model, lf, r, evid::PosEvidence
     )
-    point = posevid.point
-    α = posevid.npoint
+    point = evid.point
+    α = evid.npoint
     _add_pos_constr!(model, lf, r, point, α, 0)
 end
 
-function _add_lie_constr_prob!(
-        prob::GeneratorEvidence, model, lf1, lf2, r, lieevid
+function _add_constr_prob!(
+        ::GeneratorEvidence, model, lf1, lf2, r,
+        evid::Union{LieDiscEvidence,LieContEvidence}
     )
-    point1 = lieevid.point1
-    point2 = lieevid.point2
+    point1 = evid.point1
+    point2 = evid.point2
+    α = evid.npoint1*(1 + evid.nA)
     α::Float64 = lf1 == lf2 ?
-        lieevid.npoint1*lieevid.nD : lieevid.npoint1*(1 + lieevid.nA)
+        evid.npoint1*evid.nD : evid.npoint1*(1 + evid.nA)
     _add_lie_constr(model, lf1, lf2, r, point1, point2, α, 0)
 end
 
