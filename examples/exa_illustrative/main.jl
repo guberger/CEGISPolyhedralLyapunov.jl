@@ -6,9 +6,12 @@ using Gurobi
 using PyPlot
 
 include("../../src/CEGISPolyhedralVerification.jl")
-CPLA = CEGISPolyhedralVerification.AdaptiveComplexityLyapunov
-CPLP = CEGISPolyhedralVerification.Polyhedra
-include("../../utils/geometry.jl")
+CPV = CEGISPolyhedralVerification
+Cone = CPV.Cone
+System = CPV.System
+Witness = CPV.Witness
+
+include("../utils/geometry.jl")
 include("plotting.jl")
 
 const GUROBI_ENV = Gurobi.Env()
@@ -17,44 +20,46 @@ solver = optimizer_with_attributes(
 )
 
 ## Parameters
+τ = 1/3.2 # 0.1
 ϵ = 10.0
-θ = 1/3.2 # 0.1
 δ = 0.025 # 0.1
 nvar = 2
+nloc = 1
 
-sys = CPLA.System()
+sys = System()
 
-domain = CPLP.Cone()
-CPLP.add_supp!(domain, [0.0, -1.0])
+domain = Cone()
+CPV.add_supp!(domain, [0.0, -1.0])
 A = [-0.5 1.0; -1.0 -0.5]
-CPLA.add_piece!(sys, domain, A)
+CPV.add_piece_cont!(sys, domain, 1, A)
 
-domain = CPLP.Cone()
-CPLP.add_supp!(domain, [0.0, 1.0])
+domain = Cone()
+CPV.add_supp!(domain, [0.0, 1.0])
 A = [0.01 1.0; -1.0 0.01]
-CPLA.add_piece!(sys, domain, A)
+CPV.add_piece_cont!(sys, domain, 1, A)
 
 ## Generator and verifier illustration
 
 # Generator:
-gen = CPLA.Generator(nvar)
+gen = CPV.Generator(nvar, nloc)
+
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
 points = map(α -> [cos(α), sin(α)], α_list)
-witnesses = CPLA.Witness[]
 for point in points
-    wit = CPLA.make_witness_from_point_system(sys, point)
-    CPLA.add_witness!(gen, wit)
-    push!(witnesses, wit)
+    wit = Witness(1, point/norm(point, Inf))
+    CPV._add_evidences!(gen, sys, τ, wit)
 end
-# lfs, r = CPLA.compute_lfs_chebyshev(gen, 1/θ, solver)
-lfs, r = CPLA.compute_lfs_witness(gen, 1/θ, solver) # test
+# mpf, r = CPV.compute_mpf_chebyshev(gen, solver)
+mpf, r = CPV.compute_mpf_evidence(gen, solver) # test
 
 # Verifier:
-verif = CPLA.make_verif_from_system(nvar, sys)
-x, val, q = CPLA.verify_lie(verif, lfs, solver)
-ce_point = x/norm(x, Inf)
+verif = CPV.Verifier()
+CPV._add_predicates!(verif, nvar, sys)
+x, r_liecont, loc = CPV.verify_lie_cont(verif, mpf, solver)
+wit = Witness(loc, x/norm(x, Inf))
 
+#=
 # Illustration
 fig = figure(0, figsize=(8, 10))
 ax = fig.add_subplot(aspect="equal")
@@ -69,11 +74,11 @@ ax.tick_params(axis="both", labelsize=15)
 ax.plot(xlims, (0, 0), ls="--", c="black", lw=1.0)
 ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
 
-plot_field!(ax, sys, xlims, ylims, 20)
-level = plot_level!(ax, lfs, 1.8)
+plot_field_cont!(ax, sys, xlims, ylims, 20)
+level = plot_level!(ax, mpf, 1.8)
 plot_witnesses!(ax, witnesses, lfs, level, 0.6)
 
-ce_wit = CPLA.make_witness_from_point_system(sys, ce_point)
+ce_wit = CPV.make_witness_from_point_system(sys, ce_point)
 plot_witnesses!(ax, (ce_wit,), lfs, level, 0.6, mc="black", lc="red")
 
 ax.text(1.5, +1.6, L"q=1",
@@ -94,20 +99,22 @@ fig.savefig(string(
         "fig_exa_illustrative_generator_verifier.png"
     ),
     dpi=200, transparent=false, bbox_inches="tight")
+=#
 
 ## Learner feasible illustration
-lear = CPLA.Learner(nvar, sys, ϵ, θ, δ)
-CPLA.set_tol!(lear, :rad, 1e-3)
+lear = CPV.Learner(nvar, loc, sys, τ, ϵ, δ*τ)
+CPV.set_tol!(lear, :rad, 1e-3)
 
 points_init = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 for point in points_init
-    CPLA.add_point_init!(lear, point)
+    CPV.add_witness!(lear, 1, point)
 end
 
-sol = CPLA.learn_lyapunov!(lear, 100, solver)
+status = CPV.learn_lyapunov!(lear, 100, solver)[1]
 
-@assert sol.status == CPLA.LYAPUNOV_FOUND
+@assert status == CPV.LYAPUNOV_FOUND
 
+#=
 fig = figure(2, figsize=(8, 8))
 ax_ = fig.subplots(
     nrows=3, ncols=3,
@@ -180,16 +187,17 @@ fig.savefig(string(
 ## Learner infeasible illustration
 δ = 0.05
 
-lear = CPLA.Learner(nvar, sys, ϵ, θ, δ)
-CPLA.set_tol!(lear, :rad, 1e-3)
+lear = CPV.Learner(nvar, sys, ϵ, θ, δ)
+CPV.set_tol!(lear, :rad, 1e-3)
 
 points_init = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 for point in points_init
-    CPLA.add_point_init!(lear, point)
+    CPV.add_point_init!(lear, point)
 end
 
-sol = CPLA.learn_lyapunov!(lear, 100, solver)
+sol = CPV.learn_lyapunov!(lear, 100, solver)
 display(sol.status)
 display(sol.niter)
+=#
 
 end # module

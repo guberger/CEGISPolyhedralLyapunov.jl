@@ -1,7 +1,7 @@
 using LinearAlgebra
 using PyCall
 const spatial = pyimport_conda("scipy.spatial", "scipy")
-using .CEGISPolyhedralVerification.Polyhedra: Polyhedron
+Polyhedron = CEGISPolyhedralVerification.Polyhedron
 
 function compute_vertices_2d(p::Polyhedron, x::Vector)
     A = zeros(length(p.halfspaces), 3)

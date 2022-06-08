@@ -1,11 +1,11 @@
-function plot_field!(ax, sys, xlims, ylims, ngrid; c="gray")
+function plot_field_cont!(ax, sys, xlims, ylims, ngrid; c="gray")
     x1_grid = range(xlims..., length=ngrid)
     x2_grid = range(ylims..., length=ngrid)
     X = map(x -> [x...], Iterators.product(x1_grid, x2_grid))
     X1 = getindex.(X, 1)
     X2 = getindex.(X, 2)
 
-    for piece in sys.pieces
+    for piece in sys.cont_pieces
         D = Matrix{Vector{Float64}}(undef, ngrid, ngrid)
         for (k, x) in enumerate(X)
             if x ∈ piece.domain
@@ -20,10 +20,10 @@ function plot_field!(ax, sys, xlims, ylims, ngrid; c="gray")
     end
 end
 
-function plot_level!(ax, lfs, radmax; fc="gold", fa=0.5, ec="gold", ew=2.0)
-    p = CPLP.Polyhedron()
-    for lf in lfs
-        CPLP.add_halfspace!(p, lf.lin, -1)
+function plot_level!(ax, mpf, radmax; fc="gold", fa=0.5, ec="gold", ew=2.0)
+    p = Polyhedron()
+    for lf in mpf.pfs[1].lfs
+        CPV.add_halfspace!(p, lf.lin, -1)
     end
     verts = compute_vertices_2d(p, zeros(2))
     verts_radius = maximum(vert -> norm(vert, Inf), verts)

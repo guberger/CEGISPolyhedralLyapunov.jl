@@ -85,6 +85,7 @@ function _add_evidences!(gen, sys, τ, wit)
         ndiff = norm(diff, Inf)
         nA = opnorm(I + τ*A, Inf)
         nD = opnorm(A, Inf)*τ
+        nA = 1 + nD
         add_evidence_lie!(
             gen, loc1, i1, point1, loc2, point2,
             npoint1, npoint2, ndiff, nA, nD
@@ -131,7 +132,7 @@ function _verify_with_exit(
     do_print && print("|--- Verify lie cont... ")
     x, r_liecont, loc = verify_lie_cont(verif, mpf, solver)
     if r_liecont > tol_liecont
-        do_print && println("CE found: ", x, ", ", r_liedisc, ", ", loc)
+        do_print && println("CE found: ", x, ", ", r_liecont, ", ", loc)
         return x, loc, r_pos, r_liedisc, r_liecont
     else
         do_print && println("No CE found: ", r_liecont)
