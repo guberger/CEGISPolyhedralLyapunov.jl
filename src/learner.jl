@@ -136,17 +136,44 @@ function _verify_with_exit(
     return Float64[], 0, r_pos, r_liedisc, r_liecont
 end
 
-function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
-    gen = Generator(lear.nvar, lear.nloc)
+snapshot(::Nothing, ::Any) = nothing
 
+struct TraceRecorder
+    mpf_list::Vector{MultiPolyFunc}
+    pos_evids_list::Vector{Vector{PosEvidence}}
+    liedisc_evids_list::Vector{Vector{LieDiscEvidence}}
+    liecont_evids_list::Vector{Vector{LieContEvidence}}
+end
+
+TraceRecorder() = TraceRecorder(
+    MultiPolyFunc[], PosEvidence[], LieDiscEvidence[], LieContEvidence[]
+)
+
+function snapshot(tracerec::TraceRecorder, gen::Generator)
+    push!(tracerec.pos_evids_list, copy(gen.pos_evids))
+    push!(tracerec.liedisc_evids_list, copy(gen.liedisc_evids))
+    push!(tracerec.liecont_evids_list, copy(gen.liecont_evids))
+end
+
+function snapshot(tracerec::TraceRecorder, mpf::MultiPolyFunc)
+    push!(tracerec.mpf_list, mpf)
+end
+
+function learn_lyapunov!(
+        lear::Learner, iter_max, solver;
+        do_print=true, tracerec=nothing
+    )
+    gen = Generator(lear.nvar, lear.nloc)
     for wit in lear.witnesses
         _add_evidences!(gen, lear.sys, lear.τ, wit)
     end
+    snapshot(tracerec, gen)
 
     verif = Verifier()
     _add_predicates!(verif, lear.nvar, lear.sys)
 
     mpf = MultiPolyFunc(lear.nloc)
+    snapshot(tracerec, mpf)
     iter = 0
 
     while true
@@ -169,6 +196,7 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
 
         # mpf, r = compute_mpf_chebyshev(gen, 1/lear.θ, solver)
         mpf, r = compute_mpf_evidence(gen, solver) # test
+        snapshot(tracerec, mpf)
         if do_print
             println("|--- radius: ", r)
         end
@@ -198,6 +226,7 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
         point = x/norm(x, Inf)
         wit = Witness(loc, point)
         _add_evidences!(gen, lear.sys, lear.τ, wit)
+        snapshot(tracerec, gen)
         # push!(sol.counterexample_list, wit)
         # push!(witnesses, wit)
         # push!(sol.witnesses_list, copy(witnesses))
