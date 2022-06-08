@@ -5,27 +5,26 @@ using PyPlot
 using PyCall
 art3d = PyObject(PyPlot.art3D)
 include("../../src/CEGISPolyhedralVerification.jl")
-CPLA = CEGISPolyhedralVerification.AdaptiveComplexityLyapunov
-CPLP = CEGISPolyhedralVerification.Polyhedra
-include("../../utils/geometry.jl")
+CPV = CEGISPolyhedralVerification
+include("../utils/geometry.jl")
 
 datafile = "dataset_3"
 include(string("./datasets/", datafile, ".jl"))
 
 str = readlines(string(@__DIR__, "/results/", datafile, ".txt"))
 M = length(str)
-lfs = Vector{CPLA.LinForm}(undef, M)
+lfs = Vector{CPV.LinForm}(undef, M)
 
 for (i, ln) in enumerate(str)
     ln = replace(ln, r"[\[\],]"=>"")
     words = split(ln)
     @assert length(words) == 3
-    lfs[i] = CPLA.LinForm(parse.(Float64, words))
+    lfs[i] = CPV.LinForm(parse.(Float64, words))
 end
 
-p = CPLP.Polyhedron()
+p = CPV.Polyhedron()
 for lf in lfs
-    CPLP.add_halfspace!(p, lf.lin, -1.0)
+    CPV.add_halfspace!(p, lf.lin, -1.0)
 end
 simplices = compute_simplices_3d(p, zeros(3))
 
@@ -45,10 +44,10 @@ ax.add_collection3d(polylist)
 
 ax.set_xlim((-2, 2))
 ax.set_ylim((-8, 8))
-ax.set_zlim((-35, 65))
+ax.set_zlim((-35, 35))
 ax.set_xticks(-2:1:2)
 ax.set_yticks(-8:4:8)
-ax.set_zticks(-30:15:60)
+ax.set_zticks(-30:15:30)
 ax.tick_params(axis="both", which="major", labelsize=15)
 
 ax.yaxis.set_rotate_label(false)
@@ -62,7 +61,7 @@ ax.view_init(elev=10.0, azim=-135)
 filename = 
 fig.savefig(string(
         @__DIR__,
-        "/../../figures/AdaptiveComplexityLyapunov/",
+        "/../figures/AdaptiveComplexityLyapunov/",
         "fig_exa_mass_spring_lyapunov.png"
     ),
     dpi=200,
@@ -79,7 +78,7 @@ Vplot_seq = Vector{Float64}(undef, nstep)
 
 for t = 1:nstep
     global x
-    Vplot_seq[t] = maximum(lf -> CPLA._eval(lf, x), lfs)
+    Vplot_seq[t] = maximum(lf -> CPV._eval(lf, x), lfs)
     xnext = Vector{Float64}(undef, 3)
     if Kd*x[3] + Kp*x[2] + Ki*x[1] ≥ 0
         xnext[1] = x[1] + dt*(x[2])
@@ -103,7 +102,7 @@ ax.tick_params(axis="both", which="major", labelsize=12)
 
 fig.savefig(string(
         @__DIR__,
-        "/../../figures/AdaptiveComplexityLyapunov/",
+        "/../figures/AdaptiveComplexityLyapunov/",
         "fig_exa_mass_spring_decrease.png"
     ),
     dpi=200, transparent=false,

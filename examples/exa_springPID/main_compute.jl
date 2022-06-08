@@ -16,16 +16,11 @@ solver = optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
 )
 
-# Notes:
-# Performs well with: ϵ = 50.0, θ = 0.04 (G = 25.0),
-# New Deriv V1 (norm(deriv, Inf)) and
-# New Eccentricity V1 (pos witnesses and lie witnesses)
-# (requires 77 pieces)
-# Performs also ok with New Deriv V2 (opnorm(A, Inf))
-# (requires 155 pieces)
+# With τ = 1/32, ϵ = 50, δ = 1e-4; with nD = opnorm(A - I)
+# finds PLF in 145 steps
 
 ## Parameters
-τ = 0.04 # 0.039 # 1e-2
+τ = 1/32 # 0.039 # 1e-2
 ϵ = 50.0 # 50.0
 δ = 0.0001 # eps(1.0)
 nvar = 3
@@ -46,21 +41,15 @@ CPV.add_piece_cont!(sys, domain, 1, A)
 lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 1e-6) # -1e-5
 
-for k = 1:nvar
-    local point = [(k_ == k ? 1.0 : 0.0) for k_ = 1:nvar]
-    CPV.add_witness!(lear, 1, point)
-    CPV.add_witness!(lear, 1, -point)
-end
-
 ## Solving
-status = CPV.learn_lyapunov!(lear, 1000, solver)[1]
+status, mpf, niter = CPV.learn_lyapunov!(lear, 1000, solver)
 
 display(status)
 
-# f = open(string(@__DIR__, "/results/", datafile, ".txt"), "w")
-# for lf in sol.lfs_list[sol.niter]
-#     println(f, lf.lin)
-# end
-# close(f)
+f = open(string(@__DIR__, "/results/", datafile, ".txt"), "w")
+for lf in mpf.pfs[1].lfs
+    println(f, lf.lin)
+end
+close(f)
 
 end # module
