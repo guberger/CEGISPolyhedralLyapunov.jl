@@ -17,6 +17,7 @@ solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
 nvar = 2
 
 ## Empty
+nloc = 1
 gen = CPV.Generator(nvar, nloc)
 
 rf = CPV.compute_mpf_feasibility(gen, 1e5, 1.0, solver)[2]

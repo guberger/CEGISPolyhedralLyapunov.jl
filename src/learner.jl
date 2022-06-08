@@ -1,5 +1,15 @@
 ## Learner
 
+@enum StatusCode begin
+    NOT_SOLVED = 0
+    LYAPUNOV_FOUND = 1
+    LYAPUNOV_INFEASIBLE = 2
+    RADIUS_TOO_SMALL = 3
+    MAX_ITER_REACHED = 4
+end
+
+## Learner
+
 struct Witness
     loc::Int
     point::Point
@@ -129,46 +139,8 @@ function _verify_with_exit(
     return Float64[], 0, r_pos, r_liedisc, r_liecont
 end
 
-@enum StatusCode begin
-    NOT_SOLVED = 0
-    LYAPUNOV_FOUND = 1
-    LYAPUNOV_INFEASIBLE = 2
-    RADIUS_TOO_SMALL = 3
-    MAX_ITER_REACHED = 4
-end
-
-struct EvidenceMap
-    pos::BitSet
-    liedisc::BitSet
-    liecont::BitSet
-end
-
-EvidenceMap() = EvidenceMap(BitSet(), BitSet(), BitSet())
-
-mutable struct LearnerSolution
-    status::StatusCode
-    niter::Int
-    mpf_list::Vector{MultiPolyFunc}
-    pos_evids::Vector{PosEvidence}
-    lied_evids::Vector{LieEvidence}
-    allwitmap_list::Vector{EvidenceMap}
-    newwitmap_list::Vector{EvidenceMap}
-    r_list::Vector{Float64}
-    r_pos_list::Vector{Float64}
-    r_liedisc_list::Vector{Float64}
-    r_liecont_list::Vector{Float64}
-end
-
-LearnerSolution() = LearnerSolution(
-    NOT_SOLVED, 0, MultiPolyFunc[],
-    PosEvidence[], LieEvidence[],
-    EvidenceMap[], EvidenceMap[],
-    Float64[], Float64[], Float64[], Float64[]
-)
-
 function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
     gen = Generator(lear.nvar, lear.nloc)
-    sol = LearnerSolution()
 
     for wit in lear.witnesses
         _add_evidences!(gen, lear.sys, lear.τ, wit)
@@ -177,16 +149,15 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
     verif = Verifier()
     _add_predicates!(verif, lear.nvar, lear.sys)
 
+    mpf = MultiPolyFunc(lear.nloc)
     iter = 0
 
     while true
         iter += 1
         do_print && println("Iter: ", iter)
-        sol.niter = iter
         if iter > iter_max
             println(string("Max iter exceeded: ", iter))
-            sol.status = MAX_ITER_REACHED
-            return sol
+            return MAX_ITER_REACHED, mpf, iter
         end
 
         # Feasibility check:
@@ -196,8 +167,7 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
                 "System does not admit a Lyapunov function with parameters: ",
                 "ϵ: ", lear.ϵ, ", δ: ", lear.δ, ", slack ", slack
             ))
-            sol.status = LYAPUNOV_INFEASIBLE
-            return sol
+            return LYAPUNOV_INFEASIBLE, mpf, iter
         end # end Feasibility check
 
         # mpf, r = compute_mpf_chebyshev(gen, 1/lear.θ, solver)
@@ -205,12 +175,9 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
         if do_print
             println("|--- radius: ", r)
         end
-        push!(sol.mpf_list, mpf)
-        push!(sol.r_list, r)
         if r < lear.tols[:rad]
             println(string("Satisfiability radius too small: ", r))
-            sol.status = RADIUS_TOO_SMALL
-            return sol
+            return RADIUS_TOO_SMALL, mpf, iter
         end
 
         # new Eccentricity V2:
@@ -225,14 +192,10 @@ function learn_lyapunov!(lear::Learner, iter_max, solver; do_print=true)
             lear.tols[:pos], lear.tols[:liedisc], lear.tols[:liecont],
             solver, do_print
         )
-        push!(sol.r_pos_list, r_pos)
-        push!(sol.r_liedisc_list, r_liedisc)
-        push!(sol.r_liecont_list, r_liecont)
         if isempty(x)
             println("No CE found")
             println("Valid CLF: terminated")
-            sol.status = LYAPUNOV_FOUND
-            return sol
+            return LYAPUNOV_FOUND, mpf, iter
         end
 
         point = x/norm(x, Inf)

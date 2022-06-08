@@ -47,16 +47,16 @@ CPV.set_tol!(lear, :rad, 0.0)
 point = [1.0]
 CPV.add_witness!(lear, 1, point)
 
-sol = CPV.learn_lyapunov!(lear, 1, solver)
+status = CPV.learn_lyapunov!(lear, 1, solver)[1]
 
 @testset "learn lyapunov cont: max iter" begin
-    @test sol.status == CPV.MAX_ITER_REACHED
+    @test status == CPV.MAX_ITER_REACHED
 end
 
-sol = CPV.learn_lyapunov!(lear, 2, solver)
+status = CPV.learn_lyapunov!(lear, 2, solver)[1]
 
 @testset "learn lyapunov cont: found" begin
-    @test sol.status == CPV.LYAPUNOV_FOUND
+    @test status == CPV.LYAPUNOV_FOUND
 end
 
 ϵ = 10.0
@@ -67,10 +67,10 @@ CPV.set_tol!(lear, :rad, 0.0)
 point = [1.0]
 CPV.add_witness!(lear, 1, point)
 
-sol = CPV.learn_lyapunov!(lear, 1, solver)
+status = CPV.learn_lyapunov!(lear, 1, solver)[1]
 
 @testset "learn lyapunov cont: infeasible" begin
-    @test sol.status == CPV.LYAPUNOV_INFEASIBLE
+    @test status == CPV.LYAPUNOV_INFEASIBLE
 end
 
 ϵ = 10.0
@@ -81,10 +81,10 @@ CPV.set_tol!(lear, :rad, 0.1 + 1e-5)
 point = [1.0]
 CPV.add_witness!(lear, 1, point)
 
-sol = CPV.learn_lyapunov!(lear, 2, solver)
+status = CPV.learn_lyapunov!(lear, 2, solver)[1]
 
 @testset "learn lyapunov cont: found" begin
-    @test sol.status == CPV.LYAPUNOV_FOUND
+    @test status == CPV.LYAPUNOV_FOUND
 end
 
 ϵ = 10.0
@@ -96,10 +96,10 @@ point = [1.0]
 CPV.add_witness!(lear, 1, point)
 CPV.add_witness!(lear, 1, point)
 
-sol = CPV.learn_lyapunov!(lear, 2, solver)
+status = CPV.learn_lyapunov!(lear, 2, solver)[1]
 
 @testset "learn lyapunov cont: radius too small" begin
-    @test sol.status == CPV.RADIUS_TOO_SMALL
+    @test status == CPV.RADIUS_TOO_SMALL
 end
 
 ## Learner Disc
@@ -125,16 +125,16 @@ CPV.set_tol!(lear, :rad, 0.0)
 point = [1.0]
 CPV.add_witness!(lear, 1, point)
 
-sol = CPV.learn_lyapunov!(lear, 1, solver)
+status = CPV.learn_lyapunov!(lear, 1, solver)[1]
 
 @testset "learn lyapunov disc: max iter" begin
-    @test sol.status == CPV.MAX_ITER_REACHED
+    @test status == CPV.MAX_ITER_REACHED
 end
 
-sol = CPV.learn_lyapunov!(lear, 2, solver)
+status = CPV.learn_lyapunov!(lear, 2, solver)[1]
 
 @testset "learn lyapunov disc: found" begin
-    @test sol.status == CPV.LYAPUNOV_FOUND
+    @test status == CPV.LYAPUNOV_FOUND
 end
 
 ϵ = 10.0
@@ -144,10 +144,10 @@ CPV.set_tol!(lear, :rad, 0.0)
 point = [1.0]
 CPV.add_witness!(lear, 1, point)
 
-sol = CPV.learn_lyapunov!(lear, 2, solver)
+status = CPV.learn_lyapunov!(lear, 2, solver)[1]
 
 @testset "learn lyapunov cont: infeasible" begin
-    @test sol.status == CPV.LYAPUNOV_INFEASIBLE
+    @test status == CPV.LYAPUNOV_INFEASIBLE
 end
 
 ϵ = 10.0
@@ -157,10 +157,10 @@ CPV.set_tol!(lear, :rad, 0.5 - 1e-5)
 point = [1.0]
 CPV.add_witness!(lear, 1, point)
 
-sol = CPV.learn_lyapunov!(lear, 2, solver)
+status = CPV.learn_lyapunov!(lear, 2, solver)[1]
 
 @testset "learn lyapunov cont: feasible" begin
-    @test sol.status == CPV.LYAPUNOV_FOUND
+    @test status == CPV.LYAPUNOV_FOUND
 end
 
 ϵ = 10.0
@@ -170,10 +170,10 @@ CPV.set_tol!(lear, :rad, 0.5 + 1e-5)
 point = [1.0]
 CPV.add_witness!(lear, 1, point)
 
-sol = CPV.learn_lyapunov!(lear, 2, solver)
+status = CPV.learn_lyapunov!(lear, 2, solver)[1]
 
 @testset "learn lyapunov cont: radius too small" begin
-    @test sol.status == CPV.RADIUS_TOO_SMALL
+    @test status == CPV.RADIUS_TOO_SMALL
 end
 
 ## Learner Disc and Cont
@@ -199,16 +199,16 @@ CPV.add_piece_cont!(sys, domain, 2, A)
 lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 0.0)
 
-sol = CPV.learn_lyapunov!(lear, 1, solver)
+status = CPV.learn_lyapunov!(lear, 1, solver)[1]
 
 @testset "learn lyapunov disc & cont: max iter" begin
-    @test sol.status == CPV.MAX_ITER_REACHED
+    @test status == CPV.MAX_ITER_REACHED
 end
 
-sol = CPV.learn_lyapunov!(lear, 3, solver)
+status = CPV.learn_lyapunov!(lear, 3, solver)[1]
 
 @testset "learn lyapunov disc & cont: found" begin
-    @test sol.status == CPV.LYAPUNOV_FOUND
+    @test status == CPV.LYAPUNOV_FOUND
 end
 
 τ = 0.1
@@ -217,10 +217,10 @@ end
 lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 0.0)
 
-sol = CPV.learn_lyapunov!(lear, 3, solver)
+status = CPV.learn_lyapunov!(lear, 3, solver)[1]
 
 @testset "learn lyapunov disc & cont: infeasible" begin
-    @test sol.status == CPV.LYAPUNOV_INFEASIBLE
+    @test status == CPV.LYAPUNOV_INFEASIBLE
 end
 
 nothing
