@@ -109,12 +109,17 @@ _compute_mpf(prob::GeneratorProblem, gen::Generator, solver) = _compute_mpf(
     solver
 )
 
+using Gurobi
+
 function _compute_mpf(
         prob::GeneratorProblem, nvar, nlfs,
         pos_evids, liedisc_evids, liecont_evids,
         solver
     )
-    model = Model(solver)
+    # model = Model(solver)
+    model = direct_model(Gurobi.Optimizer())
+    set_optimizer_attribute(model, "Method", 2)
+    display(typeof(backend(model)))
     pfs, r = _add_vars!(model, nvar, nlfs)
 
     for evid in pos_evids
@@ -137,6 +142,17 @@ function _compute_mpf(
     end
 
     @objective(model, Max, r)
+
+    # f = open(string("./model.txt"), "w")
+    # # print(f, backend(model))
+    display(Gurobi.GRBwrite(backend(model), string(
+        "C:/Users/guill/Documents/GITHUB REPOSITORIES/",
+        "guberger/CEGISPolyhedralVerification.jl/model.txt"
+    )))
+    # close(f)
+
+    # Gurobi.GRBwrite(backend(model), string("./model.txt"))
+    # print(backend(model))
 
     optimize!(model)
 
