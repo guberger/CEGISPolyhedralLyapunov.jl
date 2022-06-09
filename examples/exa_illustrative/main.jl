@@ -15,9 +15,9 @@ include("../utils/geometry.jl")
 include("plotting.jl")
 
 const GUROBI_ENV = Gurobi.Env()
-solver = optimizer_with_attributes(
+solver() = Model(optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
-)
+))
 
 # With τ = 1/4, ϵ = 10, δ = 0.05; with nD = opnorm(A - I)
 # finds PLF in 30 steps
@@ -118,7 +118,7 @@ for point in points_init
 end
 
 tracerec = CPV.TraceRecorder()
-status = CPV.learn_lyapunov!(lear, 100, solver, tracerec=tracerec)[1]
+status = CPV.learn_lyapunov!(lear, 100, solver, solver, tracerec=tracerec)[1]
 
 @assert status == CPV.LYAPUNOV_FOUND
 
@@ -207,7 +207,7 @@ for point in points_init
     CPV.add_witness!(lear, 1, point)
 end
 
-status, mpf, niter = CPV.learn_lyapunov!(lear, 100, solver)
+status, mpf, niter = CPV.learn_lyapunov!(lear, 100, solver, solver)
 display(status)
 display(niter)
 

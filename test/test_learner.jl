@@ -21,7 +21,9 @@ function HiGHS._check_ret(ret::Cint)
     return 
 end 
 
-solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
+solver() = Model(optimizer_with_attributes(
+    HiGHS.Optimizer, "output_flag"=>false
+))
 
 ## Learner Cont
 nvar = 1
@@ -47,14 +49,14 @@ CPV.set_tol!(lear, :rad, 0.0)
 point = [1.0]
 CPV.add_witness!(lear, 1, point)
 
-status = CPV.learn_lyapunov!(lear, 1, solver)[1]
+status = CPV.learn_lyapunov!(lear, 1, solver, solver)[1]
 
 @testset "learn lyapunov cont: max iter" begin
     @test status == CPV.MAX_ITER_REACHED
 end
 
 tracerec = CPV.TraceRecorder()
-status = CPV.learn_lyapunov!(lear, 2, solver, tracerec=tracerec)[1]
+status = CPV.learn_lyapunov!(lear, 2, solver, solver, tracerec=tracerec)[1]
 
 @testset "learn lyapunov cont: found" begin
     @test status == CPV.LYAPUNOV_FOUND
@@ -72,7 +74,7 @@ CPV.set_tol!(lear, :rad, 0.0)
 point = [1.0]
 CPV.add_witness!(lear, 1, point)
 
-status = CPV.learn_lyapunov!(lear, 1, solver)[1]
+status = CPV.learn_lyapunov!(lear, 1, solver, solver)[1]
 
 @testset "learn lyapunov cont: infeasible" begin
     @test status == CPV.LYAPUNOV_INFEASIBLE
@@ -86,7 +88,7 @@ CPV.set_tol!(lear, :rad, 0.1 + 1e-5)
 point = [1.0]
 CPV.add_witness!(lear, 1, point)
 
-status = CPV.learn_lyapunov!(lear, 2, solver)[1]
+status = CPV.learn_lyapunov!(lear, 2, solver, solver)[1]
 
 @testset "learn lyapunov cont: found" begin
     @test status == CPV.LYAPUNOV_FOUND
@@ -101,7 +103,7 @@ point = [1.0]
 CPV.add_witness!(lear, 1, point)
 CPV.add_witness!(lear, 1, point)
 
-status = CPV.learn_lyapunov!(lear, 2, solver)[1]
+status = CPV.learn_lyapunov!(lear, 2, solver, solver)[1]
 
 @testset "learn lyapunov cont: radius too small" begin
     @test status == CPV.RADIUS_TOO_SMALL
@@ -130,13 +132,13 @@ CPV.set_tol!(lear, :rad, 0.0)
 point = [1.0]
 CPV.add_witness!(lear, 1, point)
 
-status = CPV.learn_lyapunov!(lear, 1, solver)[1]
+status = CPV.learn_lyapunov!(lear, 1, solver, solver)[1]
 
 @testset "learn lyapunov disc: max iter" begin
     @test status == CPV.MAX_ITER_REACHED
 end
 
-status = CPV.learn_lyapunov!(lear, 2, solver)[1]
+status = CPV.learn_lyapunov!(lear, 2, solver, solver)[1]
 
 @testset "learn lyapunov disc: found" begin
     @test status == CPV.LYAPUNOV_FOUND
@@ -149,7 +151,7 @@ CPV.set_tol!(lear, :rad, 0.0)
 point = [1.0]
 CPV.add_witness!(lear, 1, point)
 
-status = CPV.learn_lyapunov!(lear, 2, solver)[1]
+status = CPV.learn_lyapunov!(lear, 2, solver, solver)[1]
 
 @testset "learn lyapunov cont: infeasible" begin
     @test status == CPV.LYAPUNOV_INFEASIBLE
@@ -162,7 +164,7 @@ CPV.set_tol!(lear, :rad, 0.5 - 1e-5)
 point = [1.0]
 CPV.add_witness!(lear, 1, point)
 
-status = CPV.learn_lyapunov!(lear, 2, solver)[1]
+status = CPV.learn_lyapunov!(lear, 2, solver, solver)[1]
 
 @testset "learn lyapunov cont: feasible" begin
     @test status == CPV.LYAPUNOV_FOUND
@@ -175,7 +177,7 @@ CPV.set_tol!(lear, :rad, 0.5 + 1e-5)
 point = [1.0]
 CPV.add_witness!(lear, 1, point)
 
-status = CPV.learn_lyapunov!(lear, 2, solver)[1]
+status = CPV.learn_lyapunov!(lear, 2, solver, solver)[1]
 
 @testset "learn lyapunov cont: radius too small" begin
     @test status == CPV.RADIUS_TOO_SMALL
@@ -204,14 +206,14 @@ CPV.add_piece_cont!(sys, domain, 2, A)
 lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 0.0)
 
-status = CPV.learn_lyapunov!(lear, 1, solver)[1]
+status = CPV.learn_lyapunov!(lear, 1, solver, solver)[1]
 
 @testset "learn lyapunov disc & cont: max iter" begin
     @test status == CPV.MAX_ITER_REACHED
 end
 
 tracerec = CPV.TraceRecorder()
-status = CPV.learn_lyapunov!(lear, 3, solver, tracerec=tracerec)[1]
+status = CPV.learn_lyapunov!(lear, 3, solver, solver, tracerec=tracerec)[1]
 
 @testset "learn lyapunov disc & cont: found" begin
     @test status == CPV.LYAPUNOV_FOUND
@@ -227,7 +229,7 @@ end
 lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 0.0)
 
-status = CPV.learn_lyapunov!(lear, 3, solver)[1]
+status = CPV.learn_lyapunov!(lear, 3, solver, solver)[1]
 
 @testset "learn lyapunov disc & cont: infeasible" begin
     @test status == CPV.LYAPUNOV_INFEASIBLE

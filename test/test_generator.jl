@@ -14,7 +14,9 @@ LieContEvidence = CPV.LieContEvidence
 PolyFunc = CPV.PolyFunc
 _norm(pf::PolyFunc) = maximum(lf -> norm(lf.lin, 1), pf.lfs)
 
-solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
+solver() = Model(optimizer_with_attributes(
+    HiGHS.Optimizer, "output_flag"=>false
+))
 
 ## Parameters
 nvar = 2

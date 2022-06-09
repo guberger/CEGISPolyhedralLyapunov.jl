@@ -114,7 +114,7 @@ function _compute_mpf(
         pos_evids, liedisc_evids, liecont_evids,
         solver
     )
-    model = Model(solver)
+    model = solver()
     pfs, r = _add_vars!(model, nvar, nlfs)
 
     for evid in pos_evids

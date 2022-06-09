@@ -30,7 +30,7 @@ simplices = compute_simplices_3d(p, zeros(3))
 
 fig = figure(0, figsize=(8, 12))
 ax = fig.add_subplot(projection="3d")
-# ax.set_box_aspect((4, 4, 5))
+ax.set_box_aspect((4, 4, 5))
 ax.xaxis.pane.fill = false
 ax.yaxis.pane.fill = false
 ax.zaxis.pane.fill = false

@@ -12,9 +12,14 @@ datafile = "dataset_3"
 include(string("./datasets/", datafile, ".jl"))
 
 const GUROBI_ENV = Gurobi.Env()
-solver = optimizer_with_attributes(
-    () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
-)
+function solver()
+    model = direct_model(
+        optimizer_with_attributes(() -> Gurobi.Optimizer(GUROBI_ENV))
+    )
+    set_optimizer_attribute(model, "OutputFlag", 0)
+    set_optimizer_attribute(model, "Method", 2)
+    return model
+end
 
 # With τ = 1/32, ϵ = 50, δ = 1e-4; with nD = opnorm(A - I)
 # finds PLF in 145 steps
@@ -42,7 +47,7 @@ lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
 CPV.set_tol!(lear, :rad, 1e-6) # -1e-5
 
 ## Solving
-status, mpf, niter = CPV.learn_lyapunov!(lear, 1000, solver)
+status, mpf, niter = CPV.learn_lyapunov!(lear, 1000, solver, solver)
 
 display(status)
 

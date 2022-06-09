@@ -77,7 +77,7 @@ function _optimize!(model)
 end
 
 function _verify!(prob::VerifierProblem, pfs, xrec, solver)
-    model = Model(solver)
+    model = solver()
     x, r = _add_variables!(prob, model)
 
     _add_domain_constrs!(prob, model, x)

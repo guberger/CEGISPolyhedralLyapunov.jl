@@ -16,7 +16,9 @@ PosPredicate = CPV.PosPredicate
 LieDiscPredicate = CPV.LieDiscPredicate
 LieContPredicate = CPV.LieContPredicate
 
-solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag"=>false)
+solver() = Model(optimizer_with_attributes(
+    HiGHS.Optimizer, "output_flag"=>false
+))
 
 ## Parameters
 nvar = 2

@@ -9,9 +9,15 @@ include("../../src/CEGISPolyhedralVerification.jl")
 CPV = CEGISPolyhedralVerification
 
 const GUROBI_ENV = Gurobi.Env()
-solver = optimizer_with_attributes(
-    () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
-)
+function solver()
+    model = direct_model(
+        optimizer_with_attributes(() -> Gurobi.Optimizer(GUROBI_ENV))
+    )
+    set_optimizer_attribute(model, "OutputFlag", 0)
+    set_optimizer_attribute(model, "Method", 2)
+    return model
+end
+# Method: 2 = barrier (force this one, for reproducible results)
 
 ## Parameters
 τ = 1/8 # 0.1
@@ -49,11 +55,13 @@ for nvar in (4, 5, 6, 7, 8, 9)
             iter > max_iter && break
             lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
             status, mpf, niter = @time CPV.learn_lyapunov!(
-                lear, 1000, solver, do_print=false
+                lear, 1000, solver, solver, do_print=false
             )
-            time = @elapsed CPV.learn_lyapunov!(
-                lear, 1000, solver, do_print=false
+            time = @elapsed status2, mpf, niter2 = CPV.learn_lyapunov!(
+                lear, 1000, solver, solver, do_print=false
             )
+            @assert niter == niter2
+            @assert status == status2
             @assert status ∈ (CPV.LYAPUNOV_FOUND, CPV.LYAPUNOV_INFEASIBLE)
             σ = -maximum(real.(eigvals(A2)))
             str = @sprintf("%s | %f & %e & %.2f & %d\n",

@@ -6,49 +6,53 @@ using Gurobi
 using PyPlot
 
 include("../../src/CEGISPolyhedralVerification.jl")
-CPLA = CEGISPolyhedralVerification.AdaptiveComplexityLyapunov
-CPLP = CEGISPolyhedralVerification.Polyhedra
-include("../../utils/geometry.jl")
+CPV = CEGISPolyhedralVerification
 
 const GUROBI_ENV = Gurobi.Env()
-solver = optimizer_with_attributes(
-    () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
-)
+function solver()
+    model = direct_model(
+        optimizer_with_attributes(() -> Gurobi.Optimizer(GUROBI_ENV))
+    )
+    set_optimizer_attribute(model, "OutputFlag", 0)
+    # set_optimizer_attribute(model, "Method", 2)
+    return model
+end
 
 datafile = "dataset_1"
 include(string("./datasets/", datafile, ".jl"))
 
 ## Parameters
 nvar = 2
+nloc = 1
 
-sys = CPLA.System()
+sys = CPV.System()
 
-domain = CPLP.Cone()
+domain = CPV.Cone()
 A = [0.0 1.0; -2.0 -1.0]
-CPLA.add_piece!(sys, domain, A)
+CPV.add_piece_cont!(sys, domain, 1, A)
 
-domain = CPLP.Cone()
+domain = CPV.Cone()
 B = [0.0 0.0; -1.0 0.0]
-CPLA.add_piece!(sys, domain, A + α*B)
+CPV.add_piece_cont!(sys, domain, 1, A + α*B)
 
 ## Learner feasible illustration
-lear = CPLA.Learner(nvar, sys, ϵ, θ, δ)
-CPLA.set_tol!(lear, :rad, 1e-6)
+lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
+CPV.set_tol!(lear, :rad, 1e-6)
 
 points_init = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 for point in points_init
-    CPLA.add_point_init!(lear, point)
+    CPV.add_witness!(lear, 1, point)
 end
 
 ## Solving
-sol = CPLA.learn_lyapunov!(lear, 1000, solver)
+status, mpf, niter = CPV.learn_lyapunov!(lear, 1000, solver, solver)
 
-display(sol.status)
+display(status)
 
-# f = open(string(@__DIR__, "/results/", datafile, ".txt"), "w")
-# for lf in sol.lfs_list[sol.niter]
-#     println(f, lf.lin)
-# end
-# close(f)
+f = open(string(@__DIR__, "/results/", datafile, ".txt"), "w")
+for lf in mpf.pfs[1].lfs
+    println(f, lf.lin)
+end
+close(f)
 
 end # module

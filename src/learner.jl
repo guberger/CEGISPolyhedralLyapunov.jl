@@ -121,7 +121,7 @@ function _verify_with_exit(
     x, r_liedisc, loc = verify_lie_disc(verif, mpf, solver)
     if r_liedisc > tol_liedisc
         do_print && println("CE found: ", x, ", ", r_liedisc, ", ", loc)
-        return x, loc, r_pos, r_liedisc, -Inf
+        return x, loc
     else
         do_print && println("No CE found: ", r_liedisc)
     end
@@ -129,11 +129,11 @@ function _verify_with_exit(
     x, r_liecont, loc = verify_lie_cont(verif, mpf, solver)
     if r_liecont > tol_liecont
         do_print && println("CE found: ", x, ", ", r_liecont, ", ", loc)
-        return x, loc, r_pos, r_liedisc, r_liecont
+        return x, loc
     else
         do_print && println("No CE found: ", r_liecont)
     end
-    return Float64[], 0, r_pos, r_liedisc, r_liecont
+    return Float64[], 0
 end
 
 snapshot(::Nothing, ::Any) = nothing
@@ -160,7 +160,7 @@ function snapshot(tracerec::TraceRecorder, mpf::MultiPolyFunc)
 end
 
 function learn_lyapunov!(
-        lear::Learner, iter_max, solver;
+        lear::Learner, iter_max, solver_gen, solver_verif;
         do_print=true, tracerec=nothing
     )
     gen = Generator(lear.nvar, lear.nloc)
@@ -184,7 +184,7 @@ function learn_lyapunov!(
         end
 
         # Feasibility check:
-        slack = compute_mpf_feasibility(gen, lear.ϵ, lear.δ, solver)[2]
+        slack = compute_mpf_feasibility(gen, lear.ϵ, lear.δ, solver_gen)[2]
         if slack < 0
             println(string(
                 "System does not admit a Lyapunov function with parameters: ",
@@ -194,7 +194,7 @@ function learn_lyapunov!(
         end # end Feasibility check
 
         # mpf, r = compute_mpf_chebyshev(gen, 1/lear.θ, solver)
-        mpf, r = compute_mpf_evidence(gen, solver) # test
+        mpf, r = compute_mpf_evidence(gen, solver_gen) # test
         snapshot(tracerec, mpf)
         if do_print
             println("|--- radius: ", r)
@@ -211,10 +211,10 @@ function learn_lyapunov!(
         #     push!(lfs, -vec_side/(2*lear.ϵ))
         # end # end new Eccentricity V2
 
-        x, loc, r_pos, r_liedisc, r_liecont = _verify_with_exit(
+        x, loc = _verify_with_exit(
             verif, mpf,
             lear.tols[:pos], lear.tols[:liedisc], lear.tols[:liecont],
-            solver, do_print
+            solver_verif, do_print
         )
         if isempty(x)
             println("No CE found")
@@ -226,8 +226,5 @@ function learn_lyapunov!(
         wit = Witness(loc, point)
         _add_evidences!(gen, lear.sys, lear.τ, wit)
         snapshot(tracerec, gen)
-        # push!(sol.counterexample_list, wit)
-        # push!(witnesses, wit)
-        # push!(sol.witnesses_list, copy(witnesses))
     end
 end
