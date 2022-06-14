@@ -4,34 +4,33 @@ using LinearAlgebra
 using PyPlot
 using PyCall
 art3d = PyObject(PyPlot.art3D)
-include("../../src/CEGISPolyhedralVerification.jl")
-CPLA = CEGISPolyhedralVerification.AdaptiveComplexityLyapunov
-CPLP = CEGISPolyhedralVerification.Polyhedra
-include("../../utils/geometry.jl")
+include("../../src/CEGISPolyhedralLyapunov.jl")
+CPL = CEGISPolyhedralLyapunov
+include("../utils/geometry.jl")
 
 datafile = "dataset_1"
 include(string("./datasets/", datafile, ".jl"))
 
 str = readlines(string(@__DIR__, "/results/", datafile, ".txt"))
 M = length(str)
-lfs = Vector{CPLA.LinForm}(undef, M)
+lfs = Vector{CPL.LinForm}(undef, M)
 
 for (i, ln) in enumerate(str)
     ln = replace(ln, r"[\[\],]"=>"")
     words = split(ln)
     @assert length(words) == 2
-    lfs[i] = CPLA.LinForm(parse.(Float64, words))
+    lfs[i] = CPL.LinForm(parse.(Float64, words))
 end
 
-sys = CPLA.System()
+sys = CPL.System()
 
-domain = CPLP.Cone()
+domain = CPL.Cone()
 A = [0.0 1.0; -2.0 -1.0]
-CPLA.add_piece!(sys, domain, A)
+CPL.add_piece!(sys, domain, A)
 
-domain = CPLP.Cone()
+domain = CPL.Cone()
 B = [0.0 0.0; -1.0 0.0]
-CPLA.add_piece!(sys, domain, A + α*B)
+CPL.add_piece!(sys, domain, A + α*B)
 
 radmax = 0.9
 
@@ -68,9 +67,9 @@ for piece in sys.pieces
     ax.quiver(X1, X2, D1, D2, color="gray")
 end
 
-p = CPLP.Polyhedron()
+p = CPL.Polyhedron()
 for lf in lfs
-    CPLP.add_halfspace!(p, lf.lin, -1)
+    CPL.add_halfspace!(p, lf.lin, -1)
 end
 verts = compute_vertices_2d(p, zeros(2))
 verts_radius = maximum(vert -> norm(vert, Inf), verts)
@@ -89,9 +88,7 @@ ax.legend(handles=LH, fontsize=20, loc="upper left",
           facecolor="white", framealpha=1.0)
 
 fig.savefig(string(
-        @__DIR__,
-        "/../../figures/AdaptiveComplexityLyapunov/",
-        "fig_exa_zelentsowsky.png"
+        @__DIR__, "/../figures/fig_exa_zelentsowsky.png"
     ),
     dpi=200, transparent=false, bbox_inches="tight")
 

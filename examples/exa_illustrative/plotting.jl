@@ -1,10 +1,10 @@
-ContPiece = CEGISPolyhedralVerification.PieceCont
-PolyFunc = CEGISPolyhedralVerification.PolyFunc
-MultiPolyFunc = CEGISPolyhedralVerification.MultiPolyFunc
-Polyhedron = CEGISPolyhedralVerification.Polyhedron
-PosEvidence = CEGISPolyhedralVerification.PosEvidence
-LieContEvidence = CEGISPolyhedralVerification.LieContEvidence
-_eval = CEGISPolyhedralVerification._eval
+ContPiece = CEGISPolyhedralLyapunov.PieceCont
+PolyFunc = CEGISPolyhedralLyapunov.PolyFunc
+MultiPolyFunc = CEGISPolyhedralLyapunov.MultiPolyFunc
+Polyhedron = CEGISPolyhedralLyapunov.Polyhedron
+PosEvidence = CEGISPolyhedralLyapunov.PosEvidence
+LieContEvidence = CEGISPolyhedralLyapunov.LieContEvidence
+_eval = CEGISPolyhedralLyapunov._eval
 _norm(pf::PolyFunc, x) = maximum(lf -> _eval(lf, x), pf.lfs)
 
 function plot_field!(ax, piece::ContPiece, xlims, ylims, ngrid; c="gray")
@@ -32,7 +32,7 @@ function plot_level!(
     )
     p = Polyhedron()
     for lf in pf.lfs
-        CPV.add_halfspace!(p, lf.lin, -1)
+        CPL.add_halfspace!(p, lf.lin, -1)
     end
     verts = compute_vertices_2d(p, zeros(2))
     verts_radius = maximum(vert -> norm(vert, Inf), verts)

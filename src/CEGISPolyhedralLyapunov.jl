@@ -1,4 +1,4 @@
-module CEGISPolyhedralVerification
+module CEGISPolyhedralLyapunov
 
 # export LinForm, _eval, Witness, Cone, Polyhedron
 

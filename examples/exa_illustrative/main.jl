@@ -5,11 +5,11 @@ using JuMP
 using Gurobi
 using PyPlot
 
-include("../../src/CEGISPolyhedralVerification.jl")
-CPV = CEGISPolyhedralVerification
-Cone = CPV.Cone
-System = CPV.System
-Witness = CPV.Witness
+include("../../src/CEGISPolyhedralLyapunov.jl")
+CPL = CEGISPolyhedralLyapunov
+Cone = CPL.Cone
+System = CPL.System
+Witness = CPL.Witness
 
 include("../utils/geometry.jl")
 include("plotting.jl")
@@ -33,34 +33,34 @@ nloc = 1
 sys = System()
 
 domain = Cone()
-CPV.add_supp!(domain, [0.0, -1.0])
+CPL.add_supp!(domain, [0.0, -1.0])
 A = [-0.5 1.0; -1.0 -0.5]
-CPV.add_piece_cont!(sys, domain, 1, A)
+CPL.add_piece_cont!(sys, domain, 1, A)
 
 domain = Cone()
-CPV.add_supp!(domain, [0.0, 1.0])
+CPL.add_supp!(domain, [0.0, 1.0])
 A = [0.01 1.0; -1.0 0.01]
-CPV.add_piece_cont!(sys, domain, 1, A)
+CPL.add_piece_cont!(sys, domain, 1, A)
 
 ## Generator and verifier illustration
 
 # Generator:
-gen = CPV.Generator(nvar, nloc)
+gen = CPL.Generator(nvar, nloc)
 
 np = 10
 α_list = range(0, 2π, length=np + 1)[1:np]
 points = map(α -> [cos(α), sin(α)], α_list)
 for point in points
     wit = Witness(1, point/norm(point, Inf))
-    CPV._add_evidences!(gen, sys, τ, wit)
+    CPL._add_evidences!(gen, sys, τ, wit)
 end
-# mpf, r = CPV.compute_mpf_chebyshev(gen, solver)
-mpf, r = CPV.compute_mpf_evidence(gen, solver) # test
+# mpf, r = CPL.compute_mpf_chebyshev(gen, solver)
+mpf, r = CPL.compute_mpf_evidence(gen, solver) # test
 
 # Verifier:
-verif = CPV.Verifier()
-CPV._add_predicates!(verif, nvar, sys)
-x, r_liecont, loc = CPV.verify_lie_cont(verif, mpf, solver)
+verif = CPL.Verifier()
+CPL._add_predicates!(verif, nvar, sys)
+x, r_liecont, loc = CPL.verify_lie_cont(verif, mpf, solver)
 
 # Illustration
 fig = figure(0, figsize=(8, 10))
@@ -86,7 +86,7 @@ plot_evids!(ax, gen.liecont_evids, mpf, level, 0.6)
 old_pos_evids = copy(gen.pos_evids)
 old_liecont_evids = copy(gen.liecont_evids)
 
-CPV._add_evidences!(gen, sys, τ, Witness(loc, x/norm(x, Inf)))
+CPL._add_evidences!(gen, sys, τ, Witness(loc, x/norm(x, Inf)))
 new_pos_evids = setdiff(gen.pos_evids, old_pos_evids)
 new_liecont_evids = setdiff(gen.liecont_evids, old_liecont_evids)
 plot_evids!(ax, new_pos_evids, mpf, level, mc="black")
@@ -109,18 +109,18 @@ fig.savefig(string(
 ), dpi=200, transparent=false, bbox_inches="tight")
 
 ## Learner feasible illustration
-lear = CPV.Learner(nvar, loc, sys, τ, ϵ, δ)
-CPV.set_tol!(lear, :rad, 1e-3)
+lear = CPL.Learner(nvar, loc, sys, τ, ϵ, δ)
+CPL.set_tol!(lear, :rad, 1e-3)
 
 points_init = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 for point in points_init
-    CPV.add_witness!(lear, 1, point)
+    CPL.add_witness!(lear, 1, point)
 end
 
-tracerec = CPV.TraceRecorder()
-status = CPV.learn_lyapunov!(lear, 100, solver, solver, tracerec=tracerec)[1]
+tracerec = CPL.TraceRecorder()
+status = CPL.learn_lyapunov!(lear, 100, solver, solver, tracerec=tracerec)[1]
 
-@assert status == CPV.LYAPUNOV_FOUND
+@assert status == CPL.LYAPUNOV_FOUND
 
 fig = figure(2, figsize=(8, 8))
 ax_ = fig.subplots(
@@ -199,15 +199,15 @@ fig.savefig(string(
 
 ## Learner infeasible illustration
 δ = 0.1
-lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
-CPV.set_tol!(lear, :rad, 1e-3)
+lear = CPL.Learner(nvar, nloc, sys, τ, ϵ, δ)
+CPL.set_tol!(lear, :rad, 1e-3)
 
 points_init = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 for point in points_init
-    CPV.add_witness!(lear, 1, point)
+    CPL.add_witness!(lear, 1, point)
 end
 
-status, mpf, niter = CPV.learn_lyapunov!(lear, 100, solver, solver)
+status, mpf, niter = CPL.learn_lyapunov!(lear, 100, solver, solver)
 display(status)
 display(niter)
 

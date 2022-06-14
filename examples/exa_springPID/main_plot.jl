@@ -4,8 +4,8 @@ using LinearAlgebra
 using PyPlot
 using PyCall
 art3d = PyObject(PyPlot.art3D)
-include("../../src/CEGISPolyhedralVerification.jl")
-CPV = CEGISPolyhedralVerification
+include("../../src/CEGISPolyhedralLyapunov.jl")
+CPL = CEGISPolyhedralLyapunov
 include("../utils/geometry.jl")
 
 datafile = "dataset_3"
@@ -13,18 +13,18 @@ include(string("./datasets/", datafile, ".jl"))
 
 str = readlines(string(@__DIR__, "/results/", datafile, ".txt"))
 M = length(str)
-lfs = Vector{CPV.LinForm}(undef, M)
+lfs = Vector{CPL.LinForm}(undef, M)
 
 for (i, ln) in enumerate(str)
     ln = replace(ln, r"[\[\],]"=>"")
     words = split(ln)
     @assert length(words) == 3
-    lfs[i] = CPV.LinForm(parse.(Float64, words))
+    lfs[i] = CPL.LinForm(parse.(Float64, words))
 end
 
-p = CPV.Polyhedron()
+p = CPL.Polyhedron()
 for lf in lfs
-    CPV.add_halfspace!(p, lf.lin, -1.0)
+    CPL.add_halfspace!(p, lf.lin, -1.0)
 end
 simplices = compute_simplices_3d(p, zeros(3))
 
@@ -75,7 +75,7 @@ Vplot_seq = Vector{Float64}(undef, nstep)
 
 for t = 1:nstep
     global x
-    Vplot_seq[t] = maximum(lf -> CPV._eval(lf, x), lfs)
+    Vplot_seq[t] = maximum(lf -> CPL._eval(lf, x), lfs)
     xnext = Vector{Float64}(undef, 3)
     if Kd*x[3] + Kp*x[2] + Ki*x[1] ≥ 0
         xnext[1] = x[1] + dt*(x[2])

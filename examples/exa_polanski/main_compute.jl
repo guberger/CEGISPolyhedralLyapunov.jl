@@ -5,10 +5,8 @@ using JuMP
 using Gurobi
 using PyPlot
 
-include("../../src/CEGISPolyhedralVerification.jl")
-CPLA = CEGISPolyhedralVerification.AdaptiveComplexityLyapunov
-CPLP = CEGISPolyhedralVerification.Polyhedra
-include("../../utils/geometry.jl")
+include("../../src/CEGISPolyhedralLyapunov.jl")
+CPL = CEGISPolyhedralLyapunov
 
 const GUROBI_ENV = Gurobi.Env()
 solver = optimizer_with_attributes(
@@ -21,19 +19,19 @@ include(string("./datasets/", datafile, ".jl"))
 ## Parameters
 nvar = 3
 
-sys = CPLA.System()
+sys = CPL.System()
 
-domain = CPLP.Cone()
+domain = CPL.Cone()
 A = [-10.0 -2.0 -2.0; 1.0 0.0 0.0; 0.0 1.0 0.0]
-CPLA.add_piece!(sys, domain, A)
+CPL.add_piece!(sys, domain, A)
 
-domain = CPLP.Cone()
+domain = CPL.Cone()
 A = [-10.0 -10.0*α -10.0*α; 1.0 0.0 0.0; 0.0 1.0 0.0]
-CPLA.add_piece!(sys, domain, A)
+CPL.add_piece!(sys, domain, A)
 
 ## Learner feasible illustration
-lear = CPLA.Learner(nvar, sys, ϵ, θ, δ)
-CPLA.set_tol!(lear, :rad, 1e-6)
+lear = CPL.Learner(nvar, sys, ϵ, θ, δ)
+CPL.set_tol!(lear, :rad, 1e-6)
 
 points_init = [
     [-1.0, 0.0, 0.0], [1.0, 0.0, 0.0],
@@ -41,11 +39,11 @@ points_init = [
     [0.0, 0.0, -1.0], [0.0, 0.0, 1.0]
 ]
 for point in points_init
-    CPLA.add_point_init!(lear, point)
+    CPL.add_point_init!(lear, point)
 end
 
 ## Solving
-sol = CPLA.learn_lyapunov!(lear, 1000, solver)
+sol = CPL.learn_lyapunov!(lear, 1000, solver)
 
 display(sol.status)
 

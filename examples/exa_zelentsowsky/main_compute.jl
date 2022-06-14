@@ -5,8 +5,8 @@ using JuMP
 using Gurobi
 using PyPlot
 
-include("../../src/CEGISPolyhedralVerification.jl")
-CPV = CEGISPolyhedralVerification
+include("../../src/CEGISPolyhedralLyapunov.jl")
+CPL = CEGISPolyhedralLyapunov
 
 const GUROBI_ENV = Gurobi.Env()
 function solver()
@@ -25,27 +25,27 @@ include(string("./datasets/", datafile, ".jl"))
 nvar = 2
 nloc = 1
 
-sys = CPV.System()
+sys = CPL.System()
 
-domain = CPV.Cone()
+domain = CPL.Cone()
 A = [0.0 1.0; -2.0 -1.0]
-CPV.add_piece_cont!(sys, domain, 1, A)
+CPL.add_piece_cont!(sys, domain, 1, A)
 
-domain = CPV.Cone()
+domain = CPL.Cone()
 B = [0.0 0.0; -1.0 0.0]
-CPV.add_piece_cont!(sys, domain, 1, A + α*B)
+CPL.add_piece_cont!(sys, domain, 1, A + α*B)
 
 ## Learner feasible illustration
-lear = CPV.Learner(nvar, nloc, sys, τ, ϵ, δ)
-CPV.set_tol!(lear, :rad, 1e-6)
+lear = CPL.Learner(nvar, nloc, sys, τ, ϵ, δ)
+CPL.set_tol!(lear, :rad, 1e-6)
 
 points_init = [[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]
 for point in points_init
-    CPV.add_witness!(lear, 1, point)
+    CPL.add_witness!(lear, 1, point)
 end
 
 ## Solving
-status, mpf, niter = CPV.learn_lyapunov!(lear, 1000, solver, solver)
+status, mpf, niter = CPL.learn_lyapunov!(lear, 1000, solver, solver)
 
 display(status)
 

@@ -5,10 +5,10 @@ using JuMP
 using Gurobi
 using PyPlot
 
-include("../../src/CEGISPolyhedralVerification.jl")
-CPV = CEGISPolyhedralVerification
-Cone = CPV.Cone
-System = CPV.System
+include("../../src/CEGISPolyhedralLyapunov.jl")
+CPL = CEGISPolyhedralLyapunov
+Cone = CPL.Cone
+System = CPL.System
 
 include("../utils/geometry.jl")
 include("plotting.jl")
@@ -31,27 +31,27 @@ sys = System()
 R = [cos(θ) -sin(θ); sin(θ) cos(θ)]
 
 domain = Cone()
-CPV.add_supp!(domain, R \ [0.0, -1.0])
+CPL.add_supp!(domain, R \ [0.0, -1.0])
 α = 0.9
-CPV.add_piece_disc!(sys, domain, 1, α*R, 1)
+CPL.add_piece_disc!(sys, domain, 1, α*R, 1)
 
 domain = Cone()
-CPV.add_supp!(domain, R \ [0.0, 1.0])
+CPL.add_supp!(domain, R \ [0.0, 1.0])
 α = 0.9
-CPV.add_piece_disc!(sys, domain, 1, α*R, 2)
+CPL.add_piece_disc!(sys, domain, 1, α*R, 2)
 
 θ = π/5.5
 R = [cos(θ) -sin(θ); sin(θ) cos(θ)]
 
 domain = Cone()
-CPV.add_supp!(domain, R \ [0.0, -1.0])
+CPL.add_supp!(domain, R \ [0.0, -1.0])
 α = 1.3
-CPV.add_piece_disc!(sys, domain, 2, α*R, 1)
+CPL.add_piece_disc!(sys, domain, 2, α*R, 1)
 
 domain = Cone()
-CPV.add_supp!(domain, R \ [0.0, 1.0])
+CPL.add_supp!(domain, R \ [0.0, 1.0])
 α = 1.1
-CPV.add_piece_disc!(sys, domain, 2, α*R, 2)
+CPL.add_piece_disc!(sys, domain, 2, α*R, 2)
 
 fig = figure(0, figsize=(8, 10))
 ax_ = fig.subplots(

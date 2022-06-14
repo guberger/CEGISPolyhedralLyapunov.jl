@@ -1,4 +1,4 @@
-name = "CEGISPolyhedralVerification"
+name = "CEGISPolyhedralLyapunov"
 uuid = "42038c7d-363d-48c6-8996-8d4b00341385"
 authors = ["guberger@PC-1r0-013 <guillaume.berger@uclouvain.be>"]
 version = "0.1.0"
