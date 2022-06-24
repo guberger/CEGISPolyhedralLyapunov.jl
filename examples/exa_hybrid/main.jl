@@ -1,4 +1,7 @@
-module ExampleIllustrative
+module ExampleHybrid
+
+# In work!!!
+# For the moment: only plotting ...
 
 using LinearAlgebra
 using JuMP
