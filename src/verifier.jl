@@ -3,7 +3,7 @@ function verify_single(A, lf_max, lfs_other, lfs_dom, N, xmax, solver)
     x = @variable(model, [1:N], lower_bound=-xmax, upper_bound=xmax)
 
     for lf_other in lfs_other
-        @constraint(model, dot(lf_other, x) ≤ dot(lf_max, x))
+        @constraint(model, dot(lf_other, x) ≤ 1)
     end
 
     @constraint(model, dot(lf_max, x) == 1)

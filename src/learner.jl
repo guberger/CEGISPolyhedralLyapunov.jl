@@ -53,10 +53,11 @@ function learn_lyapunov(
         )
 
         @assert flag
+        @assert norm(x, Inf) < xmax
 
         do_print && println("|-- CE: ", x, ", ", γ)
 
-        callback_fcn(iter, lfs, x)
+        callback_fcn(iter, wit_cls, lfs, x, qopt)
 
         if γ ≤ tol_γ
             println("Valid lyapunov: terminated")
