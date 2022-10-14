@@ -11,8 +11,8 @@ str = readlines(string(@__DIR__, "/results/", datafile, ".txt"))
 lfs = Vector{Float64}[]
 
 for ln in str
-    ln = replace(ln, r"[\[\],]"=>"")
-    words = split(ln)
+    local ln = replace(ln, r"[\[\],]"=>"")
+    local words = split(ln)
     @assert length(words) == 3
     push!(lfs, parse.(Float64, words))
 end
@@ -59,7 +59,6 @@ nstep = length(tspan)
 V_seq = Vector{Float64}(undef, nstep)
 
 for t = 1:nstep
-    global x
     V_seq[t] = maximum(lf -> dot(lf, x), lfs)
     local xnext = Vector{Float64}(undef, 3)
     if Kd*x[3] + Kp*x[2] + Ki*x[1] ≥ 0
@@ -71,7 +70,7 @@ for t = 1:nstep
         xnext[2] = x[2] + dt*(x[3])
         xnext[3] = x[3] + dt*(-a0*x[2] - a1*x[3])
     end
-    x = xnext
+    global x = xnext
 end
 
 fig = figure(1, figsize=(10, 3))

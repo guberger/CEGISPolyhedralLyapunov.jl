@@ -11,8 +11,8 @@ str = readlines(string(@__DIR__, "/results/", datafile, ".txt"))
 lfs = Vector{Float64}[]
 
 for ln in str
-    ln = replace(ln, r"[\[\],]"=>"")
-    words = split(ln)
+    local ln = replace(ln, r"[\[\],]"=>"")
+    local words = split(ln)
     @assert length(words) == 2
     push!(lfs, parse.(Float64, words))
 end
