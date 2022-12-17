@@ -22,6 +22,7 @@ function plot_wits!(
             x_norm = maximum(lf -> dot(lf, wit.x), lfs)
             γ = β/x_norm
             x = wit.x*γ
+            # display(x)
             y = map(t -> γ*((1 - αd)*t[1] + αd*t[2]), zip(wit.x, wit.y))
             ax.plot((x[1], y[1]), (x[2], y[2]), c=lc, lw=lw)
             ax.plot(x..., marker=".", ms=ms, c=mc)

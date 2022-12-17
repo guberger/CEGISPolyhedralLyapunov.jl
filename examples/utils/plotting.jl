@@ -46,6 +46,7 @@ function plot_level2D!(
     )
     ch = compute_convex_hull_hrep(lfs, β, lims, 2)
     verts = [ch.points[i + 1, :] for i in ch.vertices]
+    # display(verts)
     isempty(verts) && return
     polylist = matplotlib.collections.PolyCollection((verts,))
     fca = matplotlib.colors.colorConverter.to_rgba(fc, alpha=fa)

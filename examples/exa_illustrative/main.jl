@@ -29,7 +29,7 @@ lfs_init = [[0.34, 0.0], [-0.34, 0.0], [0.0, 0.34], [0.0, -0.34]]
 ## Generator and verifier illustration
 
 # Generator:
-np = 10
+np = 7
 α_list = (0:np-1)*2π/np
 xs = map(α -> [cos(α), sin(α)], α_list)
 const WT_ = CPL.Witness{Vector{Float64},Float64,Vector{Float64}}
@@ -56,7 +56,7 @@ x, γ, q, flag = CPL.verify(pieces, lfs, 2, xmax, solver)
 fig = figure(0, figsize=(8, 10))
 ax = fig.add_subplot(aspect="equal")
 
-β = 1.25
+β = 0.8
 αd = 1.25
 xlims = (-3, 3)
 ylims = (-3, 3)
@@ -94,6 +94,8 @@ ax.legend(handles=LH, fontsize=20, loc="upper left",
 fig.savefig(string(
     @__DIR__, "/../figures/fig_exa_illustrative_generator_verifier.png"
 ), dpi=200, transparent=false, bbox_inches="tight")
+
+@assert false
 
 ## Learner feasible illustration
 tol_r = 5e-3 # 0.1
