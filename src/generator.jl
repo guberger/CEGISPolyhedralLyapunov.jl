@@ -8,7 +8,7 @@ end
 function compute_lfs(
         wit_cls::Vector{<:Vector{<:Witness}},
         lfs_init::Vector{<:AbstractVector},
-        N, rmax, solver
+        γ, N, rmax, solver
     )
     model = solver()
     lfs = [
@@ -23,11 +23,11 @@ function compute_lfs(
             # do not use Iterators.flatten because type-unstable
             for lf in lfs
                 valy = dot(lf, wit.y)
-                @constraint(model, valy + r*wit.α ≤ valx)
+                @constraint(model, valy + r*wit.α ≤ γ*valx)
             end
             for lf in lfs_init
                 valy = dot(lf, wit.y)
-                @constraint(model, valy + r*wit.α ≤ valx)
+                @constraint(model, valy + r*wit.α ≤ γ*valx)
             end
         end
     end

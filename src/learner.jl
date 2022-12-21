@@ -36,7 +36,7 @@ function learn_lyapunov(
         end
 
         lfs::Vector{VT_}, r::Float64 = compute_lfs(
-            wit_cls, lfs_init_f, N, rmax, solver
+            wit_cls, lfs_init_f, 1, N, rmax, solver
         )
 
         do_print && println("|-- r generator: ", r)
