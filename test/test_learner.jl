@@ -27,7 +27,7 @@ xmax = 15
 iter_max = 2
 
 status, lfs = CPL.learn_lyapunov(
-    pieces, lfs_init, τ, 2, xmax, iter_max, solver, tol_r=tol_r
+    pieces, lfs_init, τ, 1, 2, xmax, iter_max, solver, tol_r=tol_r
 )
 
 @testset "iter max" begin
@@ -48,7 +48,7 @@ xmax = 15
 iter_max = 10
 
 status, lfs = CPL.learn_lyapunov(
-    pieces, lfs_init, τ, 2, xmax, iter_max, solver, tol_r=tol_r
+    pieces, lfs_init, τ, 1, 2, xmax, iter_max, solver, tol_r=tol_r
 )
 
 @testset "infeasible" begin
@@ -69,7 +69,7 @@ xmax = 15
 iter_max = 50
 
 status, lfs = CPL.learn_lyapunov(
-    pieces, lfs_init, τ, 2, xmax, iter_max, solver, tol_r=tol_r
+    pieces, lfs_init, τ, 1, 2, xmax, iter_max, solver, tol_r=tol_r
 )
 
 @testset "found" begin

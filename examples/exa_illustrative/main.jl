@@ -20,7 +20,7 @@ solver() = Model(optimizer_with_attributes(
 τ = 1/4 # 0.1
 
 pieces = [
-    CPL.Piece([-0.5 1.0; -1.0 -0.5], [[0.0, -1.0]]),
+    CPL.Piece([-0.5 1.0; -1.0 -0.5], Vector{Float64}[]),
     CPL.Piece([0.01 1.0; -1.0 0.01], [[0.0, 1.0]])
 ]
 
@@ -44,8 +44,10 @@ for x in xs
     end
     push!(wit_cls, wit_cl)
 end
+γ = 0.9
 rmax = 100
-lfs, r = CPL.compute_lfs(wit_cls, lfs_init, 2, rmax, solver)
+lfs, r = CPL.compute_lfs(wit_cls, lfs_init, γ, 2, rmax, solver)
+display(r)
 
 # Verifier:
 xmax = 1e4
@@ -58,12 +60,12 @@ ax = fig.add_subplot(aspect="equal")
 
 β = 0.8
 αd = 1.25
-xlims = (-3, 3)
-ylims = (-3, 3)
+xlims = (-2, 2)
+ylims = (-2, 2)
 ax.set_xlim(xlims...)
 ax.set_ylim(ylims...)
-ax.set_xticks(-3:1:3)
-ax.set_yticks(-3:1:3)
+ax.set_xticks(-2:1:2)
+ax.set_yticks(-2:1:2)
 ax.tick_params(axis="both", labelsize=15)
 ax.plot(xlims, (0, 0), ls="--", c="black", lw=1.0)
 ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
@@ -73,32 +75,27 @@ for piece in pieces
 end
 lims = ((-10, -10), (10, 10))
 plot_level2D!(ax, lfs, β, lims, fc="gold", ec="gold", ew=2)
-plot_wits!(ax, wit_cls, lfs, β, αd)
+plot_level2D!(ax, lfs, β*γ, lims, fc="none", ec="orange", ew=2)
+plot_wits!(ax, wit_cls, lfs, β)
 
-α = norm(x, 1)*(1 + opnorm(I + τ*pieces[q].A, 1))
 y = x + τ*(pieces[q].A*x)
-plot_wits!(ax, [[CPL.Witness(x, α, y)]], lfs, β, αd, mc="k", lc="r")
+plot_wits!(ax, [[CPL.Witness(x, 0, y)]], lfs, β, mcx="red", lc="r", mcy="none")
 
-ax.text(1.5, +1.6, L"q=1",
-        horizontalalignment="center", verticalalignment="center",
-        fontsize=20, alpha=1.0, bbox=Dict(["facecolor"=>"white", "alpha"=>1.0]))
-ax.text(1.5, -1.6, L"q=2",
-        horizontalalignment="center", verticalalignment="center",
-        fontsize=20, alpha=1.0, bbox=Dict(["facecolor"=>"white", "alpha"=>1.0]))
+# ax.text(1.5, +1.6, L"q=1",
+#         horizontalalignment="center", verticalalignment="center",
+#         fontsize=20, alpha=1.0, bbox=Dict(["facecolor"=>"white", "alpha"=>1.0]))
+# ax.text(1.5, -1.6, L"q=2",
+#         horizontalalignment="center", verticalalignment="center",
+#         fontsize=20, alpha=1.0, bbox=Dict(["facecolor"=>"white", "alpha"=>1.0]))
 
 LH = (matplotlib.patches.Patch(fc="gold", ec="gold", lw=2.5, alpha=0.5,
         label=L"V(x)\leq1"),)
 ax.legend(handles=LH, fontsize=20, loc="upper left",
           facecolor="white", framealpha=1.0)
 
-fig.savefig(string(
-    @__DIR__, "/../figures/fig_exa_illustrative_generator_verifier.png"
-), dpi=200, transparent=false, bbox_inches="tight")
-
-@assert false
-
 ## Learner feasible illustration
-tol_r = 5e-3 # 0.1
+γ = 0.98
+tol_r = 1e-5
 xmax = 1e4
 iter_max = 50
 
@@ -115,7 +112,7 @@ function callback_fcn(::Any, wit_cls, lfs, x, q)
 end
 
 status, lfs = CPL.learn_lyapunov(
-    pieces, lfs_init, τ, 2, xmax, iter_max, solver,
+    pieces, lfs_init, τ, γ, 2, xmax, iter_max, solver,
     tol_r=tol_r, callback_fcn=callback_fcn
 )
 
@@ -151,26 +148,23 @@ end
 
 lims = ((-10, -10), (10, 10))
 β = 1
-αd = 1
 
 for k = 1:nplot
     ax = ax_[k]
-    ax.plot(xlims, (0, 0), ls="--", c="black", lw=0.5)
-    ax.plot(0, 0, marker="x", ms=5, c="black", mew=1.5)
+    # ax.plot(xlims, (0, 0), ls="--", c="black", lw=0.5)
+    # ax.plot(0, 0, marker="x", ms=5, c="black", mew=1.5)
     local iter = iters[k]
     local lfs = lfs_list[iter]
-    plot_level2D!(ax, lfs, β, lims, fc="gold", ec="gold", ew=1)
+    plot_level2D!(ax, lfs, β, lims, fc="yellow", ec="yellow", ew=1)
+    plot_level2D!(ax, lfs, β*γ, lims, fc="none", ec="orange", ew=1)
     local wit_cls = wit_cls_list[iter]
-    plot_wits!(ax, wit_cls, lfs, β, αd, ms=7.5, lw=1.5)
+    plot_wits!(ax, wit_cls, lfs, β, msx=5, msy=5, lw=1)
     if iter < niter
         local x = x_list[iter]
         local q = q_list[iter]
-        local α = norm(x, 1)*(1 + opnorm(I + τ*pieces[q].A, 1))
-        local y = x + τ*(pieces[q].A*x)
-        plot_wits!(
-            ax, [[CPL.Witness(x, α, y)]], lfs,
-            β, αd, mc="k", lc="r", ms=7.5, lw=1.5
-        )
+        local dx = τ*(pieces[q].A*x)
+        ax.plot(x..., marker=".", ms=5, c="r")
+        ax.arrow(x..., dx..., head_width=0.2, color="r")
     end
     ax.text(
         0.0, 3.75, string("Step ", iter),
@@ -183,12 +177,13 @@ fig.savefig(string(
 ), dpi=200, transparent=false, bbox_inches="tight")
 
 ## Learner infeasible
-tol_r = 1e-2 # 0.1
+γ = 0.97
+tol_r = 1e-5
 xmax = 1e4
 iter_max = 50
 
 status, lfs = CPL.learn_lyapunov(
-    pieces, lfs_init, τ, 2, xmax, iter_max, solver, tol_r=tol_r
+    pieces, lfs_init, τ, γ, 2, xmax, iter_max, solver, tol_r=tol_r
 )
 
 @assert status == CPL.LYAPUNOV_INFEASIBLE

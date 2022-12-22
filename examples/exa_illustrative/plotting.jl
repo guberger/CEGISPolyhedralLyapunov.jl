@@ -15,17 +15,23 @@ function plot_field!(ax, piece, xlims, ylims, ngrid; c="gray")
 end
 
 function plot_wits!(
-        ax, wit_cls, lfs, β, αd; mc="blue", ms=15, lc="green", lw=2.5
+        ax, wit_cls, lfs, β;
+        mcx="black", msx=15, mcy="blue", msy=15, lc="green", lw=2.5
     )
     for wit_cl in wit_cls
         for wit in wit_cl
             x_norm = maximum(lf -> dot(lf, wit.x), lfs)
             γ = β/x_norm
             x = wit.x*γ
-            # display(x)
-            y = map(t -> γ*((1 - αd)*t[1] + αd*t[2]), zip(wit.x, wit.y))
+            y = wit.y*γ
+            # --- Print for Tikz ---
+            # println((x[1], x[2]))
+            # println((y[1], y[2]))
+            # println((x[1], x[2]), " ", (y[1], y[2]))
+            # ---
             ax.plot((x[1], y[1]), (x[2], y[2]), c=lc, lw=lw)
-            ax.plot(x..., marker=".", ms=ms, c=mc)
+            ax.plot(x..., marker=".", ms=msx, c=mcx)
+            ax.plot(y..., marker=".", ms=msy, c=mcy)
         end
     end
 end

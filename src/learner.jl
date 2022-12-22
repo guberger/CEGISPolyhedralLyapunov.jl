@@ -10,8 +10,8 @@ const WT_ = Witness{VT_,Float64,VT_}
 function learn_lyapunov(
         pieces::Vector{<:Piece},
         lfs_init::Vector{<:AbstractVector},
-        τ, N, xmax, iter_max, solver;
-        tol_r=1e-5, tol_γ=-1e-5,
+        τ, γ, N, xmax, iter_max, solver;
+        tol_r=1e-6, tol_η=-1e-6,
         do_print=true, callback_fcn=(args...) -> nothing
     )
     lfs_init_f = map(lf -> Float64.(lf), lfs_init)
@@ -36,7 +36,7 @@ function learn_lyapunov(
         end
 
         lfs::Vector{VT_}, r::Float64 = compute_lfs(
-            wit_cls, lfs_init_f, 1, N, rmax, solver
+            wit_cls, lfs_init_f, γ, N, rmax, solver
         )
 
         do_print && println("|-- r generator: ", r)
@@ -48,7 +48,7 @@ function learn_lyapunov(
 
         append!(lfs, lfs_init_f)
 
-        x::VT_, γ::Float64, qopt::Int, flag::Bool = verify(
+        x::VT_, η::Float64, qopt::Int, flag::Bool = verify(
             pieces_f, lfs, N, xmax, solver
         )
 
@@ -59,7 +59,7 @@ function learn_lyapunov(
 
         callback_fcn(iter, wit_cls, lfs, x, qopt)
 
-        if γ ≤ tol_γ
+        if η ≤ tol_η
             println("Valid lyapunov: terminated")
             return LYAPUNOV_FOUND, lfs
         end
