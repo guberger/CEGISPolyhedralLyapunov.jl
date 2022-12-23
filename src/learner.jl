@@ -55,7 +55,7 @@ function learn_lyapunov(
         @assert flag
         @assert norm(x, Inf) < xmax
 
-        do_print && println("|-- CE: ", x, ", ", γ)
+        do_print && println("|-- CE: ", x, ", ", η)
 
         callback_fcn(iter, wit_cls, lfs, x, qopt)
 

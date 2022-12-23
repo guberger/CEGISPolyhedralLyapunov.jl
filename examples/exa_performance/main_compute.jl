@@ -25,17 +25,14 @@ end
 ## Parameters
 τ = 1/8 # 0.1
 xmax = 1e4
-tol_r = 1e-5
+tol_r = 1e-6
 iter_max = 1000
 nsample = 10
 # nsample = 2
 
 N_list = [4, 5, 6, 7, 8, 9] # dimension
-# N_list = [4, 5]
-γ_list = [1.0, 0.1, 0.01]
-# γ_list = [1.0, 0.1]
+γ_list = [0.5, 0.05]
 M_list = [1, 2, 4] # pieces
-# M_list = [1, 2] # pieces
 TIMEs_list_list = Vector{Vector{Tuple{Float64,Float64}}}[]
 NITERs_list_list = Vector{Vector{Tuple{Float64,Float64}}}[]
 first_pass = true
@@ -69,24 +66,19 @@ for N in N_list
                 end
                 if first_pass
                     CPL.learn_lyapunov(
-                        pieces, lfs_init, τ, N, xmax, iter_max, solver,
+                        pieces, lfs_init, τ, 1, N, xmax, iter_max, solver,
                         tol_r=tol_r, do_print=false
                     )
                     global first_pass = false
                 end
-                # local status1, lfs1 = CPL.learn_lyapunov(
-                #     pieces, lfs_init, τ, N, xmax, iter_max, solver,
-                #     tol_r=tol_r, do_print=false
-                # )
-                local time = @elapsed local status2, lfs2 = CPL.learn_lyapunov(
-                    pieces, lfs_init, τ, N, xmax, iter_max, solver,
+                local time = @elapsed local status, lfs = CPL.learn_lyapunov(
+                    pieces, lfs_init, τ, 1, N, xmax, iter_max, solver,
                     tol_r=tol_r, do_print=false
                 )
-                @assert status2 == status2 == CPL.LYAPUNOV_FOUND
-                @assert length(lfs2) == length(lfs2)
-                println(status2, ", ", γ, ", ", time, ", ", length(lfs2))
+                @assert status == CPL.LYAPUNOV_FOUND
+                println(status, ", ", γ, ", ", time, ", ", length(lfs))
                 push!(times, time)
-                push!(niters, length(lfs2))
+                push!(niters, length(lfs))
             end
             push!(TIMEs, (mean(times), std(times)))
             push!(NITERs, (mean(niters), std(niters)))

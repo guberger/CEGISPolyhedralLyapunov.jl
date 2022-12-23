@@ -85,16 +85,16 @@ for (i, γ) in enumerate(γ_list)
         local NITERs = getindex.(NITERs_list, j)
         axTIME_[i].errorbar(
             N_list, getindex.(TIMEs, 1), yerr=getindex.(TIMEs, 2),
-            ls="solid", marker="^", ms=10, label="\$m=$(2*M_list[j])\$"
+            ls="solid", marker="^", ms=10, label="\$m=$(M_list[j])\$"
         )
         axNITER_[i].errorbar(
             N_list, getindex.(NITERs, 1), yerr=getindex.(NITERs, 2),
-            ls="solid", marker="^", ms=10, label="\$m=$(2*M_list[j])\$"
+            ls="solid", marker="^", ms=10, label="\$m=$(M_list[j])\$"
         )
     end
 end
 
-ax_[nγ + 1].legend(bbox_to_anchor=(1.07, 1.04), fontsize=15)
+ax_[1].legend(fontsize=15)
 
 fig.savefig(string(
         @__DIR__, "/../figures/fig_performance.png"

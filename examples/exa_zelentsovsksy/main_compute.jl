@@ -31,12 +31,13 @@ pieces = [
 
 lfs_init = [[0.02, 0.0], [-0.02, 0.0], [0.0, 0.02], [0.0, -0.02]]
 
-tol_r = 1e-5
+γ = 0.9999
+tol_r = 1e-7
 xmax = 1e4
 iter_max = 500
 
 status, lfs = CPL.learn_lyapunov(
-    pieces, lfs_init, τ, 2, xmax, iter_max, solver, tol_r=tol_r
+    pieces, lfs_init, τ, γ, 2, xmax, iter_max, solver, tol_r=tol_r
 )
 
 display(status)

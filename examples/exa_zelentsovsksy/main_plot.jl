@@ -4,7 +4,7 @@ using LinearAlgebra
 using PyPlot
 include("../utils/plotting.jl")
 
-datafile = "dataset_1"
+datafile = "dataset_0"
 include(string("./datasets/", datafile, ".jl"))
 
 str = readlines(string(@__DIR__, "/results/", datafile, ".txt"))
@@ -25,12 +25,12 @@ Ms = (A, A + α*B)
 fig = figure(0, figsize=(8, 10))
 ax = fig.add_subplot(aspect="equal")
 
-xlims = (-3, 3)
-ylims = (-3, 3)
+xlims = (-2.5, 2.5)
+ylims = (-2.5, 2.5)
 ax.set_xlim(xlims...)
 ax.set_ylim(ylims...)
-ax.set_xticks(-3:1:3)
-ax.set_yticks(-3:1:3)
+ax.set_xticks(-2:1:2)
+ax.set_yticks(-2:1:2)
 ax.tick_params(axis="both", labelsize=15)
 ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
 
@@ -52,11 +52,6 @@ end
 lims = ((-10, -10), (10, 10))
 
 plot_level2D!(ax, lfs, β, lims, fc="gold", ec="gold")
-
-LH = (matplotlib.patches.Patch(fc="gold", ec="gold", lw=2.5, alpha=0.5,
-        label=L"V(x)\leq1"),)
-ax.legend(handles=LH, fontsize=20, loc="upper left",
-          facecolor="white", framealpha=1.0)
 
 fig.savefig(string(
         @__DIR__, "/../figures/fig_exa_zelentsowsky.png"
