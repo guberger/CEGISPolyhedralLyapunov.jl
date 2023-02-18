@@ -177,7 +177,8 @@ fig.savefig(string(
 ), dpi=200, transparent=false, bbox_inches="tight")
 
 ## Learner infeasible
-γ = 0.97
+τ = 1/2
+γ = 1
 tol_r = 1e-5
 xmax = 1e4
 iter_max = 50
